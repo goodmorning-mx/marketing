@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 type ProviderId = 'instagram' | 'facebook' | 'tiktok' | 'youtube';
@@ -26,6 +26,9 @@ type Provider = {
   operations: string[];
   links: Link[];
 };
+
+type ApiHealth = { service: string; status: string; environment: string };
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 const providers: Provider[] = [
   {
@@ -136,7 +139,22 @@ function App() {
   const [selected, setSelected] = useState<ProviderId | null>(null);
   const [providerTab, setProviderTab] = useState<ProviderTab>('summary');
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [apiHealth, setApiHealth] = useState<'checking' | 'online' | 'offline'>('checking');
   const provider = providers.find((item) => item.id === selected) ?? null;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${apiUrl}/health`, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error('API health check failed');
+        return response.json() as Promise<ApiHealth>;
+      })
+      .then((health) => setApiHealth(health.status === 'ok' ? 'online' : 'offline'))
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) setApiHealth('offline');
+      });
+    return () => controller.abort();
+  }, []);
 
   function openProvider(id: ProviderId) {
     setSelected(id);
@@ -176,7 +194,7 @@ function App() {
         <header className="topbar">
           <button className="menu-toggle" onClick={() => setMobileMenu(!mobileMenu)} aria-label="Abrir navegación">☰</button>
           <div className="breadcrumbs"><span>AI Integrator</span><b>/</b><strong>{provider?.name ?? sectionLabels[section]}</strong>{provider && <><b>/</b><span>{tabLabels[providerTab]}</span></>}</div>
-          <div className="topbar-actions"><span className="research-date"><i /> Documentación revisada · 12 sep 2026</span><button className="avatar-button" aria-label="Perfil">GM</button></div>
+          <div className="topbar-actions"><span className={`api-indicator api-indicator--${apiHealth}`}><i />API {apiHealth === 'online' ? 'disponible' : apiHealth === 'offline' ? 'sin conexión' : 'comprobando'}</span><span className="research-date"><i /> Documentación revisada · 12 sep 2026</span><button className="avatar-button" aria-label="Perfil">GM</button></div>
         </header>
 
         <div className="content-wrap">

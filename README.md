@@ -1,63 +1,27 @@
-# GoodMorning MVP Template
+# GoodMorning Marketing Adapters
 
-A minimal, production-oriented full-stack template for new products created by the GoodMorning Software Factory.
+Dashboard de AI Integrator para planear y operar adaptadores de publicación orgánica en Facebook Pages, Instagram, TikTok y YouTube. Presenta requisitos de cuentas, OAuth, permisos, revisiones, medios, estados y fuentes oficiales; no afirma que haya cuentas conectadas ni que las apps de plataforma estén aprobadas.
 
-## Stack
-- React, TypeScript, and Vite frontend.
-- FastAPI backend on Python 3.12.
-- PostgreSQL database.
-- Alembic migration infrastructure for the backend.
-- Docker Compose for local integrated development only.
-- Coolify deployment as three independent remote resources.
-- GitHub Actions for quality checks.
+## Producto
 
-## Repository structure
-```text
-AGENTS.md                 Agent workflow and safety rules
-CLAUDE.md                 Claude-specific responsibilities
-compose.yaml              Local-only frontend, backend, and PostgreSQL stack
-frontend/                 React/Vite application served by Nginx on container port 80
-backend/                  FastAPI application, Alembic infrastructure, and tests
-docs/                     Architecture, development, deployment, and rollback docs
-.github/workflows/ci.yml  CI verification
-```
+Micro Campaña convierte una idea en variantes editoriales por red, revisa que cada pieza y cuenta sean elegibles y somete la publicación a aprobación de la persona. Este primer corte entrega un dashboard navegable y una referencia técnica de requisitos. Las integraciones OAuth reales, colas de publicación, webhooks y credenciales aún requieren configuración e implementación por plataforma.
 
-## Local setup with Docker Compose
-`compose.yaml` is exclusively for local development. It is not the source of the remote Coolify deployment.
+## Dashboard
 
-1. Copy the environment template:
-   ```bash
-   cp .env.example .env
-   ```
-2. Start the local stack:
-   ```bash
-   docker compose up --build
-   ```
-3. Open the frontend at <http://localhost:8080> and the API health endpoint at <http://localhost:8000/health>.
+- **Resumen:** cuatro adaptadores, estado de preparación y próximos hitos externos.
+- **Conexiones:** estados vacíos honestos hasta implementar OAuth.
+- **Requisitos:** checklist común y diferencias por proveedor.
+- **Publicación:** flujo editorial común con pasos propios de cada adaptador.
+- **Fuentes oficiales:** enlaces directos a documentación, políticas y referencias API.
 
-Local Compose services are exactly:
-- `frontend`: builds `./frontend`, maps host `8080` to container `80` for local development.
-- `backend`: builds `./backend`, maps host `8000` to container `8000` for local development.
-- `postgres`: PostgreSQL with a persistent `postgres_data` volume and no host port by default.
+La ficha de cada plataforma tiene tabs para resumen, requisitos, acceso/OAuth, publicación y operación. La investigación completa está en [`docs/platform-requirements.md`](docs/platform-requirements.md).
 
-The backend connects to PostgreSQL at `postgres:5432` inside the Compose network.
+## Stack y desarrollo
 
-## Coolify deployment standard
-Remote Coolify deployments must be configured as three independent resources, not as a Compose deployment:
+- React, TypeScript y Vite en `frontend/`.
+- FastAPI, PostgreSQL y Alembic como base full-stack del factory; este dashboard inicial no persiste conexiones sociales.
+- Coolify despliega frontend, API y PostgreSQL como recursos independientes.
 
-1. Frontend Application from branch `dev`, base directory `/frontend`, Dockerfile location `/Dockerfile`, build pack `dockerfile`, internal port `80`, domain `https://dev.<product>.goodmorning.mx`, and build variable `VITE_API_URL=https://api.dev.<product>.goodmorning.mx`. `VITE_API_URL` is embedded during `npm run build`, so changes require a frontend rebuild.
-2. Backend Application from branch `dev`, base directory `/backend`, Dockerfile location `/Dockerfile`, build pack `dockerfile`, internal port `8000`, domain `https://api.dev.<product>.goodmorning.mx`, and runtime variables `APP_NAME`, `APP_ENV=dev`, `CORS_ORIGINS=https://dev.<product>.goodmorning.mx`, and secret `DATABASE_URL`.
-3. Native private Coolify PostgreSQL 16 resource with no public domain, no public port, credentials managed by Factory/Coolify, and connectivity through the internal Coolify network.
-
-The backend uses SQLAlchemy with psycopg 3, so runtime `DATABASE_URL` must use `postgresql+psycopg://`. If Coolify provides an internal URL beginning with `postgresql://`, `goodmorning-factory` converts only that initial scheme and preserves the user, password, hostname, port, database, query string, and URL-encoded characters exactly. The template must not contain Coolify UUIDs, internal hostnames, credentials, or a Factory integration function. `DATABASE_URL` is a backend runtime secret and must never be incorporated into the frontend or frontend build.
-
-Public URLs must never include `:80` or `:8000`; Coolify routing should terminate HTTPS and route to the internal container ports.
-
-## Environment configuration
-All variables are documented in `.env.example`. Keep real secrets out of Git. The local placeholders are intentionally safe for development only.
-
-## Testing
-Frontend:
 ```bash
 cd frontend
 npm ci
@@ -65,42 +29,14 @@ npm run typecheck
 npm run build
 ```
 
-Backend:
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python -m pytest
-alembic history --verbose
-```
+Para ejecutar el stack completo en local, sigue [docs/development.md](docs/development.md). La configuración remota y los dominios están descritos en [docs/deployment.md](docs/deployment.md).
 
-Docker validation:
-```bash
-docker compose config
-docker compose build
-docker compose up --build --wait
-curl --fail http://127.0.0.1:8000/health
-curl --fail http://127.0.0.1:8080/
-docker compose down --volumes
-```
+## Contrato de integración previsto
 
-## Branch behavior
-- `main` is production and must remain deployable.
-- `dev` is the integrated development branch.
-- Create feature branches from `dev`.
-- Open normal pull requests toward `dev`.
-- Open release pull requests from `dev` to `main`.
-- Do not push directly to `main`.
+Los adaptadores deberán exponer capacidades por cuenta y distinguir autenticación, elegibilidad, aprobación de app, límites y estado de publicación. La orquestación común deberá ofrecer validación previa, aprobación explícita, trabajos idempotentes, estado remoto, reintentos clasificados, revocación y borrado; cada conector conserva sus requisitos y errores originales.
 
-## Creating a new product from this template
-After copying the template, replace template metadata and names in:
-- `README.md`
-- `frontend/package.json`
-- `frontend/index.html`
-- `.env.example`
-- `compose.yaml`
-- `backend/app/config.py`
-- Documentation under `docs/`
+No se deben guardar contraseñas sociales ni registrar tokens en logs. Los tokens OAuth se almacenarán cifrados en backend y separados por tenant y cuenta. Las credenciales reales se configuran fuera del repositorio y fuera del frontend.
 
-Keep the environment contract synchronized across code, Compose, Dockerfiles, CI, and deployment configuration.
+## Ramas y releases
+
+`dev` es integración; `main` es producción. Crear ramas de trabajo desde `dev`, abrir PR a `dev` y promover a `main` con PR de release después de pasar checks. No hacer push directo a `main`.

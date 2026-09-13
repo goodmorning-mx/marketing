@@ -123,6 +123,10 @@ const commonRequirements = [
   { title: 'Datos y trazabilidad', text: 'Guardar IDs y estados remotos, límites, versión API y consentimiento; respetar retención/borrado de cada proveedor.' },
 ];
 
+const sidebarProviders = (['facebook', 'instagram', 'tiktok', 'youtube'] as ProviderId[])
+  .map((id) => providers.find((item) => item.id === id))
+  .filter((item): item is Provider => Boolean(item));
+
 const sectionLabels: Record<Section, string> = {
   overview: 'Resumen', connections: 'Conexiones', requirements: 'Requisitos', publishing: 'Publicación', sources: 'Fuentes oficiales',
 };
@@ -173,21 +177,9 @@ function App() {
     <div className="app-shell">
       <aside className={`sidebar${mobileMenu ? ' sidebar--open' : ''}`}>
         <div className="brand-lockup"><div className="brand-symbol">gm</div><div><strong>goodmorning</strong><span>AI INTEGRATOR</span></div></div>
-        <div className="workspace-switch"><span className="workspace-avatar">MC</span><div><span>Workspace</span><strong>Micro Campaña</strong></div><span className="chevron">⌄</span></div>
-        <p className="nav-caption">PRODUCTO</p>
-        <nav className="main-nav" aria-label="Navegación principal">
-          {(Object.keys(sectionLabels) as Section[]).map((item) => (
-            <button key={item} className={`nav-item${section === item && !selected ? ' nav-item--active' : ''}`} onClick={() => navigate(item)}>
-              <span className="nav-icon" aria-hidden="true">{item === 'overview' ? '⌂' : item === 'connections' ? '⌁' : item === 'requirements' ? '◫' : item === 'publishing' ? '◷' : '↗'}</span>{sectionLabels[item]}
-              {item === 'connections' && <span className="nav-count">0</span>}
-            </button>
-          ))}
-        </nav>
-        <p className="nav-caption nav-caption--platforms">PLATAFORMAS</p>
         <nav className="platform-nav" aria-label="Adaptadores de plataforma">
-          {providers.map((item) => <button key={item.id} className={`platform-nav-item${selected === item.id ? ' platform-nav-item--active' : ''}`} onClick={() => openProvider(item.id)}><Mark provider={item} small /><span>{item.name}</span><i className="connection-dot" title="Aún no configurado" /></button>)}
+          {sidebarProviders.map((item) => <button key={item.id} className={`platform-nav-item${selected === item.id ? ' platform-nav-item--active' : ''}`} onClick={() => openProvider(item.id)}><Mark provider={item} small /><span>{item.name}</span><i className="connection-dot" title="Aún no configurado" /></button>)}
         </nav>
-        <div className="sidebar-bottom"><div className="help-card"><span className="help-spark">✳</span><strong>¿Preparando una integración?</strong><span>Revisa primero requisitos y acceso de la plataforma.</span><button onClick={() => navigate('sources')}>Abrir documentación <span>↗</span></button></div><div className="user-row"><span className="user-avatar">GM</span><div><strong>GoodMorning</strong><span>Administrador</span></div><button aria-label="Abrir menú de usuario">···</button></div></div>
       </aside>
 
       <main className="main-area">

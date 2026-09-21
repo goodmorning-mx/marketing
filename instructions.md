@@ -16,6 +16,7 @@ GoodMorning Factory administra este producto. El repositorio del producto es la 
 - Rama de desarrollo integrada: `dev`
 - DEV frontend: `dev.marketing.goodmorning.mx`
 - PROD esperado: `https://marketing.goodmorning.mx`
+- Perfil frontend: `react` (react por defecto; next/hybrid son explícitos)
 
 ### Cómo trabajar
 
@@ -37,11 +38,6 @@ GoodMorning Factory administra este producto. El repositorio del producto es la 
 ### Arquitectura y recursos
 
 #### Aplicaciones
-
-- `api` · rol `api` · puerto `8000` · healthcheck `/health` · dominio `https://api.dev.marketing.goodmorning.mx` · auto-deploy `True`
-  - Variables declaradas (sin valores): `APP_NAME` [literal], `APP_ENV` [literal], `CORS_ORIGINS` [literal], `DATABASE_URL` [database_url, resource=postgres, driver=psycopg]
-- `frontend` · rol `frontend` · puerto `80` · healthcheck `/` · dominio `https://dev.marketing.goodmorning.mx` · auto-deploy `True`
-  - Variables declaradas (sin valores): `VITE_API_URL` [literal]
 
 #### Bases de datos
 

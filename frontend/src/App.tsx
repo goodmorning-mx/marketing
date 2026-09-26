@@ -243,6 +243,12 @@ function Mark({ provider, small = false }: { provider: Provider; small?: boolean
 type BrandProfile = { name: string; website: string; industry: string; summary: string; goal: string; audience: string; tone: string; message: string; metrics: string; targetDate: string; platforms: string[] };
 type CampaignItem = { id: number; campaign: string; title: string; copy: string; asset: string; platforms: string[]; variants: Record<string, string>; status: 'draft' | 'review' | 'approved' | 'scheduled' };
 
+function normalizeCampaignItem(item: Partial<CampaignItem>, index = 0): CampaignItem {
+  const platforms = Array.isArray(item.platforms) && item.platforms.length ? item.platforms : ['Instagram', 'LinkedIn'];
+  const variants = item.variants && typeof item.variants === 'object' ? item.variants : Object.fromEntries(platforms.map((platform) => [platform, item.copy || '']));
+  return { id: item.id ?? Date.now() + index, campaign: item.campaign || 'Launch foundation', title: item.title || 'Untitled content', copy: item.copy || '', asset: item.asset || '', platforms, variants, status: item.status || 'draft' };
+}
+
 const defaultCampaigns: CampaignItem[] = [
   { id: 1, campaign: 'Launch foundation', title: 'Meet the brand', copy: 'A clear first introduction for the new digital presence.', asset: 'brand-intro.mp4', platforms: ['Instagram', 'LinkedIn'], variants: { Instagram: 'A clear first introduction for the new digital presence. #newbrand', LinkedIn: 'Introducing the brand, its point of view, and the people it is here to serve.' }, status: 'review' },
   { id: 2, campaign: 'Launch foundation', title: 'Founder story', copy: 'Why this brand exists and who it is here to serve.', asset: 'founder-story.jpg', platforms: ['Instagram', 'LinkedIn'], variants: { Instagram: 'Why this brand exists — and who it is here to serve.', LinkedIn: 'The founder story behind a brand built around a real customer need.' }, status: 'draft' },
@@ -359,7 +365,7 @@ function Onboarding({ onSave, existing }: { onSave: (profile: BrandProfile) => v
 function Campaigns({ brand, navigate }: { brand: BrandProfile | null; navigate: (section: Section) => void }) {
   const { t, locale } = useI18n();
   const labels = workflowLabels[locale];
-  const [items, setItems] = useState<CampaignItem[]>(() => { try { return JSON.parse(localStorage.getItem('gm-campaign-items') || 'null') as CampaignItem[] || defaultCampaigns; } catch { return defaultCampaigns; } });
+  const [items, setItems] = useState<CampaignItem[]>(() => { try { const stored = JSON.parse(localStorage.getItem('gm-campaign-items') || 'null') as Partial<CampaignItem>[] | null; return Array.isArray(stored) ? stored.map(normalizeCampaignItem) : defaultCampaigns; } catch { return defaultCampaigns; } });
   const [showNew, setShowNew] = useState(false);
   const [campaignBrief, setCampaignBrief] = useState(() => { try { return JSON.parse(localStorage.getItem('gm-campaign-brief') || 'null') as { name: string; objective: string; platforms: string[] } || { name: 'Launch foundation', objective: brand?.goal || '', platforms: brand?.platforms || ['Instagram', 'LinkedIn'] }; } catch { return { name: 'Launch foundation', objective: brand?.goal || '', platforms: brand?.platforms || ['Instagram', 'LinkedIn'] }; } });
   const [briefSaved, setBriefSaved] = useState(Boolean(localStorage.getItem('gm-campaign-brief')));

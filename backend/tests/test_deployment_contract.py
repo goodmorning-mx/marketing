@@ -92,7 +92,11 @@ def test_alembic_infrastructure_and_safe_database_url_handling() -> None:
     versions = list((ROOT / "backend/alembic/versions").glob("*.py"))
     assert versions
     combined = "\n".join(path.read_text(encoding="utf-8") for path in versions)
-    assert "create_table" not in combined
+    assert "create_table(\"brands\"" in combined
+    assert "create_table(\"campaigns\"" in combined
+    assert "create_table(\"content_items\"" in combined
+    assert "create_table(\"platform_connections\"" in combined
+    assert "create_table(\"publish_jobs\"" in combined
 
 
 def test_database_url_with_percent_encoded_password_is_accepted_without_output(monkeypatch, capsys) -> None:

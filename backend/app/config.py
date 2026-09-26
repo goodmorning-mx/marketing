@@ -14,6 +14,9 @@ class Settings(BaseSettings):
         default="postgresql+psycopg://goodmorning:goodmorning_local_password@localhost:5432/goodmorning_mvp",
         alias="DATABASE_URL",
     )
+    meta_client_id: str = Field(default="", alias="META_CLIENT_ID")
+    meta_client_secret: str = Field(default="", alias="META_CLIENT_SECRET")
+    meta_redirect_uri: str = Field(default="", alias="META_REDIRECT_URI")
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

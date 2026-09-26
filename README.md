@@ -14,12 +14,12 @@ Micro Campaña convierte una idea en variantes editoriales por red, revisa que c
 - **Publicación:** flujo editorial común con pasos propios de cada adaptador.
 - **Fuentes oficiales:** enlaces directos a documentación, políticas y referencias API.
 
-La ficha de cada plataforma tiene tabs para resumen, requisitos, acceso/OAuth, publicación y operación. La investigación completa está en [`docs/platform-requirements.md`](docs/platform-requirements.md).
+La ficha de cada plataforma tiene tabs para resumen, requisitos, acceso/OAuth, publicación y operación. La investigación completa está en [`docs/platform-requirements.md`](docs/platform-requirements.md). Meta publishing remains explicitly blocked until `META_CLIENT_ID`, `META_CLIENT_SECRET`, a secure redirect URI, and Meta App Review are configured.
 
 ## Stack y desarrollo
 
 - React, TypeScript y Vite en `frontend/`.
-- FastAPI, PostgreSQL y Alembic como base full-stack del factory; este dashboard inicial no persiste conexiones sociales.
+- FastAPI, PostgreSQL y Alembic as the full-stack foundation. The Phase 3 API persists brands, campaign briefs, content variants, platform connections, and publishing jobs.
 - Coolify despliega frontend, API y PostgreSQL como recursos independientes.
 
 ```bash

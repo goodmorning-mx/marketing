@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 type ProviderId = 'instagram' | 'facebook' | 'tiktok' | 'youtube';
-type Section = 'overview' | 'connections' | 'requirements' | 'publishing' | 'sources';
+type Section = 'overview' | 'onboarding' | 'campaigns' | 'connections' | 'requirements' | 'publishing' | 'sources';
 type ProviderTab = 'summary' | 'requirements' | 'auth' | 'publishing' | 'operations';
 type Locale = 'en' | 'es' | 'fr' | 'de' | 'ar';
 
@@ -41,6 +41,14 @@ const translations: Record<Locale, Record<string, string>> = {
 
 const I18nContext = createContext<{ locale: Locale; setLocale: (locale: Locale) => void; t: (key: string) => string }>({ locale: 'en', setLocale: () => undefined, t: (key) => key });
 function useI18n() { return useContext(I18nContext); }
+
+const phase2Translations: Record<Locale, Record<string, string>> = {
+  en: { onboarding: 'Brand onboarding', campaigns: 'Campaign workspace', brandSetup: 'Build a brand workspace', brandSetupDescription: 'Capture the brand context, growth goals, audience, and rollout plan before publishing anything.', step: 'Step', brandDetails: 'Brand details', goals: 'Goals & audience', rollout: 'Rollout plan', brandName: 'Brand name', website: 'Website', industry: 'Industry', brandSummary: 'What does the brand do?', primaryGoal: 'Primary growth goal', audience: 'Who are you trying to reach?', targetDate: 'Target launch date', platforms: 'Priority platforms', continue: 'Continue', back: 'Back', saveBrand: 'Create brand workspace', brandSaved: 'Brand workspace created', campaignWorkspace: 'Campaign workspace', campaignDescription: 'Upload content, assign a campaign, approve assets, and prepare them for publishing.', newCampaign: 'New campaign', campaignName: 'Campaign name', campaignObjective: 'Campaign objective', addContent: 'Add content', contentTitle: 'Content title', contentCopy: 'Caption or post copy', assetName: 'Asset name', saveDraft: 'Save draft', approve: 'Approve', schedule: 'Schedule', draft: 'Draft', review: 'In review', approved: 'Approved', scheduled: 'Scheduled', allContent: 'All content', noContent: 'No content yet', noContentDescription: 'Add the first content item to start your publishing pipeline.', pipeline: 'Pipeline', campaignCreated: 'Campaign created', addFirstCampaign: 'Create your first campaign', brandWorkspace: 'Brand workspace', noBrand: 'No brand workspace yet', startOnboarding: 'Start onboarding', target: 'Target', plan: 'Plan', status: 'Status', live: 'Ready for rollout' },
+  es: { onboarding: 'Onboarding de marca', campaigns: 'Espacio de campañas', brandSetup: 'Crea el espacio de tu marca', brandSetupDescription: 'Captura el contexto, objetivos de crecimiento, audiencia y plan de lanzamiento antes de publicar.', step: 'Paso', brandDetails: 'Datos de la marca', goals: 'Objetivos y audiencia', rollout: 'Plan de lanzamiento', brandName: 'Nombre de la marca', website: 'Sitio web', industry: 'Industria', brandSummary: '¿Qué hace la marca?', primaryGoal: 'Objetivo principal de crecimiento', audience: '¿A quién quieres llegar?', targetDate: 'Fecha objetivo de lanzamiento', platforms: 'Plataformas prioritarias', continue: 'Continuar', back: 'Atrás', saveBrand: 'Crear espacio de marca', brandSaved: 'Espacio de marca creado', campaignWorkspace: 'Espacio de campañas', campaignDescription: 'Sube contenido, asígnalo a una campaña, aprueba piezas y prepáralas para publicar.', newCampaign: 'Nueva campaña', campaignName: 'Nombre de campaña', campaignObjective: 'Objetivo de campaña', addContent: 'Añadir contenido', contentTitle: 'Título del contenido', contentCopy: 'Caption o copy', assetName: 'Nombre del recurso', saveDraft: 'Guardar borrador', approve: 'Aprobar', schedule: 'Programar', draft: 'Borrador', review: 'En revisión', approved: 'Aprobado', scheduled: 'Programado', allContent: 'Todo el contenido', noContent: 'Aún no hay contenido', noContentDescription: 'Añade el primer contenido para iniciar tu pipeline.', pipeline: 'Pipeline', campaignCreated: 'Campaña creada', addFirstCampaign: 'Crea tu primera campaña', brandWorkspace: 'Espacio de marca', noBrand: 'Aún no hay espacio de marca', startOnboarding: 'Iniciar onboarding', target: 'Objetivo', plan: 'Plan', status: 'Estado', live: 'Lista para lanzamiento' },
+  fr: { onboarding: 'Intégration de marque', campaigns: 'Espace campagnes', brandSetup: 'Créer l’espace de votre marque', brandSetupDescription: 'Saisissez le contexte, les objectifs de croissance, l’audience et le plan de lancement avant de publier.', step: 'Étape', brandDetails: 'Détails de la marque', goals: 'Objectifs et audience', rollout: 'Plan de lancement', brandName: 'Nom de la marque', website: 'Site web', industry: 'Secteur', brandSummary: 'Que fait la marque ?', primaryGoal: 'Objectif de croissance principal', audience: 'Qui souhaitez-vous atteindre ?', targetDate: 'Date de lancement cible', platforms: 'Plateformes prioritaires', continue: 'Continuer', back: 'Retour', saveBrand: 'Créer l’espace de marque', brandSaved: 'Espace de marque créé', campaignWorkspace: 'Espace campagnes', campaignDescription: 'Ajoutez du contenu, affectez-le à une campagne, approuvez les éléments et préparez la publication.', newCampaign: 'Nouvelle campagne', campaignName: 'Nom de campagne', campaignObjective: 'Objectif de campagne', addContent: 'Ajouter du contenu', contentTitle: 'Titre du contenu', contentCopy: 'Légende ou texte', assetName: 'Nom du fichier', saveDraft: 'Enregistrer le brouillon', approve: 'Approuver', schedule: 'Planifier', draft: 'Brouillon', review: 'En revue', approved: 'Approuvé', scheduled: 'Planifié', allContent: 'Tout le contenu', noContent: 'Aucun contenu', noContentDescription: 'Ajoutez le premier contenu pour démarrer votre pipeline.', pipeline: 'Pipeline', campaignCreated: 'Campagne créée', addFirstCampaign: 'Créer votre première campagne', brandWorkspace: 'Espace de marque', noBrand: 'Aucun espace de marque', startOnboarding: 'Démarrer l’intégration', target: 'Objectif', plan: 'Plan', status: 'État', live: 'Prête pour le lancement' },
+  de: { onboarding: 'Marken-Onboarding', campaigns: 'Kampagnenbereich', brandSetup: 'Markenbereich einrichten', brandSetupDescription: 'Erfassen Sie Kontext, Wachstumsziele, Zielgruppe und Rollout-Plan, bevor Sie veröffentlichen.', step: 'Schritt', brandDetails: 'Markendetails', goals: 'Ziele und Zielgruppe', rollout: 'Rollout-Plan', brandName: 'Markenname', website: 'Website', industry: 'Branche', brandSummary: 'Was macht die Marke?', primaryGoal: 'Wichtigstes Wachstumsziel', audience: 'Wen möchten Sie erreichen?', targetDate: 'Zielstartdatum', platforms: 'Priorisierte Plattformen', continue: 'Weiter', back: 'Zurück', saveBrand: 'Markenbereich erstellen', brandSaved: 'Markenbereich erstellt', campaignWorkspace: 'Kampagnenbereich', campaignDescription: 'Inhalte hochladen, Kampagnen zuweisen, Assets freigeben und für die Veröffentlichung vorbereiten.', newCampaign: 'Neue Kampagne', campaignName: 'Kampagnenname', campaignObjective: 'Kampagnenziel', addContent: 'Inhalt hinzufügen', contentTitle: 'Inhaltstitel', contentCopy: 'Caption oder Text', assetName: 'Assetname', saveDraft: 'Entwurf speichern', approve: 'Freigeben', schedule: 'Planen', draft: 'Entwurf', review: 'In Prüfung', approved: 'Freigegeben', scheduled: 'Geplant', allContent: 'Alle Inhalte', noContent: 'Noch keine Inhalte', noContentDescription: 'Fügen Sie den ersten Inhalt hinzu, um den Pipeline-Prozess zu starten.', pipeline: 'Pipeline', campaignCreated: 'Kampagne erstellt', addFirstCampaign: 'Erste Kampagne erstellen', brandWorkspace: 'Markenbereich', noBrand: 'Noch kein Markenbereich', startOnboarding: 'Onboarding starten', target: 'Ziel', plan: 'Plan', status: 'Status', live: 'Bereit für den Rollout' },
+  ar: { onboarding: 'تهيئة العلامة التجارية', campaigns: 'مساحة الحملات', brandSetup: 'أنشئ مساحة علامتك التجارية', brandSetupDescription: 'أدخل سياق العلامة وأهداف النمو والجمهور وخطة الإطلاق قبل النشر.', step: 'الخطوة', brandDetails: 'تفاصيل العلامة', goals: 'الأهداف والجمهور', rollout: 'خطة الإطلاق', brandName: 'اسم العلامة', website: 'الموقع الإلكتروني', industry: 'المجال', brandSummary: 'ماذا تقدم العلامة؟', primaryGoal: 'هدف النمو الرئيسي', audience: 'من تريد الوصول إليه؟', targetDate: 'تاريخ الإطلاق المستهدف', platforms: 'المنصات ذات الأولوية', continue: 'متابعة', back: 'رجوع', saveBrand: 'إنشاء مساحة العلامة', brandSaved: 'تم إنشاء مساحة العلامة', campaignWorkspace: 'مساحة الحملات', campaignDescription: 'ارفع المحتوى واربطه بحملة ووافق على المواد وجهزها للنشر.', newCampaign: 'حملة جديدة', campaignName: 'اسم الحملة', campaignObjective: 'هدف الحملة', addContent: 'إضافة محتوى', contentTitle: 'عنوان المحتوى', contentCopy: 'الوصف أو النص', assetName: 'اسم الأصل', saveDraft: 'حفظ المسودة', approve: 'موافقة', schedule: 'جدولة', draft: 'مسودة', review: 'قيد المراجعة', approved: 'تمت الموافقة', scheduled: 'مجدول', allContent: 'كل المحتوى', noContent: 'لا يوجد محتوى بعد', noContentDescription: 'أضف أول محتوى لبدء مسار النشر.', pipeline: 'المسار', campaignCreated: 'تم إنشاء الحملة', addFirstCampaign: 'أنشئ حملتك الأولى', brandWorkspace: 'مساحة العلامة', noBrand: 'لا توجد مساحة علامة بعد', startOnboarding: 'بدء التهيئة', target: 'الهدف', plan: 'الخطة', status: 'الحالة', live: 'جاهزة للإطلاق' },
+};
 
 type Link = { label: string; href: string };
 type Provider = {
@@ -214,7 +222,7 @@ const sidebarProviders = (['facebook', 'instagram', 'tiktok', 'youtube'] as Prov
   .filter((item): item is Provider => Boolean(item));
 
 const sectionLabels: Record<Section, string> = {
-  overview: 'Resumen', connections: 'Conexiones', requirements: 'Requisitos', publishing: 'Publicación', sources: 'Fuentes oficiales',
+  overview: 'Resumen', onboarding: 'Onboarding', campaigns: 'Campañas', connections: 'Conexiones', requirements: 'Requisitos', publishing: 'Publicación', sources: 'Fuentes oficiales',
 };
 const tabLabels: Record<ProviderTab, string> = {
   summary: 'Resumen', requirements: 'Requisitos', auth: 'Acceso y OAuth', publishing: 'Publicación', operations: 'Operación',
@@ -224,6 +232,14 @@ function Mark({ provider, small = false }: { provider: Provider; small?: boolean
   return <span className={`provider-mark provider-mark--${provider.id}${small ? ' provider-mark--small' : ''}`} style={{ '--brand': provider.color, '--brand-tint': provider.accent } as CSSProperties}>{provider.short}</span>;
 }
 
+type BrandProfile = { name: string; website: string; industry: string; summary: string; goal: string; audience: string; targetDate: string; platforms: string[] };
+type CampaignItem = { id: number; campaign: string; title: string; copy: string; asset: string; status: 'draft' | 'review' | 'approved' | 'scheduled' };
+
+const defaultCampaigns: CampaignItem[] = [
+  { id: 1, campaign: 'Launch foundation', title: 'Meet the brand', copy: 'A clear first introduction for the new digital presence.', asset: 'brand-intro.mp4', status: 'review' },
+  { id: 2, campaign: 'Launch foundation', title: 'Founder story', copy: 'Why this brand exists and who it is here to serve.', asset: 'founder-story.jpg', status: 'draft' },
+];
+
 function AppShell() {
   const { locale, setLocale, t } = useI18n();
   const [section, setSection] = useState<Section>('overview');
@@ -231,6 +247,7 @@ function AppShell() {
   const [providerTab, setProviderTab] = useState<ProviderTab>('summary');
   const [mobileMenu, setMobileMenu] = useState(false);
   const [apiHealth, setApiHealth] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [brand, setBrand] = useState<BrandProfile | null>(() => { try { return JSON.parse(localStorage.getItem('gm-brand') || 'null') as BrandProfile | null; } catch { return null; } });
   const provider = localizedProviders(locale).find((item) => item.id === selected) ?? null;
 
   useEffect(() => {
@@ -260,11 +277,17 @@ function AppShell() {
     setMobileMenu(false);
   }
 
+  function saveBrand(profile: BrandProfile) { setBrand(profile); localStorage.setItem('gm-brand', JSON.stringify(profile)); setSection('campaigns'); }
+
   return (
     <div className="app-shell">
       <aside className={`sidebar${mobileMenu ? ' sidebar--open' : ''}`}>
         <div className="brand-lockup"><div className="brand-symbol">gm</div><div><strong>goodmorning</strong><span>AI INTEGRATOR</span></div></div>
         <nav className="platform-nav" aria-label={t('adapters')}>
+          <p className="nav-caption">WORKSPACE</p>
+          <button className={`nav-item${section === 'onboarding' ? ' nav-item--active' : ''}`} onClick={() => navigate('onboarding')}><span className="nav-icon">◎</span><span>{t('onboarding')}</span></button>
+          <button className={`nav-item${section === 'campaigns' ? ' nav-item--active' : ''}`} onClick={() => navigate('campaigns')}><span className="nav-icon">▤</span><span>{t('campaigns')}</span><span className="nav-count">{brand ? '02' : '—'}</span></button>
+          <p className="nav-caption nav-caption--platforms">ADAPTERS</p>
           {sidebarProviders.map((item) => <button key={item.id} className={`platform-nav-item${selected === item.id ? ' platform-nav-item--active' : ''}`} onClick={() => openProvider(item.id)}><Mark provider={item} small /><span>{item.name}</span><i className="connection-dot" title="Aún no configurado" /></button>)}
         </nav>
       </aside>
@@ -279,6 +302,8 @@ function AppShell() {
         <div className="content-wrap">
           {provider ? <ProviderDetail provider={provider} tab={providerTab} setTab={setProviderTab} back={() => setSelected(null)} /> : <>
             {section === 'overview' && <Overview openProvider={openProvider} navigate={navigate} />}
+            {section === 'onboarding' && <Onboarding onSave={saveBrand} existing={brand} />}
+            {section === 'campaigns' && <Campaigns brand={brand} navigate={navigate} />}
             {section === 'connections' && <Connections openProvider={openProvider} />}
             {section === 'requirements' && <Requirements openProvider={openProvider} />}
             {section === 'publishing' && <Publishing openProvider={openProvider} />}
@@ -293,7 +318,7 @@ function AppShell() {
 
 function App() {
   const [locale, setLocale] = useState<Locale>(() => (localStorage.getItem('gm-locale') as Locale) || 'en');
-  const t = (key: string) => translations[locale][key] ?? translations.en[key] ?? key;
+  const t = (key: string) => translations[locale][key] ?? phase2Translations[locale][key] ?? translations.en[key] ?? phase2Translations.en[key] ?? key;
   useEffect(() => {
     const direction = locale === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = locale;
@@ -305,6 +330,40 @@ function App() {
 
 function PageHeading({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: ReactNode }) {
   return <div className="page-heading"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p className="page-description">{description}</p></div>{action}</div>;
+}
+
+function Onboarding({ onSave, existing }: { onSave: (profile: BrandProfile) => void; existing: BrandProfile | null }) {
+  const { t } = useI18n();
+  const [step, setStep] = useState(existing ? 3 : 1);
+  const [form, setForm] = useState<BrandProfile>(existing ?? { name: '', website: '', industry: '', summary: '', goal: '', audience: '', targetDate: '', platforms: ['Instagram', 'LinkedIn'] });
+  const update = (key: keyof BrandProfile, value: string) => setForm((current) => ({ ...current, [key]: value }));
+  const togglePlatform = (platform: string) => setForm((current) => ({ ...current, platforms: current.platforms.includes(platform) ? current.platforms.filter((item) => item !== platform) : [...current.platforms, platform] }));
+  return <>
+    <PageHeading eyebrow="BRAND WORKSPACE / ONBOARDING" title={t('brandSetup')} description={t('brandSetupDescription')} action={existing ? <span className="pill pill--green">{t('brandSaved')}</span> : undefined} />
+    <div className="onboarding-layout"><section className="panel onboarding-main"><div className="onboarding-steps">{[t('brandDetails'), t('goals'), t('rollout')].map((label, index) => <button key={label} className={step === index + 1 ? 'onboarding-step onboarding-step--active' : 'onboarding-step'} onClick={() => setStep(index + 1)}><span>0{index + 1}</span>{label}</button>)}</div>
+      {step === 1 && <div className="form-panel"><span className="panel-kicker">01 / {t('brandDetails').toUpperCase()}</span><h2>{t('brandDetails')}</h2><div className="form-grid"><label>{t('brandName')}<input value={form.name} onChange={(event) => update('name', event.target.value)} placeholder="GoodMorning" /></label><label>{t('website')}<input value={form.website} onChange={(event) => update('website', event.target.value)} placeholder="https://" /></label><label>{t('industry')}<input value={form.industry} onChange={(event) => update('industry', event.target.value)} placeholder="Creative services" /></label><label className="form-full">{t('brandSummary')}<textarea value={form.summary} onChange={(event) => update('summary', event.target.value)} placeholder={t('brandSummary')} /></label></div><button className="button button--primary form-next" onClick={() => setStep(2)}>{t('continue')} <span>→</span></button></div>}
+      {step === 2 && <div className="form-panel"><span className="panel-kicker">02 / {t('goals').toUpperCase()}</span><h2>{t('goals')}</h2><div className="form-grid"><label className="form-full">{t('primaryGoal')}<input value={form.goal} onChange={(event) => update('goal', event.target.value)} placeholder="Build awareness and qualified demand" /></label><label className="form-full">{t('audience')}<textarea value={form.audience} onChange={(event) => update('audience', event.target.value)} placeholder={t('audience')} /></label></div><div className="form-actions"><button className="button button--subtle" onClick={() => setStep(1)}>← {t('back')}</button><button className="button button--primary" onClick={() => setStep(3)}>{t('continue')} <span>→</span></button></div></div>}
+      {step === 3 && <div className="form-panel"><span className="panel-kicker">03 / {t('rollout').toUpperCase()}</span><h2>{t('rollout')}</h2><div className="form-grid"><label>{t('targetDate')}<input type="date" value={form.targetDate} onChange={(event) => update('targetDate', event.target.value)} /></label><div><span className="field-label">{t('platforms')}</span><div className="platform-checks">{['Instagram', 'LinkedIn', 'TikTok', 'Facebook', 'YouTube', 'Patreon'].map((platform) => <button type="button" key={platform} className={form.platforms.includes(platform) ? 'platform-check platform-check--active' : 'platform-check'} onClick={() => togglePlatform(platform)}>{form.platforms.includes(platform) ? '✓' : '○'} {platform}</button>)}</div></div></div><div className="form-actions"><button className="button button--subtle" onClick={() => setStep(2)}>← {t('back')}</button><button className="button button--primary" onClick={() => onSave(form)}>{t('saveBrand')} <span>→</span></button></div></div>}
+    </section><aside className="panel onboarding-summary"><span className="panel-kicker">{t('brandWorkspace').toUpperCase()}</span><div className="workspace-preview"><div className="workspace-avatar">{form.name ? form.name.slice(0, 2).toUpperCase() : 'GM'}</div><strong>{form.name || t('noBrand')}</strong><span>{form.industry || t('brandSetup')}</span></div><div className="summary-row"><span>{t('target')}</span><strong>{form.goal || '—'}</strong></div><div className="summary-row"><span>{t('plan')}</span><strong>{form.targetDate || '—'}</strong></div><div className="summary-row"><span>{t('platforms')}</span><strong>{form.platforms.length}</strong></div></aside></div>
+  </>;
+}
+
+function Campaigns({ brand, navigate }: { brand: BrandProfile | null; navigate: (section: Section) => void }) {
+  const { t } = useI18n();
+  const [items, setItems] = useState<CampaignItem[]>(() => { try { return JSON.parse(localStorage.getItem('gm-campaign-items') || 'null') as CampaignItem[] || defaultCampaigns; } catch { return defaultCampaigns; } });
+  const [showNew, setShowNew] = useState(false);
+  const [draft, setDraft] = useState({ campaign: 'Launch foundation', title: '', copy: '', asset: '' });
+  function persist(next: CampaignItem[]) { setItems(next); localStorage.setItem('gm-campaign-items', JSON.stringify(next)); }
+  function addItem() { if (!draft.title.trim()) return; persist([{ ...draft, id: Date.now(), status: 'draft' }, ...items]); setDraft({ campaign: 'Launch foundation', title: '', copy: '', asset: '' }); setShowNew(false); }
+  function changeStatus(id: number, status: CampaignItem['status']) { persist(items.map((item) => item.id === id ? { ...item, status } : item)); }
+  const statusLabel = (status: CampaignItem['status']) => t(status);
+  return <>
+    <PageHeading eyebrow="CAMPAIGN WORKSPACE / CONTENT PIPELINE" title={t('campaignWorkspace')} description={t('campaignDescription')} action={<button className="button button--primary" onClick={() => setShowNew(!showNew)}><span>＋</span> {t('addContent')}</button>} />
+    {!brand && <div className="notice notice--amber"><span>!</span><p>{t('noBrand')} — <button className="text-link" onClick={() => navigate('onboarding')}>{t('startOnboarding')} →</button></p></div>}
+    {showNew && <section className="panel new-content-panel"><div className="panel-heading"><div><span className="panel-kicker">NEW CONTENT</span><h2>{t('addContent')}</h2></div><button className="text-link" onClick={() => setShowNew(false)}>×</button></div><div className="form-grid"><label>{t('campaignName')}<input value={draft.campaign} onChange={(event) => setDraft({ ...draft, campaign: event.target.value })} /></label><label>{t('contentTitle')}<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label><label className="form-full">{t('contentCopy')}<textarea value={draft.copy} onChange={(event) => setDraft({ ...draft, copy: event.target.value })} /></label><label>{t('assetName')}<input type="file" onChange={(event) => setDraft({ ...draft, asset: event.target.files?.[0]?.name || '' })} /></label></div><button className="button button--primary" onClick={addItem}>{t('saveDraft')} <span>→</span></button></section>}
+    <div className="campaign-summary"><div className="metric-strip"><div className="metric-item"><span className="metric-label">{t('brandWorkspace')}</span><strong>{brand?.name || '—'}</strong><small>{brand?.industry || t('noBrand')}</small></div><div className="metric-item"><span className="metric-label">{t('allContent')}</span><strong>{items.length}</strong><small>{t('pipeline')}</small></div><div className="metric-item"><span className="metric-label">{t('review')}</span><strong>{items.filter((item) => item.status === 'review').length}</strong><small>{t('status')}</small></div><div className="metric-item"><span className="metric-label">{t('scheduled')}</span><strong>{items.filter((item) => item.status === 'scheduled').length}</strong><small>{t('live')}</small></div></div></div>
+    <section className="panel content-pipeline"><div className="panel-heading"><div><span className="panel-kicker">{t('pipeline').toUpperCase()}</span><h2>{t('allContent')}</h2></div><span className="quiet-label">{items.length} ITEMS</span></div>{items.length === 0 ? <div className="empty-state"><strong>{t('noContent')}</strong><span>{t('noContentDescription')}</span></div> : <div className="content-table">{items.map((item) => <div className="content-row" key={item.id}><div className="content-thumb">{item.asset ? '▧' : '＋'}</div><div className="content-info"><strong>{item.title}</strong><span>{item.campaign} · {item.asset || t('assetName')}</span><p>{item.copy || '—'}</p></div><span className={`status-badge status-badge--${item.status}`}>{statusLabel(item.status)}</span><div className="content-actions">{item.status === 'draft' && <button className="button button--subtle" onClick={() => changeStatus(item.id, 'review')}>{t('review')}</button>}{item.status === 'review' && <button className="button button--subtle" onClick={() => changeStatus(item.id, 'approved')}>{t('approve')}</button>}{item.status === 'approved' && <button className="button button--subtle" onClick={() => changeStatus(item.id, 'scheduled')}>{t('schedule')}</button>}</div></div>)}</div>}</section>
+  </>;
 }
 
 function Overview({ openProvider, navigate }: { openProvider: (id: ProviderId) => void; navigate: (section: Section) => void }) {

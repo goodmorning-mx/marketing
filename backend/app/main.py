@@ -1,8 +1,6 @@
-from typing import Annotated
-
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -56,10 +54,17 @@ class CampaignIn(BaseModel):
 class ContentIn(BaseModel):
     campaign_id: int
     title: str = Field(min_length=1, max_length=240)
-    content_copy: Annotated[str, Field(alias="copy")] = ""
+    source_copy: str = ""
     asset_name: str = ""
     platforms: list[str] = []
     variants: dict[str, str] = {}
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_copy_alias(cls, value: object) -> object:
+        if isinstance(value, dict) and "copy" in value and "source_copy" not in value:
+            return {**value, "source_copy": value["copy"]}
+        return value
 
 
 class StatusIn(BaseModel):
@@ -102,12 +107,15 @@ def list_campaigns(brand_id: int, db: Session = Depends(get_db)) -> list[dict]:
 def create_content(payload: ContentIn, db: Session = Depends(get_db)) -> dict:
     if db.get(Campaign, payload.campaign_id) is None:
         raise HTTPException(status_code=404, detail="Campaign not found")
-    values = payload.model_dump(by_alias=True)
+    values = payload.model_dump()
+    values["copy"] = values.pop("source_copy")
     item = ContentItem(**values)
     db.add(item)
     db.commit()
     db.refresh(item)
-    return {"id": item.id, **values, "status": item.status}
+    response = payload.model_dump()
+    response["copy"] = response.pop("source_copy")
+    return {"id": item.id, **response, "status": item.status}
 
 
 @app.patch("/api/content/{content_id}/status")

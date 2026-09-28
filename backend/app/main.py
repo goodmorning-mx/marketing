@@ -43,10 +43,13 @@ class BrandIn(BaseModel):
     summary: str = ""
     goal: str = ""
     audience: str = ""
+    positioning: str = ""
+    offers: str = ""
     tone: str = ""
     message: str = ""
     metrics: str = ""
     target_date: str = ""
+    growth_timeline: str = ""
     platforms: list[str] = []
 
 
@@ -54,6 +57,10 @@ class CampaignIn(BaseModel):
     brand_id: int
     name: str = Field(min_length=1, max_length=180)
     objective: str = ""
+    key_message: str = ""
+    start_date: str = ""
+    end_date: str = ""
+    success_metrics: str = ""
     platforms: list[str] = []
 
 
@@ -117,10 +124,22 @@ def create_brand(payload: BrandIn, db: Session = Depends(get_db)) -> dict:
     return {"id": brand.id, **payload.model_dump()}
 
 
+@app.patch("/api/brands/{brand_id}")
+def update_brand(brand_id: int, payload: BrandIn, db: Session = Depends(get_db)) -> dict:
+    brand = db.get(Brand, brand_id)
+    if brand is None:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    for key, value in payload.model_dump().items():
+        setattr(brand, key, value)
+    db.commit()
+    db.refresh(brand)
+    return {"id": brand.id, **payload.model_dump()}
+
+
 @app.get("/api/brands")
 def list_brands(tenant_id: str = "demo", db: Session = Depends(get_db)) -> list[dict]:
     brands = db.scalars(select(Brand).where(Brand.tenant_id == tenant_id).order_by(Brand.id.desc())).all()
-    return [{"id": brand.id, "name": brand.name, "website": brand.website, "industry": brand.industry, "goal": brand.goal, "audience": brand.audience, "platforms": brand.platforms} for brand in brands]
+    return [{"id": brand.id, "tenant_id": brand.tenant_id, "name": brand.name, "website": brand.website, "industry": brand.industry, "summary": brand.summary, "goal": brand.goal, "audience": brand.audience, "positioning": brand.positioning, "offers": brand.offers, "tone": brand.tone, "message": brand.message, "metrics": brand.metrics, "growth_timeline": brand.growth_timeline, "target_date": brand.target_date, "platforms": brand.platforms} for brand in brands]
 
 
 @app.post("/api/campaigns")
@@ -137,7 +156,7 @@ def create_campaign(payload: CampaignIn, db: Session = Depends(get_db)) -> dict:
 @app.get("/api/campaigns")
 def list_campaigns(brand_id: int, db: Session = Depends(get_db)) -> list[dict]:
     campaigns = db.scalars(select(Campaign).where(Campaign.brand_id == brand_id).order_by(Campaign.id.desc())).all()
-    return [{"id": item.id, "brand_id": item.brand_id, "name": item.name, "objective": item.objective, "platforms": item.platforms, "status": item.status} for item in campaigns]
+    return [{"id": item.id, "brand_id": item.brand_id, "name": item.name, "objective": item.objective, "key_message": item.key_message, "start_date": item.start_date, "end_date": item.end_date, "success_metrics": item.success_metrics, "platforms": item.platforms, "status": item.status} for item in campaigns]
 
 
 @app.post("/api/content")
@@ -153,6 +172,12 @@ def create_content(payload: ContentIn, db: Session = Depends(get_db)) -> dict:
     response = payload.model_dump()
     response["copy"] = response.pop("source_copy")
     return {"id": item.id, **response, "status": item.status}
+
+
+@app.get("/api/content")
+def list_content(campaign_id: int, db: Session = Depends(get_db)) -> list[dict]:
+    items = db.scalars(select(ContentItem).where(ContentItem.campaign_id == campaign_id).order_by(ContentItem.id.desc())).all()
+    return [{"id": item.id, "campaign_id": item.campaign_id, "title": item.title, "copy": item.copy, "asset_name": item.asset_name, "platforms": item.platforms, "variants": item.variants, "status": item.status} for item in items]
 
 
 @app.patch("/api/content/{content_id}/status")

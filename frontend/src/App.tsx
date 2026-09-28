@@ -96,6 +96,15 @@ type Provider = {
 type ApiHealth = { service: string; status: string; environment: string };
 const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
+async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${apiUrl}${path}`, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+  });
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+  return response.json() as Promise<T>;
+}
+
 const providers: Provider[] = [
   {
     id: 'instagram', name: 'Instagram', subtitle: 'Instagram Platform · Meta Graph API', short: 'IG', color: '#c13584', accent: '#fff0f7', readiness: 'Revisión de Meta requerida',
@@ -256,7 +265,12 @@ function Mark({ provider, small = false }: { provider: Provider; small?: boolean
 type ReviewComment = { id: number; text: string; author: string; createdAt: string; kind: 'comment' | 'change_request' };
 type DistributionState = { status: 'queued' | 'published' | 'failed'; postId?: string; updatedAt: string };
 type PerformanceMetrics = { reach: number; engagement: number; clicks: number; leads: number };
-type BrandProfile = { name: string; website: string; industry: string; summary: string; goal: string; audience: string; positioning: string; offers: string; tone: string; message: string; metrics: string; growthTimeline: string; targetDate: string; platforms: string[] };
+type BrandProfile = { id?: number; name: string; website: string; industry: string; summary: string; goal: string; audience: string; positioning: string; offers: string; tone: string; message: string; metrics: string; growthTimeline: string; targetDate: string; platforms: string[] };
+type ApiBrand = Omit<BrandProfile, 'growthTimeline' | 'targetDate'> & { growth_timeline?: string; target_date?: string };
+
+function fromApiBrand(value: ApiBrand): BrandProfile {
+  return { ...value, growthTimeline: value.growth_timeline || '', targetDate: value.target_date || '' };
+}
 type CampaignItem = { id: number; campaign: string; title: string; copy: string; asset: string; platforms: string[]; variants: Record<string, string>; status: 'draft' | 'review' | 'approved' | 'scheduled' | 'published'; startDate: string; endDate: string; successMetrics: string; comments: ReviewComment[]; distribution: Record<string, DistributionState>; performance: PerformanceMetrics };
 
 function normalizeCampaignItem(item: Partial<CampaignItem>, index = 0): CampaignItem {
@@ -294,6 +308,18 @@ function AppShell() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    apiRequest<ApiBrand[]>('/api/brands?tenant_id=demo')
+      .then((brands) => {
+        const latest = brands[0];
+        if (!latest) return;
+        const normalized = fromApiBrand(latest);
+        setBrand(normalized);
+        localStorage.setItem('gm-brand', JSON.stringify(normalized));
+      })
+      .catch(() => undefined);
+  }, []);
+
   function openProvider(id: ProviderId) {
     setSelected(id);
     setProviderTab('summary');
@@ -307,7 +333,19 @@ function AppShell() {
     setMobileMenu(false);
   }
 
-  function saveBrand(profile: BrandProfile) { setBrand(profile); localStorage.setItem('gm-brand', JSON.stringify(profile)); setSection('campaigns'); }
+  async function saveBrand(profile: BrandProfile) {
+    try {
+      const payload = { tenant_id: 'demo', name: profile.name, website: profile.website, industry: profile.industry, summary: profile.summary, goal: profile.goal, audience: profile.audience, positioning: profile.positioning, offers: profile.offers, tone: profile.tone, message: profile.message, metrics: profile.metrics, growth_timeline: profile.growthTimeline, target_date: profile.targetDate, platforms: profile.platforms };
+      const saved = profile.id ? await apiRequest<ApiBrand>(`/api/brands/${profile.id}`, { method: 'PATCH', body: JSON.stringify(payload) }) : await apiRequest<ApiBrand>('/api/brands', { method: 'POST', body: JSON.stringify(payload) });
+      const normalized = { ...profile, ...fromApiBrand(saved), id: saved.id };
+      setBrand(normalized);
+      localStorage.setItem('gm-brand', JSON.stringify(normalized));
+    } catch {
+      setBrand(profile);
+      localStorage.setItem('gm-brand', JSON.stringify(profile));
+    }
+    setSection('campaigns');
+  }
 
   return (
     <div className="app-shell">
@@ -383,6 +421,7 @@ function Campaigns({ brand, navigate }: { brand: BrandProfile | null; navigate: 
   const labels = workflowLabels[locale];
   const extra = workflowExtra[locale];
   const [items, setItems] = useState<CampaignItem[]>(() => { try { const stored = JSON.parse(localStorage.getItem('gm-campaign-items') || 'null') as Partial<CampaignItem>[] | null; return Array.isArray(stored) ? stored.map(normalizeCampaignItem) : defaultCampaigns; } catch { return defaultCampaigns; } });
+  const [campaignId, setCampaignId] = useState<number | null>(() => Number(localStorage.getItem('gm-campaign-id')) || null);
   const [showNew, setShowNew] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [commentDraft, setCommentDraft] = useState('');
@@ -390,14 +429,53 @@ function Campaigns({ brand, navigate }: { brand: BrandProfile | null; navigate: 
   const [briefSaved, setBriefSaved] = useState(Boolean(localStorage.getItem('gm-campaign-brief')));
   const [draft, setDraft] = useState({ title: '', copy: '', asset: '', startDate: '', endDate: '', successMetrics: '' });
   const selected = items.find((item) => item.id === selectedId) ?? null;
+  useEffect(() => {
+    if (!brand?.id) return;
+    apiRequest<Array<{ id: number; name: string; objective: string; key_message: string; start_date: string; end_date: string; success_metrics: string; platforms: string[] }>>(`/api/campaigns?brand_id=${brand.id}`)
+      .then(async (campaigns) => {
+        const campaign = campaigns[0];
+        if (!campaign) return;
+        setCampaignId(campaign.id);
+        localStorage.setItem('gm-campaign-id', String(campaign.id));
+        setCampaignBrief({ name: campaign.name, objective: campaign.objective, platforms: campaign.platforms || [], startDate: campaign.start_date || '', endDate: campaign.end_date || '', successMetrics: campaign.success_metrics || '', keyMessage: campaign.key_message || '' });
+        const content = await apiRequest<Array<{ id: number; title: string; copy: string; asset_name: string; platforms: string[]; variants: Record<string, string>; status: CampaignItem['status'] }>>(`/api/content?campaign_id=${campaign.id}`);
+        if (content.length) {
+          const restored = content.map((item, index) => normalizeCampaignItem({ id: item.id, campaign: campaign.name, title: item.title, copy: item.copy, asset: item.asset_name, platforms: item.platforms, variants: item.variants, status: item.status }, index));
+          setItems(restored);
+          localStorage.setItem('gm-campaign-items', JSON.stringify(restored));
+        }
+      })
+      .catch(() => undefined);
+  }, [brand?.id]);
   function persist(next: CampaignItem[]) { const normalized = next.map(normalizeCampaignItem); setItems(normalized); localStorage.setItem('gm-campaign-items', JSON.stringify(normalized)); }
-  function saveBrief() { localStorage.setItem('gm-campaign-brief', JSON.stringify(campaignBrief)); setBriefSaved(true); }
-  function addItem() {
+  async function saveBrief() {
+    localStorage.setItem('gm-campaign-brief', JSON.stringify(campaignBrief));
+    if (brand?.id) {
+      try {
+        const saved = await apiRequest<{ id: number }>('/api/campaigns', { method: 'POST', body: JSON.stringify({ brand_id: brand.id, name: campaignBrief.name, objective: campaignBrief.objective, key_message: campaignBrief.keyMessage, start_date: campaignBrief.startDate, end_date: campaignBrief.endDate, success_metrics: campaignBrief.successMetrics, platforms: campaignBrief.platforms }) });
+        setCampaignId(saved.id);
+        localStorage.setItem('gm-campaign-id', String(saved.id));
+      } catch {
+        // Keep the local draft available until the API is configured.
+      }
+    }
+    setBriefSaved(true);
+  }
+  async function addItem() {
     if (!draft.title.trim()) return;
     const platforms = campaignBrief.platforms.length ? campaignBrief.platforms : ['Instagram'];
     const variants = Object.fromEntries(platforms.map((platform) => [platform, platform === 'Instagram' ? `${draft.copy} #brand` : platform === 'TikTok' ? `${draft.copy} · Watch the story` : `${draft.copy} — learn more.`]));
     const item: CampaignItem = { id: Date.now(), campaign: campaignBrief.name, ...draft, platforms, variants, status: 'draft', comments: [], distribution: {}, performance: { reach: 0, engagement: 0, clicks: 0, leads: 0 } };
-    persist([item, ...items]); setSelectedId(item.id); setDraft({ title: '', copy: '', asset: '', startDate: '', endDate: '', successMetrics: '' }); setShowNew(false);
+    let savedItem = item;
+    if (campaignId) {
+      try {
+        const saved = await apiRequest<{ id: number; status: CampaignItem['status'] }>('/api/content', { method: 'POST', body: JSON.stringify({ campaign_id: campaignId, title: item.title, source_copy: item.copy, asset_name: item.asset, platforms: item.platforms, variants: item.variants }) });
+        savedItem = { ...item, id: saved.id, status: saved.status };
+      } catch {
+        // Keep the local draft available until the API is configured.
+      }
+    }
+    persist([savedItem, ...items]); setSelectedId(savedItem.id); setDraft({ title: '', copy: '', asset: '', startDate: '', endDate: '', successMetrics: '' }); setShowNew(false);
   }
   function transition(id: number, status: CampaignItem['status']) { persist(items.map((item) => item.id === id ? { ...item, status } : item)); setSelectedId(id); }
   function addComment(id: number, kind: ReviewComment['kind'] = 'comment', text = commentDraft) {

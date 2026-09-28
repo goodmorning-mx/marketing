@@ -21,6 +21,7 @@ La ficha de cada plataforma tiene tabs para resumen, requisitos, acceso/OAuth, p
 - React, TypeScript y Vite en `frontend/`.
 - FastAPI, PostgreSQL y Alembic as the full-stack foundation. The Phase 3 API persists brands, campaign briefs, content variants, platform connections, and publishing jobs.
 - Coolify despliega frontend, API y PostgreSQL como recursos independientes.
+- Authentication uses the Factory-managed `AUTH_SECRET` runtime variable; the backend accepts the earlier `JWT_SECRET` name only as a temporary compatibility fallback.
 
 ```bash
 cd frontend

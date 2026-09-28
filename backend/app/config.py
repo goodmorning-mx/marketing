@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     meta_client_id: str = Field(default="", alias="META_CLIENT_ID")
     meta_client_secret: str = Field(default="", alias="META_CLIENT_SECRET")
     meta_redirect_uri: str = Field(default="", alias="META_REDIRECT_URI")
+    jwt_secret: str = Field(default="", alias="JWT_SECRET")
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

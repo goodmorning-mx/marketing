@@ -1,12 +1,15 @@
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from gm_auth import AuthService, AuthSettings, create_auth_router
+from gm_mcp import PermissionDenied, RequestContext
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.database import get_db
+from app.database import engine, get_db
 from app.models import Brand, Campaign, ContentItem, PlatformConnection, PublishJob
+from app.tool_registry import invoke_marketing_tool, marketing_tools
 
 settings = get_settings()
 
@@ -18,6 +21,9 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
+
+if len(settings.jwt_secret) >= 32:
+    app.include_router(create_auth_router(AuthService(engine=engine, settings=AuthSettings(jwt_secret=settings.jwt_secret))))
 
 
 @app.get("/health")
@@ -69,6 +75,37 @@ class ContentIn(BaseModel):
 
 class StatusIn(BaseModel):
     status: str = Field(pattern="^(draft|review|approved|scheduled)$")
+
+
+class ToolInvokeIn(BaseModel):
+    name: str = Field(min_length=3)
+    arguments: dict = Field(default_factory=dict)
+    confirmed: bool = False
+
+
+def tool_context(request: Request) -> RequestContext:
+    user_id = request.headers.get("X-GM-User-ID")
+    organization_id = request.headers.get("X-GM-Organization-ID")
+    if not user_id or not organization_id:
+        raise HTTPException(status_code=401, detail="Authenticated GoodMorning user and organization headers are required")
+    permissions = frozenset(item.strip() for item in request.headers.get("X-GM-Permissions", "read").split(",") if item.strip())
+    return RequestContext(user_id=user_id, organization_id=organization_id, product_id="marketing", permissions=permissions, request_id=request.headers.get("X-Request-ID"))
+
+
+@app.get("/api/tools")
+def list_tools() -> list[dict]:
+    return marketing_tools.list()
+
+
+@app.post("/api/tools/invoke")
+async def invoke_tool(payload: ToolInvokeIn, request: Request) -> dict:
+    try:
+        result = await invoke_marketing_tool(context=tool_context(request), name=payload.name, arguments=payload.arguments, confirmed=payload.confirmed)
+    except PermissionDenied as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"content": result.content, "is_error": result.is_error, "requires_confirmation": result.requires_confirmation}
 
 
 @app.post("/api/brands")

@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Iterator
 
 from fastapi.testclient import TestClient
@@ -8,6 +9,8 @@ from sqlalchemy.pool import StaticPool
 from app.database import get_db
 from app.main import app
 from app.models import Base
+from app.tool_registry import marketing_tools
+from gm_mcp import RequestContext, ToolCall
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -52,3 +55,23 @@ def test_meta_readiness_is_explicitly_blocked_without_provider_credentials() -> 
     assert readiness.status_code == 200
     assert readiness.json()["ready"] is False
     assert readiness.json()["oauth_configured"] is False
+
+
+def test_marketing_tool_registry_exposes_safe_confirmation_gates() -> None:
+    tools = client.get("/api/tools")
+    assert tools.status_code == 200
+    names = {item["name"] for item in tools.json()}
+    assert {"marketing.list_brands", "marketing.approve_content", "marketing.queue_publish"} <= names
+
+    result = asyncio.run(
+        marketing_tools.invoke(
+            ToolCall(name="marketing.queue_publish", arguments={"content_id": 1, "platform": "instagram"}),
+            RequestContext(user_id="user-1", organization_id="demo", product_id="marketing", permissions=frozenset({"write"})),
+        )
+    )
+    assert result.requires_confirmation is True
+
+
+def test_tool_invocation_requires_identity_headers() -> None:
+    response = client.post("/api/tools/invoke", json={"name": "marketing.list_brands", "arguments": {}})
+    assert response.status_code == 401

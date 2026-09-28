@@ -30,6 +30,7 @@ This repository is deployed by GoodMorning Factory as three independent Coolify 
   - `APP_ENV=dev`.
   - `CORS_ORIGINS=https://dev.<product>.goodmorning.mx`.
   - `DATABASE_URL` as a secret runtime variable.
+  - `JWT_SECRET` as a secret runtime variable with at least 32 random characters; this enables the `gm-auth` login and organization routes.
 
 The backend uses SQLAlchemy with psycopg 3. Therefore `DATABASE_URL` must use the `postgresql+psycopg://` scheme when the backend starts.
 
@@ -70,7 +71,7 @@ Do not add Traefik labels, `docker_compose_domains`, Coolify domains, server pat
 Do not copy every variable from `.env.example` into both Coolify applications. Use only the variables required by each resource:
 
 - Frontend build-time: `VITE_API_URL`.
-- Backend runtime: `APP_NAME`, `APP_ENV`, `CORS_ORIGINS`, `DATABASE_URL`.
+- Backend runtime: `APP_NAME`, `APP_ENV`, `CORS_ORIGINS`, `DATABASE_URL`, `JWT_SECRET`.
 - Local Compose only: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, plus local placeholder defaults.
 
 No real secrets, credentials, tokens, production identifiers, Coolify UUIDs, or generated hostnames belong in Git.

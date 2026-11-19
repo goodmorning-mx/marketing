@@ -3,301 +3,103 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="GoodMorning is a marketing platform in development to help teams plan, create, coordinate, publish, and improve campaigns."
-    />
+    <meta name="description" content="GoodMarketing is a complete toolkit for managing your marketing and public relations across all your social media platforms." data-description-en="GoodMarketing is a complete toolkit for managing your marketing and public relations across all your social media platforms." data-description-es="GoodMarketing es un conjunto completo de herramientas para gestionar el marketing y las relaciones públicas en todas tus redes sociales." />
     <meta name="theme-color" content="#f7f8f5" />
-    <title>GoodMorning — Marketing, moving together</title>
+    <title data-title-en="GoodMarketing — Marketing, moving together" data-title-es="GoodMarketing — Marketing en movimiento">GoodMarketing — Marketing, moving together</title>
     <style>
-      :root {
-        color-scheme: light;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        color: #163d35;
-        background: #f7f8f5;
-        font-synthesis: none;
-        text-rendering: optimizeLegibility;
-        --ink: #163d35;
-        --muted: #64766f;
-        --line: #dce5df;
-        --paper: #f7f8f5;
-        --white: #fff;
-        --mint: #c9f06e;
-        --coral: #ff8f71;
-        --night: #143a32;
-      }
-
-      * { box-sizing: border-box; }
-      html { scroll-behavior: smooth; }
-      body { min-width: 320px; margin: 0; }
-      a { color: inherit; }
-      a:focus-visible { outline: 3px solid #e5795e; outline-offset: 4px; border-radius: 4px; }
-      .wrap { width: min(1180px, calc(100% - 48px)); margin-inline: auto; }
-      .topbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 84px; border-bottom: 1px solid var(--line); }
-      .brand { display: inline-flex; align-items: center; gap: 11px; text-decoration: none; font-weight: 760; font-size: 1.08rem; letter-spacing: -.04em; }
-      .brand-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px 12px 12px 4px; background: var(--mint); color: var(--ink); font-size: .94rem; font-weight: 850; letter-spacing: -.1em; }
-      nav { display: flex; align-items: center; gap: clamp(18px, 3vw, 34px); }
-      nav a { color: #526861; text-decoration: none; font-size: .91rem; }
-      nav a:hover { color: var(--ink); }
-      .nav-cta { padding: 11px 16px; border: 1px solid #bddb70; border-radius: 999px; background: var(--mint); color: var(--ink); font-weight: 700; }
-      .hero { display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(390px, .98fr); align-items: center; gap: clamp(36px, 7vw, 92px); padding-block: clamp(68px, 9vw, 118px) clamp(76px, 10vw, 130px); }
-      .eyebrow { display: inline-flex; align-items: center; gap: 9px; color: #46715f; font-size: .82rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
-      .eyebrow::before { content: ""; width: 23px; height: 2px; background: #8cb64b; }
-      h1 { max-width: 680px; margin: 22px 0 22px; font-size: clamp(3rem, 6.4vw, 5.55rem); line-height: .99; letter-spacing: -.075em; font-weight: 680; }
-      .hero-copy { max-width: 590px; margin: 0; color: #536b62; font-size: clamp(1.06rem, 1.5vw, 1.24rem); line-height: 1.65; }
-      .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin-top: 32px; }
-      .button { display: inline-flex; justify-content: center; align-items: center; min-height: 50px; padding: 0 20px; border-radius: 999px; background: var(--ink); color: white; text-decoration: none; font-size: .96rem; font-weight: 700; }
-      .text-link { color: var(--ink); font-size: .95rem; font-weight: 700; text-decoration-thickness: 1px; text-underline-offset: 4px; }
-      .hero-note { margin-top: 24px; color: #73847d; font-size: .87rem; }
-      .preview-frame { position: relative; padding: 21px; border: 1px solid #d8e2db; border-radius: 28px; background: #edf2ec; box-shadow: 0 28px 70px #193d3012; transform: rotate(1deg); }
-      .preview-frame::before { position: absolute; z-index: -1; content: ""; inset: 18px -15px -17px 19px; border: 1px solid #d6e1db; border-radius: 28px; background: #e3ebe3; }
-      .preview-window { overflow: hidden; border: 1px solid #e1e8e3; border-radius: 17px; background: white; }
-      .window-top { display: flex; align-items: center; justify-content: space-between; min-height: 51px; padding-inline: 18px; border-bottom: 1px solid #e8ede9; }
-      .window-brand { display: flex; align-items: center; gap: 8px; color: #244d40; font-size: .79rem; font-weight: 750; }
-      .window-brand i { display: block; width: 17px; height: 17px; border-radius: 6px 6px 6px 2px; background: var(--mint); }
-      .window-label { color: #84938b; font-size: .72rem; }
-      .preview-content { padding: 22px; }
-      .demo-label { display: inline-flex; align-items: center; min-height: 25px; padding: 0 9px; border-radius: 6px; background: #fff0df; color: #9b572f; font-size: .7rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; }
-      .preview-title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin: 14px 0 19px; }
-      .preview-title-row h2 { margin: 0; font-size: 1.22rem; letter-spacing: -.045em; }
-      .preview-title-row p { margin: 5px 0 0; color: #87958e; font-size: .79rem; }
-      .avatar-stack { display: flex; padding-top: 4px; }
-      .avatar { display: grid; place-items: center; width: 28px; height: 28px; margin-left: -6px; border: 2px solid white; border-radius: 50%; background: #f7c9a4; color: #4e4b37; font-size: .62rem; font-weight: 800; }
-      .avatar:nth-child(2) { background: #b8dbcb; }
-      .avatar:nth-child(3) { background: #ddd2f0; }
-      .flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin: 19px 0 22px; }
-      .flow-step { min-width: 0; }
-      .flow-step b { display: block; height: 5px; border-radius: 5px; background: #d8e3dc; }
-      .flow-step:nth-child(1) b, .flow-step:nth-child(2) b { background: #8db747; }
-      .flow-step:nth-child(3) b { background: var(--coral); }
-      .flow-step span { display: block; margin-top: 7px; color: #78877f; font-size: .65rem; }
-      .task-list { display: grid; gap: 9px; }
-      .task { display: flex; align-items: center; gap: 11px; padding: 12px; border: 1px solid #edf0ee; border-radius: 11px; }
-      .task-icon { display: grid; flex: 0 0 32px; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: #f0f5e8; color: #547238; font-size: .86rem; font-weight: 800; }
-      .task:nth-child(2) .task-icon { background: #fff0e7; color: #a65337; }
-      .task:nth-child(3) .task-icon { background: #e9f1ef; color: #3f7566; }
-      .task-text { min-width: 0; flex: 1; }
-      .task-text b { display: block; overflow: hidden; color: #344e43; font-size: .77rem; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
-      .task-text span { display: block; margin-top: 4px; color: #89968f; font-size: .69rem; }
-      .task-status { padding: 5px 7px; border-radius: 6px; background: #f2f6ec; color: #66853f; font-size: .65rem; white-space: nowrap; }
-      .task:nth-child(2) .task-status { background: #fff1e9; color: #b76645; }
-      .preview-caption { margin: 13px 0 0; color: #77877f; font-size: .75rem; line-height: 1.5; }
-      .intro-band { border-block: 1px solid #dce5df; background: #eef3ec; }
-      .intro-inner { display: grid; grid-template-columns: .68fr 1.32fr; gap: 64px; align-items: start; padding-block: 42px; }
-      .intro-inner p { max-width: 760px; margin: 0; color: #49645a; font-size: clamp(1.03rem, 1.6vw, 1.25rem); line-height: 1.65; }
-      .section { padding-block: clamp(84px, 10vw, 132px); }
-      .section-heading { display: grid; grid-template-columns: .72fr 1.28fr; gap: 54px; align-items: end; margin-bottom: 46px; }
-      .section-heading h2 { max-width: 690px; margin: 0; font-size: clamp(2.2rem, 4.8vw, 4rem); line-height: 1.03; letter-spacing: -.065em; font-weight: 650; }
-      .section-heading p { max-width: 520px; margin: 0 0 5px; color: var(--muted); font-size: 1.03rem; line-height: 1.65; }
-      .workflow { display: grid; grid-template-columns: repeat(5, 1fr); border: 1px solid #dce5df; border-radius: 18px; background: white; }
-      .workflow article { position: relative; min-height: 193px; padding: 24px 21px; }
-      .workflow article + article { border-left: 1px solid #e8eeea; }
-      .step-dot { display: grid; place-items: center; width: 33px; height: 33px; margin-bottom: 28px; border-radius: 11px; background: #eff5e8; color: #55763a; font-size: .78rem; font-weight: 800; }
-      .workflow article:nth-child(3) .step-dot { background: #fff0e8; color: #b05c41; }
-      .workflow article h3 { margin: 0 0 9px; font-size: 1.07rem; letter-spacing: -.03em; }
-      .workflow article p { margin: 0; color: #718078; font-size: .91rem; line-height: 1.55; }
-      .adapt { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(0, 1.2fr); gap: clamp(40px, 8vw, 110px); align-items: center; padding: clamp(34px, 6vw, 72px); border-radius: 24px; background: var(--night); color: white; }
-      .adapt .eyebrow { color: #c1e48e; }
-      .adapt h2 { max-width: 450px; margin: 19px 0 0; font-size: clamp(2.1rem, 4.3vw, 3.6rem); line-height: 1.03; letter-spacing: -.06em; font-weight: 630; }
-      .adapt-copy { color: #c7d7d0; font-size: 1.03rem; line-height: 1.72; }
-      .adapt-copy p { margin: 0 0 18px; }
-      .adapt-copy p:last-child { margin-bottom: 0; }
-      .closing { display: flex; justify-content: space-between; align-items: end; gap: 28px; padding-block: clamp(82px, 11vw, 146px); }
-      .closing h2 { max-width: 690px; margin: 18px 0 0; font-size: clamp(2.5rem, 5vw, 4.35rem); line-height: 1; letter-spacing: -.07em; font-weight: 650; }
-      .closing .button { flex: 0 0 auto; background: var(--mint); color: var(--ink); }
-      footer { border-top: 1px solid var(--line); }
-      .footer-inner { display: flex; justify-content: space-between; align-items: center; gap: 20px; min-height: 84px; color: #72827a; font-size: .83rem; }
-      .footer-inner .brand { color: var(--ink); font-size: .98rem; }
-      .footer-note { text-align: right; }
-      @media (max-width: 900px) {
-        .hero { grid-template-columns: 1fr; gap: 48px; }
-        .hero-copy { max-width: 700px; }
-        .preview-frame { width: min(590px, 100%); margin-inline: auto; }
-        .intro-inner, .section-heading { grid-template-columns: 1fr; gap: 20px; }
-        .workflow { grid-template-columns: repeat(2, 1fr); }
-        .workflow article { min-height: 175px; }
-        .workflow article + article { border-left: 0; }
-        .workflow article:nth-child(even) { border-left: 1px solid #e8eeea; }
-        .workflow article:nth-child(n+3) { border-top: 1px solid #e8eeea; }
-        .workflow article:last-child { grid-column: span 2; }
-        .adapt { grid-template-columns: 1fr; }
-      }
-      @media (max-width: 560px) {
-        .wrap { width: min(100% - 32px, 1180px); }
-        .topbar { min-height: 70px; }
-        nav { gap: 14px; }
-        nav a { font-size: .82rem; }
-        nav a:nth-child(2) { display: none; }
-        .nav-cta { padding: 9px 12px; }
-        .hero { padding-block: 61px 86px; }
-        h1 { font-size: clamp(2.85rem, 14vw, 4.1rem); }
-        .hero-actions { align-items: flex-start; flex-direction: column; gap: 15px; }
-        .preview-frame { padding: 13px; border-radius: 21px; }
-        .preview-frame::before { inset: 12px -8px -10px 12px; border-radius: 21px; }
-        .preview-content { padding: 16px; }
-        .task { gap: 8px; padding: 10px 8px; }
-        .task-status { font-size: .6rem; }
-        .flow-step span { font-size: .58rem; }
-        .intro-inner { padding-block: 31px; }
-        .workflow { grid-template-columns: 1fr; }
-        .workflow article, .workflow article:nth-child(even) { min-height: auto; padding: 22px; border-left: 0; }
-        .workflow article + article { border-top: 1px solid #e8eeea; }
-        .workflow article:last-child { grid-column: auto; }
-        .step-dot { margin-bottom: 18px; }
-        .adapt { padding: 30px 25px; }
-        .closing { align-items: flex-start; flex-direction: column; }
-        .footer-inner { align-items: flex-start; flex-direction: column; justify-content: center; padding-block: 22px; }
-        .footer-note { text-align: left; }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        html { scroll-behavior: auto; }
-      }
+      :root{color-scheme:light;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#163d35;background:#f7f8f5;font-synthesis:none;text-rendering:optimizeLegibility;--ink:#163d35;--muted:#64766f;--line:#dce5df;--paper:#f7f8f5;--white:#fff;--mint:#c9f06e;--coral:#ff8f71;--night:#143a32}
+      *{box-sizing:border-box}html{scroll-behavior:smooth}body{min-width:320px;margin:0}a{color:inherit}a:focus-visible,button:focus-visible{outline:3px solid #e5795e;outline-offset:4px;border-radius:4px}.wrap{width:min(1180px,calc(100% - 48px));margin-inline:auto}
+      .topbar{display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:88px;border-bottom:1px solid var(--line)}
+      .brand{display:inline-flex;align-items:center;gap:12px;text-decoration:none}.brand-mark{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:13px 13px 13px 4px;background:var(--mint);color:var(--ink);font-size:.94rem;font-weight:850;letter-spacing:-.1em}.brand-copy{display:grid;gap:2px}.brand-name{font-size:1.48rem;line-height:1;font-weight:780;letter-spacing:-.055em}.brand-byline{color:#71827a;font-size:.75rem;line-height:1.2}
+      .nav-right{display:flex;align-items:center;gap:clamp(12px,2.3vw,28px)}nav{display:flex;align-items:center;gap:clamp(16px,2.8vw,32px)}nav a{color:#526861;text-decoration:none;font-size:.92rem}nav a:hover{color:var(--ink)}.nav-cta{padding:11px 16px;border:1px solid #bddb70;border-radius:999px;background:var(--mint);color:var(--ink);font-weight:700}
+      .language-switch{display:flex;align-items:center;gap:3px;padding:3px;border:1px solid var(--line);border-radius:999px}.language-switch button{min-width:34px;min-height:30px;padding:0 7px;border:0;border-radius:999px;background:transparent;color:#64766f;font:inherit;font-size:.75rem;font-weight:700;cursor:pointer}.language-switch button[aria-pressed=true]{background:var(--ink);color:white}
+      .hero{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(390px,.98fr);align-items:center;gap:clamp(36px,7vw,92px);padding-block:clamp(68px,9vw,118px) clamp(76px,10vw,130px)}
+      .eyebrow{display:inline-flex;align-items:center;gap:9px;color:#46715f;font-size:.82rem;font-weight:750;letter-spacing:.1em;text-transform:uppercase}.eyebrow:before{content:"";width:23px;height:2px;background:#8cb64b}
+      h1{max-width:680px;margin:22px 0;font-size:clamp(3rem,6.4vw,5.55rem);line-height:.99;letter-spacing:-.075em;font-weight:680}.hero-copy{max-width:620px;margin:0;color:#536b62;font-size:clamp(1.06rem,1.5vw,1.24rem);line-height:1.65}.hero-actions{display:flex;flex-wrap:wrap;align-items:center;gap:18px;margin-top:32px}.button{display:inline-flex;justify-content:center;align-items:center;min-height:50px;padding:0 20px;border-radius:999px;background:var(--ink);color:white;text-decoration:none;font-size:.96rem;font-weight:700}.text-link{color:var(--ink);font-size:.95rem;font-weight:700;text-decoration-thickness:1px;text-underline-offset:4px}.hero-note{margin-top:24px;color:#73847d;font-size:.9rem}
+      .preview-frame{position:relative;padding:21px;border:1px solid #d8e2db;border-radius:28px;background:#edf2ec;box-shadow:0 28px 70px #193d3012;transform:rotate(1deg)}.preview-frame:before{position:absolute;z-index:-1;content:"";inset:18px -15px -17px 19px;border:1px solid #d6e1db;border-radius:28px;background:#e3ebe3}.preview-window{overflow:hidden;border:1px solid #e1e8e3;border-radius:17px;background:white}.window-top{display:flex;align-items:center;justify-content:space-between;min-height:51px;padding-inline:18px;border-bottom:1px solid #e8ede9}.window-brand{display:flex;align-items:center;gap:8px;color:#244d40;font-size:.79rem;font-weight:750}.window-brand i{display:block;width:17px;height:17px;border-radius:6px 6px 6px 2px;background:var(--mint)}.window-label{color:#84938b;font-size:.72rem}.preview-content{padding:22px}.demo-label{display:inline-flex;align-items:center;min-height:25px;padding:0 9px;border-radius:6px;background:#fff0df;color:#9b572f;font-size:.7rem;font-weight:750;letter-spacing:.05em;text-transform:uppercase}
+      .preview-title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin:14px 0 19px}.preview-title-row h2{margin:0;font-size:1.22rem;letter-spacing:-.045em}.preview-title-row p{margin:5px 0 0;color:#87958e;font-size:.79rem}.avatar-stack{display:flex;padding-top:4px}.avatar{display:grid;place-items:center;width:28px;height:28px;margin-left:-6px;border:2px solid white;border-radius:50%;background:#f7c9a4;color:#4e4b37;font-size:.62rem;font-weight:800}.avatar:nth-child(2){background:#b8dbcb}.avatar:nth-child(3){background:#ddd2f0}
+      .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:19px 0 22px}.flow-step{min-width:0}.flow-step b{display:block;height:5px;border-radius:5px;background:#d8e3dc}.flow-step:nth-child(1) b,.flow-step:nth-child(2) b{background:#8db747}.flow-step:nth-child(3) b{background:var(--coral)}.flow-step span{display:block;margin-top:7px;color:#78877f;font-size:.65rem}
+      .task-list{display:grid;gap:9px}.task{display:flex;align-items:center;gap:11px;padding:12px;border:1px solid #edf0ee;border-radius:11px}.task-icon{display:grid;flex:0 0 32px;place-items:center;width:32px;height:32px;border-radius:9px;background:#f0f5e8;color:#547238;font-size:.86rem;font-weight:800}.task:nth-child(2) .task-icon{background:#fff0e7;color:#a65337}.task:nth-child(3) .task-icon{background:#e9f1ef;color:#3f7566}.task-text{min-width:0;flex:1}.task-text b{display:block;overflow:hidden;color:#344e43;font-size:.77rem;font-weight:680;text-overflow:ellipsis;white-space:nowrap}.task-text span{display:block;margin-top:4px;color:#89968f;font-size:.69rem}.task-status{padding:5px 7px;border-radius:6px;background:#f2f6ec;color:#66853f;font-size:.65rem;white-space:nowrap}.task:nth-child(2) .task-status{background:#fff1e9;color:#b76645}.preview-caption{margin:13px 0 0;color:#77877f;font-size:.75rem;line-height:1.5}
+      .intro-band{border-block:1px solid #dce5df;background:#eef3ec}.intro-inner{display:grid;grid-template-columns:.68fr 1.32fr;gap:64px;align-items:start;padding-block:42px}.intro-inner p{max-width:760px;margin:0;color:#49645a;font-size:clamp(1.03rem,1.6vw,1.25rem);line-height:1.65}
+      .section{padding-block:clamp(84px,10vw,132px)}.section-heading{display:grid;grid-template-columns:.72fr 1.28fr;gap:54px;align-items:end;margin-bottom:46px}.section-heading h2{max-width:690px;margin:0;font-size:clamp(2.2rem,4.8vw,4rem);line-height:1.03;letter-spacing:-.065em;font-weight:650}.section-heading p{max-width:520px;margin:18px 0 5px;color:var(--muted);font-size:1.03rem;line-height:1.65}
+      .workflow{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid #dce5df;border-radius:18px;background:white}.workflow article{position:relative;min-height:193px;padding:24px 21px}.workflow article+article{border-left:1px solid #e8eeea}.step-dot{display:grid;place-items:center;width:33px;height:33px;margin-bottom:28px;border-radius:11px;background:#eff5e8;color:#55763a;font-size:.78rem;font-weight:800}.workflow article:nth-child(3) .step-dot{background:#fff0e8;color:#b05c41}.workflow article h3{margin:0 0 9px;font-size:1.07rem;letter-spacing:-.03em}.workflow article p{margin:0;color:#718078;font-size:.91rem;line-height:1.55}
+      .pricing{display:grid;grid-template-columns:.9fr 1.1fr;gap:clamp(34px,7vw,90px);align-items:center;padding:clamp(34px,6vw,72px);border-radius:24px;background:var(--night);color:white}.pricing .eyebrow{color:#c1e48e}.pricing h2{max-width:450px;margin:19px 0 0;font-size:clamp(2.1rem,4.3vw,3.6rem);line-height:1.03;letter-spacing:-.06em;font-weight:630}.pricing-copy{color:#c7d7d0;font-size:1.03rem;line-height:1.72}.pricing-copy p{margin:0 0 18px}.pricing-copy p:last-child{margin-bottom:0}.pricing-note{display:inline-block;margin-top:4px;padding:9px 12px;border:1px solid #648076;border-radius:9px;color:#d8e7e1;font-size:.9rem}
+      .closing{display:flex;justify-content:space-between;align-items:end;gap:28px;padding-block:clamp(82px,11vw,146px)}.closing h2{max-width:690px;margin:18px 0 0;font-size:clamp(2.5rem,5vw,4.35rem);line-height:1;letter-spacing:-.07em;font-weight:650}.closing .button{flex:0 0 auto;background:var(--mint);color:var(--ink)}footer{border-top:1px solid var(--line)}.footer-inner{display:flex;justify-content:space-between;align-items:center;gap:20px;min-height:84px;color:#72827a;font-size:.83rem}.footer-inner .brand-name{font-size:1.1rem}.footer-note{text-align:right}
+      @media(max-width:900px){.hero{grid-template-columns:1fr;gap:48px}.hero-copy{max-width:700px}.preview-frame{width:min(590px,100%);margin-inline:auto}.intro-inner,.section-heading{grid-template-columns:1fr;gap:20px}.workflow{grid-template-columns:repeat(2,1fr)}.workflow article{min-height:175px}.workflow article+article{border-left:0}.workflow article:nth-child(even){border-left:1px solid #e8eeea}.workflow article:nth-child(n+3){border-top:1px solid #e8eeea}.workflow article:last-child{grid-column:span 2}.pricing{grid-template-columns:1fr}}
+      @media(max-width:600px){.wrap{width:min(100% - 32px,1180px)}.topbar{min-height:76px;gap:10px}.brand{gap:8px}.brand-mark{flex-basis:32px;width:32px;height:32px}.brand-name{font-size:1.2rem}.brand-byline{font-size:.65rem}.nav-right{gap:8px}nav{gap:9px}nav a{font-size:.8rem}nav a:first-child{display:none}.nav-cta{padding:9px 11px}.language-switch{padding:2px}.language-switch button{min-width:29px;min-height:28px;padding:0 5px;font-size:.69rem}.hero{padding-block:61px 86px}h1{font-size:clamp(2.8rem,13vw,4.1rem)}.hero-actions{align-items:flex-start;flex-direction:column;gap:15px}.preview-frame{padding:13px;border-radius:21px}.preview-frame:before{inset:12px -8px -10px 12px;border-radius:21px}.preview-content{padding:16px}.task{gap:8px;padding:10px 8px}.task-status{font-size:.6rem}.flow-step span{font-size:.58rem}.intro-inner{padding-block:31px}.workflow{grid-template-columns:1fr}.workflow article,.workflow article:nth-child(even){min-height:auto;padding:22px;border-left:0}.workflow article+article{border-top:1px solid #e8eeea}.workflow article:last-child{grid-column:auto}.step-dot{margin-bottom:18px}.pricing{padding:30px 25px}.closing{align-items:flex-start;flex-direction:column}.footer-inner{align-items:flex-start;flex-direction:column;justify-content:center;padding-block:22px}.footer-note{text-align:left}}
+      @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
     </style>
   </head>
   <body>
-    <header class="wrap topbar">
-      <a class="brand" href="#top" aria-label="GoodMorning home">
+    <header class="wrap topbar" id="top">
+      <a class="brand" href="/" aria-label="GoodMarketing home" data-aria-en="GoodMarketing home" data-aria-es="Inicio de GoodMarketing">
         <span class="brand-mark" aria-hidden="true">gm</span>
-        <span>GoodMorning</span>
+        <span class="brand-copy"><span class="brand-name">GoodMarketing</span><span class="brand-byline" data-i18n data-en="a GoodMorning.MX product" data-es="un producto de GoodMorning.MX">a GoodMorning.MX product</span></span>
       </a>
-      <nav aria-label="Main navigation">
-        <a href="#workflow">How it works</a>
-        <a href="#approach">Our approach</a>
-        <a class="nav-cta" href="#overview">Explore the idea</a>
-      </nav>
+      <div class="nav-right">
+        <nav aria-label="Main navigation" data-aria-en="Main navigation" data-aria-es="Navegación principal">
+          <a href="#pricing" data-i18n data-en="Pricing" data-es="Precios">Pricing</a>
+          <a class="nav-cta" href="/signup/" data-i18n data-en="Get Started" data-es="Comenzar">Get Started</a>
+        </nav>
+        <div class="language-switch" role="group" aria-label="Language" data-aria-en="Language" data-aria-es="Idioma">
+          <button type="button" lang="en" data-language="en" aria-pressed="true" aria-label="English">EN</button>
+          <button type="button" lang="es" data-language="es" aria-pressed="false" aria-label="Español">ES</button>
+        </div>
+      </div>
     </header>
-
-    <main id="top">
+    <main>
       <section class="wrap hero" aria-labelledby="hero-title">
         <div>
-          <span class="eyebrow">A clearer way to run marketing</span>
-          <h1 id="hero-title">Good marketing has a lot of moving parts.</h1>
-          <p class="hero-copy">GoodMorning is a marketing platform in development to help teams plan, create, coordinate, publish, and learn from their campaigns in one connected workflow.</p>
+          <span class="eyebrow" data-i18n data-en="Automate your marketing so you can focus on what matters" data-es="Automatiza tu marketing para enfocarte en lo que más importa">Automate your marketing so you can focus on what matters</span>
+          <h1 id="hero-title" data-i18n data-en="Good marketing has a lot of moving parts." data-es="El buen marketing tiene muchas piezas en movimiento.">Good marketing has a lot of moving parts.</h1>
+          <p class="hero-copy" data-i18n data-en="GoodMarketing is a complete toolkit for managing your marketing and public relations across all of your social media platforms." data-es="GoodMarketing es un conjunto completo de herramientas para gestionar el marketing y las relaciones públicas en todas tus plataformas de redes sociales.">GoodMarketing is a complete toolkit for managing your marketing and public relations across all of your social media platforms.</p>
           <div class="hero-actions">
-            <a class="button" href="#workflow">See the workflow</a>
-            <a class="text-link" href="#approach">What we're building</a>
+            <a class="button" href="/signup/" data-i18n data-en="Get Started" data-es="Comenzar">Get Started</a>
+            <a class="text-link" href="#workflow" data-i18n data-en="See how it works" data-es="Conoce cómo funciona">See how it works</a>
           </div>
-          <p class="hero-note">Designed for different teams, companies, and ways of working.</p>
+          <p class="hero-note" data-i18n data-en="Designed for different teams, companies, and ways of working." data-es="Diseñado para distintos equipos, empresas y formas de trabajar.">Designed for different teams, companies, and ways of working.</p>
         </div>
-
-        <div class="preview-frame" aria-label="Illustrative campaign workspace concept">
+        <div class="preview-frame" aria-label="Illustrative campaign workspace concept" data-aria-en="Illustrative campaign workspace concept" data-aria-es="Concepto ilustrativo de un espacio de trabajo para campañas">
           <div class="preview-window">
-            <div class="window-top">
-              <div class="window-brand"><i aria-hidden="true"></i> GoodMorning</div>
-              <span class="window-label">Workspace concept</span>
-            </div>
+            <div class="window-top"><div class="window-brand"><i aria-hidden="true"></i> GoodMarketing</div><span class="window-label" data-i18n data-en="Workspace concept" data-es="Concepto de espacio de trabajo">Workspace concept</span></div>
             <div class="preview-content">
-              <span class="demo-label">Illustrative example</span>
-              <div class="preview-title-row">
-                <div>
-                  <h2>Campaign workspace</h2>
-                  <p>Sample project · Shared view</p>
-                </div>
-                <div class="avatar-stack" aria-label="Sample collaborators">
-                  <span class="avatar">A</span><span class="avatar">M</span><span class="avatar">J</span>
-                </div>
-              </div>
-              <div class="flow" aria-label="Example workflow stages">
-                <div class="flow-step"><b></b><span>Plan</span></div>
-                <div class="flow-step"><b></b><span>Create</span></div>
-                <div class="flow-step"><b></b><span>Review</span></div>
-                <div class="flow-step"><b></b><span>Publish</span></div>
-                <div class="flow-step"><b></b><span>Learn</span></div>
+              <span class="demo-label" data-i18n data-en="Illustrative example" data-es="Ejemplo ilustrativo">Illustrative example</span>
+              <div class="preview-title-row"><div><h2 data-i18n data-en="Campaign workspace" data-es="Espacio de campaña">Campaign workspace</h2><p data-i18n data-en="Sample project · Shared view" data-es="Proyecto de ejemplo · Vista compartida">Sample project · Shared view</p></div><div class="avatar-stack" aria-label="Sample collaborators" data-aria-en="Sample collaborators" data-aria-es="Colaboradores de ejemplo"><span class="avatar">A</span><span class="avatar">M</span><span class="avatar">J</span></div></div>
+              <div class="flow" aria-label="Example workflow stages" data-aria-en="Example workflow stages" data-aria-es="Etapas de ejemplo del flujo de trabajo">
+                <div class="flow-step"><b></b><span data-i18n data-en="Plan" data-es="Planifica">Plan</span></div><div class="flow-step"><b></b><span data-i18n data-en="Create" data-es="Crea">Create</span></div><div class="flow-step"><b></b><span data-i18n data-en="Review" data-es="Revisa">Review</span></div><div class="flow-step"><b></b><span data-i18n data-en="Publish" data-es="Publica">Publish</span></div><div class="flow-step"><b></b><span data-i18n data-en="Improve" data-es="Mejora">Improve</span></div>
               </div>
               <div class="task-list">
-                <div class="task">
-                  <span class="task-icon" aria-hidden="true">✳</span>
-                  <span class="task-text"><b>Campaign brief</b><span>Goals, audience, key message</span></span>
-                  <span class="task-status">In progress</span>
-                </div>
-                <div class="task">
-                  <span class="task-icon" aria-hidden="true">✎</span>
-                  <span class="task-text"><b>Content draft</b><span>Copy and creative direction</span></span>
-                  <span class="task-status">In review</span>
-                </div>
-                <div class="task">
-                  <span class="task-icon" aria-hidden="true">↗</span>
-                  <span class="task-text"><b>Next steps</b><span>Ready when the team approves</span></span>
-                  <span class="task-status">Planned</span>
-                </div>
+                <div class="task"><span class="task-icon" aria-hidden="true">✳</span><span class="task-text"><b data-i18n data-en="Campaign brief" data-es="Brief de campaña">Campaign brief</b><span data-i18n data-en="Goals, audience, key message" data-es="Objetivos, audiencia y mensaje clave">Goals, audience, key message</span></span><span class="task-status" data-i18n data-en="In progress" data-es="En curso">In progress</span></div>
+                <div class="task"><span class="task-icon" aria-hidden="true">✎</span><span class="task-text"><b data-i18n data-en="Content draft" data-es="Borrador de contenido">Content draft</b><span data-i18n data-en="Copy and creative direction" data-es="Texto y dirección creativa">Copy and creative direction</span></span><span class="task-status" data-i18n data-en="In review" data-es="En revisión">In review</span></div>
+                <div class="task"><span class="task-icon" aria-hidden="true">↗</span><span class="task-text"><b data-i18n data-en="Next steps" data-es="Siguientes pasos">Next steps</b><span data-i18n data-en="Ready when the team approves" data-es="Listo cuando el equipo apruebe">Ready when the team approves</span></span><span class="task-status" data-i18n data-en="Planned" data-es="Planeado">Planned</span></div>
               </div>
-              <p class="preview-caption">A visual concept to explain the direction. This is not a live product screen.</p>
+              <p class="preview-caption" data-i18n data-en="A visual concept to explain the direction. This is not a live product screen." data-es="Un concepto visual para explicar la dirección. No es una pantalla de un producto activo.">A visual concept to explain the direction. This is not a live product screen.</p>
             </div>
           </div>
         </div>
       </section>
-
       <section class="intro-band" id="overview">
-        <div class="wrap intro-inner">
-          <span class="eyebrow">One connected workflow</span>
-          <p>Marketing often spans plans, drafts, feedback, approvals, publishing, and results. GoodMorning is being shaped to give that work a shared place to move forward.</p>
-        </div>
+        <div class="wrap intro-inner"><span class="eyebrow" data-i18n data-en="One connected workflow" data-es="Un flujo de trabajo conectado">One connected workflow</span><p data-i18n data-en="Marketing often spans plans, drafts, feedback, approvals, publishing, and results. GoodMarketing is being shaped to give that work a shared place to move forward." data-es="El marketing suele abarcar planes, borradores, comentarios, aprobaciones, publicaciones y resultados. GoodMarketing se está desarrollando para que ese trabajo avance desde un espacio compartido.">Marketing often spans plans, drafts, feedback, approvals, publishing, and results. GoodMarketing is being shaped to give that work a shared place to move forward.</p></div>
       </section>
-
       <section class="wrap section" id="workflow" aria-labelledby="workflow-title">
-        <div class="section-heading">
-          <span class="eyebrow">From first thought to next idea</span>
-          <div>
-            <h2 id="workflow-title">A campaign is a journey, not a pile of tasks.</h2>
-            <p>The platform's purpose is to connect the steps so a team can see what's happening, what's waiting, and what comes next.</p>
-          </div>
-        </div>
+        <div class="section-heading"><span class="eyebrow" data-i18n data-en="From first thought to next idea" data-es="De la primera idea a la siguiente">From first thought to next idea</span><div><h2 id="workflow-title" data-i18n data-en="A campaign is a journey, not a pile of tasks." data-es="Una campaña es un recorrido, no una lista de tareas.">A campaign is a journey, not a pile of tasks.</h2><p data-i18n data-en="The platform's purpose is to connect the steps so a team can see what's happening, what's waiting, and what comes next." data-es="El propósito de la plataforma es conectar cada etapa para que el equipo vea qué sucede, qué está pendiente y qué sigue.">The platform's purpose is to connect the steps so a team can see what's happening, what's waiting, and what comes next.</p></div></div>
         <div class="workflow">
-          <article>
-            <span class="step-dot">01</span>
-            <h3>Plan</h3>
-            <p>Set the direction, goals, and shape of the campaign.</p>
-          </article>
-          <article>
-            <span class="step-dot">02</span>
-            <h3>Create</h3>
-            <p>Develop the messages and materials the work needs.</p>
-          </article>
-          <article>
-            <span class="step-dot">03</span>
-            <h3>Review</h3>
-            <p>Bring feedback and approvals into the process.</p>
-          </article>
-          <article>
-            <span class="step-dot">04</span>
-            <h3>Publish</h3>
-            <p>Coordinate the move from ready to out in the world.</p>
-          </article>
-          <article>
-            <span class="step-dot">05</span>
-            <h3>Improve</h3>
-            <p>Use what the team learns to shape what comes next.</p>
-          </article>
+          <article><span class="step-dot">01</span><h3 data-i18n data-en="Plan" data-es="Planificar">Plan</h3><p data-i18n data-en="Set the direction, goals, and shape of the campaign." data-es="Define el rumbo, los objetivos y la estructura de la campaña.">Set the direction, goals, and shape of the campaign.</p></article>
+          <article><span class="step-dot">02</span><h3 data-i18n data-en="Create" data-es="Crear">Create</h3><p data-i18n data-en="Develop the messages and materials the work needs." data-es="Desarrolla los mensajes y materiales que necesita el trabajo.">Develop the messages and materials the work needs.</p></article>
+          <article><span class="step-dot">03</span><h3 data-i18n data-en="Review" data-es="Revisar">Review</h3><p data-i18n data-en="Bring feedback and approvals into the process." data-es="Integra comentarios y aprobaciones al proceso.">Bring feedback and approvals into the process.</p></article>
+          <article><span class="step-dot">04</span><h3 data-i18n data-en="Publish" data-es="Publicar">Publish</h3><p data-i18n data-en="Coordinate the move from ready to out in the world." data-es="Coordina el paso de contenido aprobado a publicado.">Coordinate the move from ready to out in the world.</p></article>
+          <article><span class="step-dot">05</span><h3 data-i18n data-en="Improve" data-es="Mejorar">Improve</h3><p data-i18n data-en="Use what the team learns to shape what comes next." data-es="Usa lo que aprende el equipo para definir lo que sigue.">Use what the team learns to shape what comes next.</p></article>
         </div>
       </section>
-
-      <section class="wrap section" id="approach" aria-labelledby="approach-title">
-        <div class="adapt">
-          <div>
-            <span class="eyebrow">A general-purpose foundation</span>
-            <h2 id="approach-title">Your work has its own shape.</h2>
-          </div>
-          <div class="adapt-copy">
-            <p>Every company brings its own audience, voice, channels, collaborators, and review steps. A useful marketing platform should make room for those differences.</p>
-            <p>GoodMorning is being developed as a flexible home for that work, with room to plan, create, automate, approve, publish, and improve campaigns over time.</p>
-          </div>
+      <section class="wrap section" id="pricing" aria-labelledby="pricing-title">
+        <div class="pricing">
+          <div><span class="eyebrow" data-i18n data-en="Pricing" data-es="Precios">Pricing</span><h2 id="pricing-title" data-i18n data-en="Pricing is taking shape." data-es="Estamos definiendo los precios.">Pricing is taking shape.</h2></div>
+          <div class="pricing-copy"><p data-i18n data-en="We're shaping GoodMarketing now. We'll share plan and pricing details here as the platform takes shape." data-es="Estamos desarrollando GoodMarketing. Aquí compartiremos los planes y precios a medida que avance la plataforma.">We're shaping GoodMarketing now. We'll share plan and pricing details here as the platform takes shape.</p><span class="pricing-note" data-i18n data-en="Plans and pricing coming soon" data-es="Planes y precios próximamente">Plans and pricing coming soon</span></div>
         </div>
       </section>
-
-      <section class="wrap closing" aria-labelledby="closing-title">
-        <div>
-          <span class="eyebrow">GoodMorning Marketing</span>
-          <h2 id="closing-title">A little more clarity for the work ahead.</h2>
-        </div>
-        <a class="button" href="#top">Back to the beginning</a>
-      </section>
+      <section class="wrap closing" aria-labelledby="closing-title"><div><span class="eyebrow" data-i18n data-en="GoodMarketing by GoodMorning.MX" data-es="GoodMarketing de GoodMorning.MX">GoodMarketing by GoodMorning.MX</span><h2 id="closing-title" data-i18n data-en="Make room for the work that matters." data-es="Haz espacio para el trabajo que más importa.">Make room for the work that matters.</h2></div><a class="button" href="/signup/" data-i18n data-en="Get Started" data-es="Comenzar">Get Started</a></section>
     </main>
-
-    <footer>
-      <div class="wrap footer-inner">
-        <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">gm</span><span>GoodMorning</span></a>
-        <span class="footer-note">The platform is in development. More to come.</span>
-      </div>
-    </footer>
+    <footer><div class="wrap footer-inner"><a class="brand" href="/" aria-label="GoodMarketing home" data-aria-en="GoodMarketing home" data-aria-es="Inicio de GoodMarketing"><span class="brand-mark" aria-hidden="true">gm</span><span class="brand-copy"><span class="brand-name">GoodMarketing</span><span class="brand-byline">GoodMorning.MX</span></span></a><span class="footer-note" data-i18n data-en="The platform is in development. More to come." data-es="La plataforma está en desarrollo. Pronto habrá más novedades.">The platform is in development. More to come.</span></div></footer>
+    <script src="/language.js" defer></script>
   </body>
 </html>

@@ -26,6 +26,7 @@
       @media(max-width:620px){.hero h1{font-size:clamp(2.8rem,11vw,4rem)}:lang(es) .hero h1{font-size:clamp(2.7rem,10.5vw,3.8rem)}.wrap{width:calc(100% - 36px)}.topbar{min-height:70px;gap:8px}.brand{gap:8px}.brand-mark{width:34px;height:34px}.brand-name{font-size:1.1rem}.brand-byline{font-size:.58rem;white-space:nowrap}.nav-right{gap:8px}nav{gap:8px}nav a{font-size:.78rem}nav a:first-child{display:none}.nav-cta{padding:10px 12px}.language-switch{padding:2px}.language-switch button{min-width:28px;min-height:28px;font-size:.68rem}.hero{display:flex;min-height:auto;flex-direction:column;align-items:stretch;padding-block:68px 38px}.hero-copy-block{padding-bottom:0}.eyebrow{font-size:.68rem;letter-spacing:.09em}.hero h1{font-size:clamp(3.2rem,14vw,5rem);margin:23px 0 20px}.hero h1 span{white-space:normal}.hero-copy{max-width:370px;font-size:1rem}.hero-actions{margin-top:23px}.hero-art{width:100%;min-height:390px;margin-top:10px}.channel-float{width:58px;padding:10px;border-radius:19px}.channel-float .channel-logo{width:34px;height:34px}.campaign-core{width:49%;--expand-scale:1.35}.campaign-core strong{font-size:clamp(1.2rem,5vw,1.65rem)}.channel-float{min-width:130px}.channel-float.facebook{top:12%;left:0}.channel-float.instagram{top:10%;right:0}.channel-float.whatsapp{bottom:8%;left:8%}.channel-float.tiktok{top:0;right:0}.channel-float.youtube{right:0;bottom:16%}.channel-float.linkedin{top:57%;left:0}.channel-float.instagram{top:28%;right:0}.art-caption{right:4%;bottom:1%;font-size:.58rem}.scroll-cue{display:none}.intro-band{min-height:0}.intro-inner{padding-block:86px}.intro-inner p{font-size:clamp(2.65rem,11.5vw,4.5rem)}.section{padding-block:90px}.section-heading{margin-bottom:48px}.section-heading h2,.publishing-panel h3{font-size:clamp(3.2rem,14vw,5.4rem)}.section-heading p{font-size:.95rem}.workflow{grid-template-columns:1fr}.workflow article,.workflow article+article,.workflow article:nth-child(4){min-height:0;padding:20px 0 25px;border-left:0}.workflow article+article{border-top:1px solid #a0aecb32}.step-dot{margin-bottom:24px}.workflow article h3{font-size:1.5rem}.workflow article p{max-width:360px}.publishing-panel{padding-block:90px}.publishing-panel p{font-size:.95rem}.platforms{padding:19px}.pricing{padding-block:35px}.pricing h2{font-size:3.5rem}.closing{padding-block:90px}.closing h2{font-size:clamp(3.4rem,14.5vw,5.5rem)}.footer-inner{align-items:flex-start;flex-direction:column;justify-content:center;padding-block:25px}}
 
       .hero-art .channel-float{top:50%;left:50%;right:auto;bottom:auto;min-width:0;touch-action:pan-y}
+      .platform-stack{display:grid;gap:14px}.platform-stack>.platforms{max-width:none}.coming-platforms{padding:18px 22px}.coming-platforms:before{top:7%;width:92px;height:92px}.coming-title{position:relative;margin:0 0 12px;color:#a0aecb;font-size:.82rem;font-weight:760;letter-spacing:.12em;text-transform:uppercase}.coming-platform-list{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0;padding:0;list-style:none}.coming-platform-list li{display:grid;justify-items:center;align-content:center;gap:7px;min-width:0;padding:10px 4px;border:1px solid #ffffff22;border-radius:14px;background:#00010e9e}.coming-platform-list .platform-icon{width:28px;height:28px;flex-basis:28px}.coming-platform-list span{color:#fefefe;font-size:.76rem;font-weight:650;text-align:center;white-space:nowrap}@media(max-width:620px){.coming-platforms{padding:16px 19px}.coming-title{font-size:.76rem}.coming-platform-list{gap:6px}.coming-platform-list li{padding:9px 3px}.coming-platform-list span{font-size:.7rem}}
     </style>
   </head>
   <body>
@@ -72,14 +73,24 @@
             <h3 id="publishing-title" data-i18n data-en="Posts across platforms throughout the full campaign lifecycle." data-es="Publicaciones en varias plataformas durante todo el ciclo de vida de la campaña.">Posts across platforms throughout the full campaign lifecycle.</h3>
             <p data-i18n data-en="GoodMarketing is being built to schedule and publish your campaign content across these channels for you, from the first brief through launch, follow-up, and closeout." data-es="GoodMarketing se está desarrollando para programar y publicar por ti el contenido de tu campaña en estos canales, desde el brief inicial hasta el lanzamiento, el seguimiento y el cierre.">GoodMarketing is being built to schedule and publish your campaign content across these channels for you, from the first brief through launch, follow-up, and closeout.</p>
           </div>
-          <div class="platforms">
-            <div class="platforms-heading"><img class="meta-logo" src="/assets/brand/meta-wordmark.jpg" alt="Meta" /><p class="platforms-label" data-i18n data-en="Platforms" data-es="Plataformas">Platforms</p></div>
-            <ul class="platform-list" aria-label="Meta Platforms: Facebook, Instagram, WhatsApp" data-aria-en="Meta Platforms: Facebook, Instagram, WhatsApp" data-aria-es="Plataformas de Meta: Facebook, Instagram y WhatsApp">
-              <li><img class="platform-icon facebook-logo" src="/assets/brand/facebook.jpg" alt="" /><span>Facebook</span></li>
-              <li><img class="platform-icon" src="/assets/brand/instagram.png" alt="" /><span>Instagram</span></li>
-              <li><img class="platform-icon" src="/assets/brand/whatsapp.png" alt="" /><span>WhatsApp</span></li>
-            </ul>
-            <p class="platform-note" data-i18n data-en="Facebook · Instagram · WhatsApp" data-es="Facebook · Instagram · WhatsApp">Facebook · Instagram · WhatsApp</p>
+          <div class="platform-stack">
+            <div class="platforms">
+              <div class="platforms-heading"><img class="meta-logo" src="/assets/brand/meta-wordmark.jpg" alt="Meta" /><p class="platforms-label" data-i18n data-en="Platforms" data-es="Plataformas">Platforms</p></div>
+              <ul class="platform-list" aria-label="Meta Platforms: Facebook, Instagram, WhatsApp" data-aria-en="Meta Platforms: Facebook, Instagram, WhatsApp" data-aria-es="Plataformas de Meta: Facebook, Instagram y WhatsApp">
+                <li><img class="platform-icon facebook-logo" src="/assets/brand/facebook.jpg" alt="" /><span>Facebook</span></li>
+                <li><img class="platform-icon" src="/assets/brand/instagram.png" alt="" /><span>Instagram</span></li>
+                <li><img class="platform-icon" src="/assets/brand/whatsapp.png" alt="" /><span>WhatsApp</span></li>
+              </ul>
+              <p class="platform-note" data-i18n data-en="Facebook · Instagram · WhatsApp" data-es="Facebook · Instagram · WhatsApp">Facebook · Instagram · WhatsApp</p>
+            </div>
+            <div class="platforms coming-platforms" aria-label="Coming soon: LinkedIn, TikTok, and YouTube" data-aria-en="Coming soon: LinkedIn, TikTok, and YouTube" data-aria-es="Próximamente: LinkedIn, TikTok y YouTube">
+              <h4 class="coming-title" data-i18n data-en="Coming soon" data-es="Próximamente">Coming soon</h4>
+              <ul class="coming-platform-list" aria-label="Coming soon: LinkedIn, TikTok, YouTube" data-aria-en="Coming soon: LinkedIn, TikTok, YouTube" data-aria-es="Próximamente: LinkedIn, TikTok y YouTube">
+                <li><img class="platform-icon" src="/assets/brand/linkedin.png" alt="" /><span>LinkedIn</span></li>
+                <li><img class="platform-icon" src="/assets/brand/tiktok.svg" alt="" /><span>TikTok</span></li>
+                <li><img class="platform-icon" src="/assets/brand/youtube.svg" alt="" /><span>YouTube</span></li>
+              </ul>
+            </div>
           </div>
         </div>
       </section></div>

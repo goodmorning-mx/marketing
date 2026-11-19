@@ -8,6 +8,7 @@ backend API, and a private PostgreSQL resource managed outside Git.
 ## Frontend language and account status
 
 - Public frontend pages must be available in English and Spanish.
+- Keep the product name GoodMarketing unchanged in every language.
 - Use the shared language selector and provide English and Spanish copy for all
   visitor-facing text. The selected language is shared between routes in the
   browser.

@@ -287,7 +287,7 @@
       if (key === "content") {
         const contentIntro = description.querySelector("[data-workflow-content-intro]");
         if (contentIntro) contentIntro.textContent = voice.steps.content;
-      } else if (key !== "brand-messaging" && key !== "strategy" && voice.steps[key]) {
+      } else if (key !== "brand-messaging" && key !== "strategy" && key !== "publish" && voice.steps[key]) {
         description.textContent = voice.steps[key];
       }
     });

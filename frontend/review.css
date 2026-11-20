@@ -730,7 +730,7 @@ footer { border-color: rgba(255, 255, 255, 0.08); }
 .footer-note,
 .footer-inner { color: #a1a1aa; }
 
-@media (hover: hover) and (pointer: fine) {
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .platforms,
   .research-visual,
   #workflow .strategy-control,
@@ -751,7 +751,7 @@ footer { border-color: rgba(255, 255, 255, 0.08); }
     position: absolute;
     z-index: -1;
     inset: 0;
-    background: radial-gradient(360px circle at var(--spot-x, 50%) var(--spot-y, 50%), rgba(111, 181, 248, 0.09), transparent 62%);
+    background: radial-gradient(360px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(111, 181, 248, 0.09), transparent 62%);
     content: "";
     opacity: 0;
     transition: opacity 260ms ease;
@@ -764,6 +764,30 @@ footer { border-color: rgba(255, 255, 255, 0.08); }
   #workflow .content-option:hover::before,
   #workflow .publish-source:hover::after,
   #workflow .publish-accounts:hover::after { opacity: 1; }
+}
+
+@supports (animation-timeline: view()) {
+  .reveal {
+    animation: settle-in linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 35%;
+  }
+
+  @keyframes settle-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .button:active,
+  .nav-cta:active,
+  .workflow-tab:active,
+  .brand-template:active,
+  #workflow .strategy-platform:active,
+  .language-switch button:active {
+    transform: scale(0.985);
+  }
 }
 
 @media (max-width: 900px) {

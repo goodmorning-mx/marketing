@@ -5,6 +5,34 @@
 
   const descriptions = [...panel.querySelectorAll("[data-workflow-description]")];
 
+  if (window.matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)").matches) {
+    document.querySelectorAll(".platforms, .research-visual, #workflow .strategy-control, #workflow .content-option, #workflow .publish-source, #workflow .publish-accounts").forEach((surface) => {
+      let frame = 0;
+      let clientX = 0;
+      let clientY = 0;
+
+      surface.addEventListener("pointermove", (event) => {
+        clientX = event.clientX;
+        clientY = event.clientY;
+        if (frame) return;
+
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          const bounds = surface.getBoundingClientRect();
+          surface.style.setProperty("--mouse-x", `${clientX - bounds.left}px`);
+          surface.style.setProperty("--mouse-y", `${clientY - bounds.top}px`);
+        });
+      }, { passive: true });
+
+      surface.addEventListener("pointerleave", () => {
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
+        surface.style.removeProperty("--mouse-x");
+        surface.style.removeProperty("--mouse-y");
+      }, { passive: true });
+    });
+  }
+
   function selectTab(tab, focus = false) {
     const key = tab.dataset.workflowTab;
 

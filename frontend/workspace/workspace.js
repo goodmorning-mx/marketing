@@ -1,4 +1,20 @@
 (() => {
+  if (!window.matchMedia('(pointer: coarse)').matches) {
+    document.querySelectorAll('.metric, .panel, .template-card, .format-option, .upload-card, .schedule-preview, .campaign-list-item, .account-row').forEach((card) => {
+      if (card.querySelector(':scope > .surface-spotlight')) return;
+      const spotlight = document.createElement('span');
+      spotlight.className = 'surface-spotlight';
+      spotlight.setAttribute('aria-hidden', 'true');
+      card.classList.add('has-spotlight');
+      card.prepend(spotlight);
+      card.addEventListener('pointermove', (event) => {
+        const bounds = card.getBoundingClientRect();
+        card.style.setProperty('--spot-x', `${event.clientX - bounds.left}px`);
+        card.style.setProperty('--spot-y', `${event.clientY - bounds.top}px`);
+      }, { passive: true });
+    });
+  }
+
   const language = () => document.documentElement.lang === "es" ? "es" : "en";
   const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   const dateFormatter = (options) => new Intl.DateTimeFormat(language() === "es" ? "es-MX" : "en-US", options);

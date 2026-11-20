@@ -148,6 +148,7 @@
     updateStrategyLanguage();
     updateBrandTemplateDisclosureLabel();
   });
+  selectTab(tabs.find((tab) => tab.getAttribute("aria-selected") === "true") || tabs[0]);
   updateStrategyLanguage();
   updateBrandTemplateDisclosureLabel();
 })();

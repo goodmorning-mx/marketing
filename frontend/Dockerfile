@@ -4,6 +4,7 @@ COPY index.html /usr/share/nginx/html/index.html
 COPY language.js /usr/share/nginx/html/language.js
 COPY orbit.js /usr/share/nginx/html/orbit.js
 COPY workflow.js /usr/share/nginx/html/workflow.js
+COPY review.css /usr/share/nginx/html/review.css
 COPY assets /usr/share/nginx/html/assets
 COPY signup /usr/share/nginx/html/signup
 COPY admin /usr/share/nginx/html/admin

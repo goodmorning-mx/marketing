@@ -4,6 +4,7 @@
 
   const items = [...scene.querySelectorAll('.channel-float[data-orbit-angle]')];
   const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const compactPreference = window.matchMedia('(max-width: 900px)');
   const orbit = { width: 0, height: 0, start: 0, drag: null, visible: true, frame: 0 };
   const radians = degrees => (degrees * Math.PI) / 180;
   const easeOut = value => 1 - Math.pow(1 - value, 4);
@@ -28,8 +29,9 @@
     const reduced = motionPreference.matches;
     const rotation = reduced ? 0 : elapsed * (Math.PI * 2 / 30000);
     const intro = reduced ? 1 : easeOut(Math.min(1, elapsed / 1100));
-    const radiusX = Math.min(orbit.width * 0.39, 235);
-    const radiusY = Math.min(orbit.height * 0.31, 230);
+    const compact = compactPreference.matches;
+    const radiusX = Math.min(orbit.width * (compact ? 0.42 : 0.39), 235);
+    const radiusY = Math.min(orbit.height * (compact ? 0.3 : 0.31), 230);
     const tilt = radians(-8);
 
     items.forEach(item => {

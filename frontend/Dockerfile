@@ -6,6 +6,7 @@ COPY orbit.js /usr/share/nginx/html/orbit.js
 COPY workflow.js /usr/share/nginx/html/workflow.js
 COPY assets /usr/share/nginx/html/assets
 COPY signup /usr/share/nginx/html/signup
+COPY admin /usr/share/nginx/html/admin
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

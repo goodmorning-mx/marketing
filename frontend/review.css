@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
 :root {
   --muted: #c0c9dc;
   --fog: #c0c9dc;
@@ -1427,4 +1429,9 @@ main > .stack-stage + .stack-stage {
   .hero-art {
     min-height: 360px;
   }
+}
+
+:root {
+  --display: "Space Grotesk", "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif;
+  --technical: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }

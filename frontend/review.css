@@ -615,7 +615,7 @@ nav a:hover,
 }
 
 .hero::before { background: radial-gradient(circle, rgba(27, 114, 212, 0.15) 0, rgba(27, 114, 212, 0.045) 48%, transparent 72%); }
-.hero h1 { max-width: 760px; font-size: clamp(3.35rem, 5.2vw, 5.5rem); line-height: 0.98; }
+.hero h1 { max-width: 760px; font-size: clamp(2.8rem, 4.6vw, 4.9rem); line-height: 0.98; }
 .hero h1 .accent { color: #75b7ff; }
 .hero-copy-block { max-width: 680px; }
 .eyebrow { color: #8fc5ff; font-family: var(--technical); font-size: 0.72rem; letter-spacing: 0.095em; }

@@ -41,6 +41,9 @@
   const brandModeOptions = [...document.querySelectorAll('input[name="brand-mode"]')];
   const brandModePanels = [...document.querySelectorAll("[data-brand-mode-panel]")];
   const brandTemplates = [...document.querySelectorAll("[data-brand-template-option]")];
+  const strategyPlatforms = [...document.querySelectorAll("[data-strategy-platform]")];
+  const strategyDuration = document.querySelector("#strategy-duration");
+  const strategyDurationOutput = document.querySelector("[data-strategy-duration-output]");
 
   const templateVoice = {
     goodmarketing: {
@@ -267,15 +270,17 @@
     const voice = templateVoice[template]?.[language] || templateVoice.goodmarketing[language];
     const eyebrow = workflowSection.querySelector(".section-heading > .eyebrow");
     const intro = workflowSection.querySelector(".section-heading p");
+    const strategyIntro = workflowSection.querySelector("[data-strategy-intro]");
     if (eyebrow) eyebrow.textContent = voice.eyebrow;
     if (intro) intro.textContent = voice.intro;
+    if (strategyIntro) strategyIntro.textContent = voice.steps.strategy;
 
     workflowSection.querySelectorAll("[data-workflow-tone-step]").forEach((element) => {
       element.textContent = voice.steps[element.dataset.workflowToneStep] || "";
     });
     descriptions.forEach((description) => {
       const key = description.dataset.workflowDescription;
-      if (key !== "brand-messaging" && voice.steps[key]) description.textContent = voice.steps[key];
+      if (key !== "brand-messaging" && key !== "strategy" && voice.steps[key]) description.textContent = voice.steps[key];
     });
   }
 
@@ -297,6 +302,61 @@
     });
   });
 
-  document.addEventListener("goodmarketing:language-change", applyTemplateVoice);
+  strategyPlatforms.forEach((platform) => {
+    platform.addEventListener("click", () => {
+      platform.setAttribute("aria-pressed", String(platform.getAttribute("aria-pressed") !== "true"));
+      updateStrategyPlatformLabel(platform);
+    });
+  });
+
+  function updateStrategyPlatformLabel(platform) {
+    const language = document.documentElement.lang === "es" ? "es" : "en";
+    const selected = platform.getAttribute("aria-pressed") === "true";
+    const name = platform.dataset.strategyPlatform;
+    const labels = {
+      facebook: { en: "Facebook", es: "Facebook" },
+      instagram: { en: "Instagram", es: "Instagram" },
+      whatsapp: { en: "WhatsApp", es: "WhatsApp" },
+      linkedin: { en: "LinkedIn", es: "LinkedIn" },
+      tiktok: { en: "TikTok", es: "TikTok" },
+      youtube: { en: "YouTube", es: "YouTube" }
+    };
+    const state = selected
+      ? { en: "selected", es: "seleccionado" }
+      : { en: "not selected", es: "no seleccionado" };
+    platform.setAttribute("aria-label", `${labels[name][language]}, ${state[language]}`);
+  }
+
+  function formatStrategyDuration(days, language = document.documentElement.lang) {
+    if (days < 28) {
+      const weeks = Math.max(1, Math.round(days / 7));
+      if (language === "es") return `${weeks} ${weeks === 1 ? "semana" : "semanas"}`;
+      return `${weeks} ${weeks === 1 ? "week" : "weeks"}`;
+    }
+    const months = Math.min(3, Math.max(1, Math.round(days / 30)));
+    if (language === "es") return `${months} ${months === 1 ? "mes" : "meses"}`;
+    return `${months} ${months === 1 ? "month" : "months"}`;
+  }
+
+  function updateStrategyDuration() {
+    if (!strategyDuration || !strategyDurationOutput) return;
+    const language = document.documentElement.lang === "es" ? "es" : "en";
+    const duration = formatStrategyDuration(Number(strategyDuration.value), language);
+    strategyDurationOutput.textContent = duration;
+    strategyDuration.setAttribute("aria-valuetext", duration);
+  }
+
+  if (strategyDuration) strategyDuration.addEventListener("input", updateStrategyDuration);
+
+  function updateStrategyLanguage() {
+    strategyPlatforms.forEach(updateStrategyPlatformLabel);
+    updateStrategyDuration();
+  }
+
+  document.addEventListener("goodmarketing:language-change", () => {
+    applyTemplateVoice();
+    updateStrategyLanguage();
+  });
   applyTemplateVoice();
+  updateStrategyLanguage();
 })();

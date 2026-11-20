@@ -45,11 +45,13 @@
       const scale = reduced ? 1 : 0.82 + ((depth + 1) / 2) * 0.24;
       const opacity = reduced ? 1 : 0.67 + ((depth + 1) / 2) * 0.33;
 
-      item.style.setProperty('--orbit-x', `${x.toFixed(1)}px`);
-      item.style.setProperty('--orbit-y', `${y.toFixed(1)}px`);
-      item.style.setProperty('--orbit-scale', scale.toFixed(3));
+      item.style.transform = `translate3d(calc(-50% + ${x.toFixed(1)}px), calc(-50% + ${y.toFixed(1)}px), 0) scale(${scale.toFixed(3)})`;
       item.style.opacity = opacity.toFixed(3);
-      item.style.zIndex = depth < 0 ? '0' : '2';
+      const layer = depth < 0 ? '0' : '2';
+      if (item.dataset.orbitLayer !== layer) {
+        item.style.zIndex = layer;
+        item.dataset.orbitLayer = layer;
+      }
     });
 
     if (!reduced && orbit.visible && !document.hidden) {

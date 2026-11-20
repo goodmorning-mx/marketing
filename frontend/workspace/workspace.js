@@ -1,5 +1,5 @@
 (() => {
-  if (!window.matchMedia('(pointer: coarse)').matches) {
+  if (window.matchMedia('(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)').matches) {
     document.querySelectorAll('.metric, .panel, .template-card, .format-option, .upload-card, .schedule-preview, .campaign-list-item, .account-row').forEach((card) => {
       if (card.querySelector(':scope > .surface-spotlight')) return;
       const spotlight = document.createElement('span');
@@ -7,10 +7,25 @@
       spotlight.setAttribute('aria-hidden', 'true');
       card.classList.add('has-spotlight');
       card.prepend(spotlight);
+      let frame = 0;
+      let clientX = 0;
+      let clientY = 0;
       card.addEventListener('pointermove', (event) => {
-        const bounds = card.getBoundingClientRect();
-        card.style.setProperty('--spot-x', `${event.clientX - bounds.left}px`);
-        card.style.setProperty('--spot-y', `${event.clientY - bounds.top}px`);
+        clientX = event.clientX;
+        clientY = event.clientY;
+        if (frame) return;
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          const bounds = card.getBoundingClientRect();
+          card.style.setProperty('--mouse-x', `${clientX - bounds.left}px`);
+          card.style.setProperty('--mouse-y', `${clientY - bounds.top}px`);
+        });
+      }, { passive: true });
+      card.addEventListener('pointerleave', () => {
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
+        card.style.removeProperty('--mouse-x');
+        card.style.removeProperty('--mouse-y');
       }, { passive: true });
     });
   }

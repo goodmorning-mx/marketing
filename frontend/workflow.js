@@ -36,4 +36,26 @@
       selectTab(tabs[nextIndex], true);
     });
   });
+
+  const workflowSection = document.querySelector("#workflow");
+  const brandModeOptions = [...document.querySelectorAll('input[name="brand-mode"]')];
+  const brandModePanels = [...document.querySelectorAll("[data-brand-mode-panel]")];
+  const brandTemplates = [...document.querySelectorAll("[data-brand-template-option]")];
+
+  brandModeOptions.forEach((option) => {
+    option.addEventListener("change", () => {
+      brandModePanels.forEach((panel) => {
+        panel.hidden = panel.dataset.brandModePanel !== option.value;
+      });
+    });
+  });
+
+  brandTemplates.forEach((template) => {
+    template.addEventListener("click", () => {
+      workflowSection.dataset.brandTemplate = template.dataset.brandTemplateOption;
+      brandTemplates.forEach((option) => {
+        option.setAttribute("aria-pressed", String(option === template));
+      });
+    });
+  });
 })();

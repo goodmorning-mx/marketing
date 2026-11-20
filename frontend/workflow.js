@@ -44,6 +44,10 @@
   const strategyPlatforms = [...document.querySelectorAll("[data-strategy-platform]")];
   const strategyDuration = document.querySelector("#strategy-duration");
   const strategyDurationOutput = document.querySelector("[data-strategy-duration-output]");
+  const strategyFrequencies = [...document.querySelectorAll('input[name="strategy-frequency"]')];
+  const contentEstimateNumber = document.querySelector("[data-content-estimate-number]");
+  const contentEstimateLabel = document.querySelector("[data-content-estimate-label]");
+  const contentEstimateNote = document.querySelector("[data-content-estimate-note]");
 
   const templateVoice = {
     goodmarketing: {
@@ -280,7 +284,12 @@
     });
     descriptions.forEach((description) => {
       const key = description.dataset.workflowDescription;
-      if (key !== "brand-messaging" && key !== "strategy" && voice.steps[key]) description.textContent = voice.steps[key];
+      if (key === "content") {
+        const contentIntro = description.querySelector("[data-workflow-content-intro]");
+        if (contentIntro) contentIntro.textContent = voice.steps.content;
+      } else if (key !== "brand-messaging" && key !== "strategy" && voice.steps[key]) {
+        description.textContent = voice.steps[key];
+      }
     });
   }
 
@@ -340,11 +349,34 @@
     strategyDuration.setAttribute("aria-valuetext", duration);
   }
 
-  if (strategyDuration) strategyDuration.addEventListener("input", updateStrategyDuration);
+  function updateContentEstimate() {
+    if (!strategyDuration || !contentEstimateNumber || !contentEstimateLabel || !contentEstimateNote) return;
+    const language = document.documentElement.lang === "es" ? "es" : "en";
+    const frequency = strategyFrequencies.find((option) => option.checked);
+    const postsPerWeek = { low: 3, medium: 4, high: 5 }[frequency?.value] || 4;
+    const days = Number(strategyDuration.value);
+    const contentPieces = Math.ceil((postsPerWeek * days) / 7);
+    contentEstimateNumber.textContent = new Intl.NumberFormat(language).format(contentPieces);
+    contentEstimateLabel.textContent = language === "es"
+      ? `pieza${contentPieces === 1 ? "" : "s"} de contenido`
+      : `content piece${contentPieces === 1 ? "" : "s"}`;
+    contentEstimateNote.textContent = language === "es"
+      ? `Según ${postsPerWeek} publicaciones por semana durante ${days} ${days === 1 ? "día" : "días"}. Se redondea hacia arriba para cubrir toda la campaña.`
+      : `Based on ${postsPerWeek} posts per week over ${formatStrategyDuration(days, "en")}. Rounded up to cover the full campaign.`;
+  }
+
+  if (strategyDuration) {
+    strategyDuration.addEventListener("input", () => {
+      updateStrategyDuration();
+      updateContentEstimate();
+    });
+  }
+  strategyFrequencies.forEach((frequency) => frequency.addEventListener("change", updateContentEstimate));
 
   function updateStrategyLanguage() {
     strategyPlatforms.forEach(updateStrategyPlatformLabel);
     updateStrategyDuration();
+    updateContentEstimate();
   }
 
   document.addEventListener("goodmarketing:language-change", () => {

@@ -50,6 +50,8 @@
       @media(max-width:900px){#workflow .workflow-tab{min-height:118px}#workflow .workflow-tab:nth-child(4){padding-left:0;border-left:0}#workflow .workflow-tab:nth-child(n+4){border-top-color:var(--brand-line)}}
       @media(max-width:620px){#workflow{padding:32px 0}#workflow .section-heading{margin-bottom:22px}#workflow .section-heading h2{font-size:clamp(2.8rem,12vw,4.4rem)}#workflow .workflow-tab,#workflow .workflow-tab+.workflow-tab{min-height:0;padding:16px 0 18px;border-top-color:var(--brand-line)}#workflow .workflow-tab .step-dot{margin-bottom:14px}#workflow .workflow-tab-title{font-size:1.4rem}#workflow .workflow-detail{padding-top:18px}#workflow .brand-message-panel{gap:14px}#workflow .brand-setup-heading{align-items:flex-start;flex-direction:column;gap:9px}.brand-template-options{grid-template-columns:repeat(2,minmax(0,1fr))}.brand-template:last-child{grid-column:1/-1}.brand-template{justify-content:flex-start}.brand-mode-option span{padding:8px 12px;font-size:.74rem}}
           .workflow-stage{height:auto;min-height:0;margin-top:-12px;padding-bottom:24px}.workflow-stage #workflow{position:relative;top:auto;height:auto;min-height:0;margin:0 auto;overflow:visible}
+          #workflow .brand-custom-panel{display:grid;gap:12px}.brand-input-cues{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.brand-input-cue{display:flex;align-items:center;gap:12px;min-width:0;min-height:64px;padding:12px;border:1px solid var(--brand-line);border-radius:12px;background:#ffffff06;color:var(--brand-accent)}.brand-input-cue svg{flex:0 0 28px;width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.brand-input-cue svg circle[fill]{fill:currentColor;stroke:none}.brand-input-cue-label{color:#fefefe;font-size:.9rem;font-weight:720}
+      @media(max-width:620px){.brand-input-cues{grid-template-columns:1fr}.brand-input-cue{min-height:56px}}
     </style>
   </head>
   <body>
@@ -150,7 +152,14 @@
                   <button class="brand-template" type="button" aria-pressed="false" data-brand-template-option="slate"><span class="brand-template-swatch" style="--swatch-accent:#c5cfdd;--swatch-primary:#53657d" aria-hidden="true"></span><span class="brand-template-name" data-i18n data-en="Slate" data-es="Pizarra">Slate</span></button>
                 </div>
               </div>
-              <p class="brand-custom-explainer" data-brand-mode-panel="define" data-i18n data-en="Upload your own color scheme and fonts, and define your tone of voice to keep campaign messaging and visual identity consistent." data-es="Sube tu propia paleta de colores y tus tipografías, y define el tono de voz de tu marca para mantener la coherencia de los mensajes y la identidad visual." hidden>Upload your own color scheme and fonts, and define your tone of voice to keep campaign messaging and visual identity consistent.</p>
+              <div class="brand-custom-panel" data-brand-mode-panel="define" hidden>
+                <p class="brand-custom-explainer" data-i18n data-en="Provide your own to keep campaign messaging and brand identity consistent." data-es="Aporta tus propios elementos para mantener la coherencia de los mensajes de campaña y la identidad de marca.">Provide your own to keep campaign messaging and brand identity consistent.</p>
+                <div class="brand-input-cues" role="list" aria-label="Brand elements" data-aria-en="Brand elements" data-aria-es="Elementos de marca">
+                  <div class="brand-input-cue" role="listitem"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4a12 12 0 1 0 0 24h2.5a2.5 2.5 0 0 0 1.8-4.3 2.2 2.2 0 0 1 1.6-3.7H25A3 3 0 0 0 28 17 12 12 0 0 0 16 4Z"/><circle cx="10" cy="13" r="1.5" fill="currentColor"/><circle cx="15" cy="9" r="1.5" fill="currentColor"/><circle cx="21" cy="11" r="1.5" fill="currentColor"/></svg><span class="brand-input-cue-label" data-i18n data-en="Color Scheme" data-es="Esquema de color">Color Scheme</span></div>
+                  <div class="brand-input-cue" role="listitem"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 8h22M16 8v18M10 26h12"/><path d="m8 8 7 18M24 8l-7 18"/></svg><span class="brand-input-cue-label" data-i18n data-en="Fonts" data-es="Tipografías">Fonts</span></div>
+                  <div class="brand-input-cue" role="listitem"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 7h22v16H15l-6 5v-5H5z"/><path d="M11 15h2m3 0h2m3 0h1"/></svg><span class="brand-input-cue-label" data-i18n data-en="Tone" data-es="Tono">Tone</span></div>
+                </div>
+              </div>
             </div>
           </div>
           <p data-workflow-description="strategy" data-i18n data-en="Set the campaign's direction, goals, and plan." data-es="Define el rumbo, los objetivos y el plan de la campaña." hidden>Set the campaign's direction, goals, and plan.</p>

@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+  pull_request:
+    branches:
+      - dev
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend checks and image build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check frontend/language.js
+          node --check frontend/orbit.js
+          node --check frontend/workflow.js
+
+      - name: Build frontend image
+        run: docker build --tag goodmarketing-frontend:ci --file frontend/Dockerfile frontend
+
+  backend:
+    name: Backend checks and image build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check Python syntax
+        run: python -m compileall -q backend/app
+
+      - name: Build backend image
+        run: docker build --tag goodmarketing-backend:ci --file backend/Dockerfile backend

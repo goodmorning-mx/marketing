@@ -790,6 +790,218 @@ footer { border-color: rgba(255, 255, 255, 0.08); }
   }
 }
 
+/* First-viewport hero hierarchy and framed campaign centerpiece. */
+.hero {
+  position: relative;
+  isolation: isolate;
+  align-items: start;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 62% 72% at 70% 22%, rgba(41, 105, 170, 0.12), transparent 72%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.035), transparent 52%),
+    #08090c;
+}
+
+.hero::before {
+  inset: 0;
+  top: auto;
+  right: auto;
+  width: auto;
+  height: auto;
+  z-index: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse at 54% 2%, rgba(108, 173, 232, 0.11), transparent 58%),
+    radial-gradient(rgba(255, 255, 255, 0.045) 0.65px, transparent 0.8px);
+  background-size: auto, 24px 24px;
+  box-shadow: none;
+  opacity: 0.82;
+  mask-image: radial-gradient(ellipse at 55% 43%, #000 18%, transparent 78%);
+  pointer-events: none;
+}
+
+.hero-copy-block {
+  z-index: 2;
+  max-width: 650px;
+}
+
+.hero-copy-block > .eyebrow {
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #c5d9ec;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.hero-copy-block > .eyebrow::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #75b7ff;
+}
+
+.hero h1 {
+  max-width: 690px;
+  margin-block: 20px 22px;
+  font-size: clamp(3rem, 4.4vw, 4.35rem);
+  font-weight: 720;
+  letter-spacing: -0.035em;
+  line-height: 1.06;
+  text-transform: none;
+}
+
+.hero h1 span {
+  color: #f8fafc;
+  background: linear-gradient(180deg, #fff 0%, #fff 60%, rgba(248, 250, 252, 0.74) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero h1 span.accent {
+  color: #75b7ff;
+  background-image: linear-gradient(115deg, #c2e2ff 0%, #75b7ff 62%, #e1f1ff 100%);
+}
+
+.hero-actions {
+  margin-top: 26px;
+}
+
+.hero-actions .button {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(143, 197, 255, 0.54);
+  background: linear-gradient(180deg, #338ff0, #1269d7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), 0 10px 30px rgba(20, 100, 190, 0.22);
+}
+
+.hero-actions .button::before {
+  position: absolute;
+  inset: 1px 1px auto;
+  height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+  content: "";
+  pointer-events: none;
+}
+
+.hero-actions .button:hover {
+  border-color: rgba(190, 222, 255, 0.82);
+  background: linear-gradient(180deg, #4ba0fa, #1b78e5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38), 0 12px 36px rgba(20, 100, 190, 0.3);
+}
+
+.hero-art {
+  z-index: 1;
+  width: min(100%, 680px);
+  min-width: 0;
+  min-height: clamp(370px, 39vw, 520px);
+  justify-self: end;
+  padding: clamp(12px, 1.5vw, 20px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 24px;
+  background:
+    radial-gradient(ellipse 74% 70% at 50% 48%, rgba(45, 102, 158, 0.16), transparent 72%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.012) 46%, rgba(255, 255, 255, 0.03));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 36px 100px rgba(0, 0, 0, 0.46);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.hero-art::before {
+  inset: 7% 7% 9%;
+  border-color: rgba(210, 230, 250, 0.1);
+  box-shadow: inset 0 0 64px rgba(255, 255, 255, 0.015), 0 0 36px rgba(0, 0, 0, 0.14);
+}
+
+.hero-art::after {
+  width: 48%;
+  border-color: rgba(117, 183, 255, 0.22);
+  box-shadow: inset 0 0 42px rgba(63, 126, 187, 0.09);
+}
+
+.orbital-ring {
+  border-color: rgba(218, 233, 248, 0.12);
+}
+
+.campaign-core {
+  border-color: rgba(207, 229, 250, 0.22);
+  background: radial-gradient(circle at 37% 27%, #1a3149, #0b121b 58%, #07090c 88%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 26px 70px rgba(0, 0, 0, 0.48);
+}
+
+.hero .art-caption {
+  right: 0;
+  bottom: 9px;
+  z-index: 1;
+  font-size: 0.62rem;
+  letter-spacing: 0.045em;
+}
+
+.hero .scroll-cue {
+  z-index: 3;
+  bottom: 22px;
+  left: var(--section-inline, 48px);
+}
+
+@media (max-width: 900px) {
+  .hero {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 26px;
+  }
+
+  .hero-copy-block {
+    max-width: 720px;
+  }
+
+  .hero-art {
+    width: 100%;
+    min-height: clamp(340px, 54vw, 460px);
+    justify-self: stretch;
+    padding: 14px;
+  }
+}
+
+@media (max-width: 620px) {
+  .hero {
+    gap: 18px;
+    padding-inline: 18px;
+  }
+
+  .hero-copy-block > .eyebrow {
+    max-width: 100%;
+    min-height: 32px;
+    padding: 6px 10px;
+    font-size: 0.6rem;
+    letter-spacing: 0.07em;
+  }
+
+  .hero h1 {
+    margin-block: 18px 18px;
+    font-size: clamp(1.9rem, 8vw, 2.85rem);
+    line-height: 1.06;
+  }
+
+  .hero-art {
+    min-height: 360px;
+    margin: 4px 0 30px;
+    padding: 10px;
+    border-radius: 20px;
+  }
+
+  .hero .art-caption {
+    bottom: 4px;
+    font-size: 0.55rem;
+  }
+}
+
 @media (max-width: 900px) {
   .topbar { width: calc(100% - 32px); margin-top: 8px; }
   .stack-card,
@@ -1201,5 +1413,18 @@ main > .stack-stage + .stack-stage {
 
   .closing {
     padding-block: var(--compact-space);
+  }
+}
+
+/* Keep the existing hero headline on a compact mobile measure. */
+@media (max-width: 620px) {
+  .hero h1,
+  :lang(es) .hero h1 {
+    font-size: clamp(1.9rem, 8vw, 2.85rem);
+    line-height: 1.06;
+  }
+
+  .hero-art {
+    min-height: 360px;
   }
 }

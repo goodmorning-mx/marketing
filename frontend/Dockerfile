@@ -8,6 +8,7 @@ COPY review.css /usr/share/nginx/html/review.css
 COPY assets /usr/share/nginx/html/assets
 COPY signup /usr/share/nginx/html/signup
 COPY admin /usr/share/nginx/html/admin
+COPY workspace /usr/share/nginx/html/workspace
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

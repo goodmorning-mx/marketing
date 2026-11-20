@@ -72,7 +72,7 @@
       if (!items.length) {
         const empty = document.createElement("p");
         empty.className = "empty-day";
-        empty.textContent = language() === "es" ? "No hay actividades de ejemplo para este día." : "No sample activity for this day.";
+        empty.textContent = language() === "es" ? "No hay actividad para este día." : "No activity for this day.";
         eventsContainer.append(empty);
         return;
       }
@@ -144,13 +144,7 @@
   }
 
   const briefForm = document.querySelector("#brief-form");
-  if (briefForm) briefForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    document.querySelector("#brief-feedback").textContent = language() === "es" ? "Este concepto no guarda los datos del brief." : "This concept does not save brief details.";
-  });
-  document.querySelectorAll(".connect-button").forEach((button) => button.addEventListener("click", () => {
-    document.querySelector("#account-feedback").textContent = language() === "es" ? "La conexión no está activa en esta vista previa; no se conectó ninguna cuenta." : "Connections are not live in this preview; no account was connected.";
-  }));
+  if (briefForm) briefForm.addEventListener("submit", (event) => event.preventDefault());
   const templateChoices = [...document.querySelectorAll("[data-template-choice]")];
   const selectedTemplateName = document.querySelector("#template-preview-name");
   const selectedTemplateTone = document.querySelector("#template-preview-tone");
@@ -249,7 +243,7 @@
       if (!selectedChannels.length) {
         const empty = document.createElement("span");
         empty.className = "channel-empty";
-        empty.textContent = language() === "es" ? "No hay canales seleccionados en esta vista previa." : "No channels selected in this preview.";
+        empty.textContent = language() === "es" ? "Elige canales para verlos aquí." : "Choose channels to see them here.";
         container.append(empty);
         return;
       }
@@ -283,9 +277,7 @@
   }
   scheduleTime?.addEventListener("change", renderSchedulePreview);
   timeZone?.addEventListener("change", renderSchedulePreview);
-  document.querySelector("#schedule-preview-button")?.addEventListener("click", () => {
-    document.querySelector("#schedule-feedback").textContent = language() === "es" ? "La programación es solo una vista previa. No se guardó ni programó ningún contenido." : "This schedule is preview only. No content was saved or scheduled.";
-  });
+
 
   placeholders();
   sampleValues();

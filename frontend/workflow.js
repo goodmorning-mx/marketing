@@ -38,8 +38,8 @@
   });
 
   const workflowSection = document.querySelector("#workflow");
-  const brandModeOptions = [...document.querySelectorAll('input[name="brand-mode"]')];
-  const brandModePanels = [...document.querySelectorAll("[data-brand-mode-panel]")];
+  const brandTemplateDisclosure = document.querySelector(".brand-template-disclosure");
+  const brandTemplatePanel = document.querySelector("#brand-template-panel");
   const brandTemplates = [...document.querySelectorAll("[data-brand-template-option]")];
   const strategyPlatforms = [...document.querySelectorAll("[data-strategy-platform]")];
   const strategyDuration = document.querySelector("#strategy-duration");
@@ -293,13 +293,23 @@
     });
   }
 
-  brandModeOptions.forEach((option) => {
-    option.addEventListener("change", () => {
-      brandModePanels.forEach((brandPanel) => {
-        brandPanel.hidden = brandPanel.dataset.brandModePanel !== option.value;
-      });
+  function updateBrandTemplateDisclosureLabel() {
+    if (!brandTemplateDisclosure) return;
+    const language = document.documentElement.lang === "es" ? "es" : "en";
+    const expanded = brandTemplateDisclosure.getAttribute("aria-expanded") === "true";
+    brandTemplateDisclosure.textContent = expanded
+      ? (language === "es" ? "Ocultar plantillas" : "Hide Templates")
+      : brandTemplateDisclosure.dataset[`label${language === "es" ? "Es" : "En"}`];
+  }
+
+  if (brandTemplateDisclosure && brandTemplatePanel) {
+    brandTemplateDisclosure.addEventListener("click", () => {
+      const expanded = brandTemplateDisclosure.getAttribute("aria-expanded") !== "true";
+      brandTemplateDisclosure.setAttribute("aria-expanded", String(expanded));
+      brandTemplatePanel.hidden = !expanded;
+      updateBrandTemplateDisclosureLabel();
     });
-  });
+  }
 
   brandTemplates.forEach((template) => {
     template.addEventListener("click", () => {
@@ -382,7 +392,9 @@
   document.addEventListener("goodmarketing:language-change", () => {
     applyTemplateVoice();
     updateStrategyLanguage();
+    updateBrandTemplateDisclosureLabel();
   });
   applyTemplateVoice();
   updateStrategyLanguage();
+  updateBrandTemplateDisclosureLabel();
 })();

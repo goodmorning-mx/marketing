@@ -328,14 +328,8 @@
   }
 
   function formatStrategyDuration(days, language = document.documentElement.lang) {
-    if (days < 28) {
-      const weeks = Math.max(1, Math.round(days / 7));
-      if (language === "es") return `${weeks} ${weeks === 1 ? "semana" : "semanas"}`;
-      return `${weeks} ${weeks === 1 ? "week" : "weeks"}`;
-    }
-    const months = Math.min(3, Math.max(1, Math.round(days / 30)));
-    if (language === "es") return `${months} ${months === 1 ? "mes" : "meses"}`;
-    return `${months} ${months === 1 ? "month" : "months"}`;
+    if (language === "es") return `${days} ${days === 1 ? "día" : "días"}`;
+    return `${days} ${days === 1 ? "day" : "days"}`;
   }
 
   function updateStrategyDuration() {

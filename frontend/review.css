@@ -1236,11 +1236,27 @@ main > .stack-stage + .stack-stage {
 
 #research .research-growth-chart {
   position: absolute;
-  inset: 8%;
-  width: 84%;
-  height: 84%;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: visible;
   font-family: inherit;
+}
+
+#research .research-growth-graphic {
+  width: min(100%, 280px);
+  height: 190px;
+  aspect-ratio: auto;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+#research .research-growth-graphic::before,
+#research .research-growth-graphic::after {
+  display: none;
 }
 
 #research .research-growth-axis,
@@ -1273,18 +1289,22 @@ main > .stack-stage + .stack-stage {
   filter: drop-shadow(0 0 2px rgba(117, 183, 255, 0.5));
 }
 
-#research .research-growth-legend,
-#research .research-growth-tick,
-#research .research-growth-time {
+#research .research-growth-value,
+#research .research-growth-category {
   fill: #d8e4f5;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 650;
 }
 
-#research .research-growth-tick,
-#research .research-growth-time {
+#research .research-growth-value-highlight {
+  fill: #a9d4ff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+#research .research-growth-category {
   fill: #aebbd0;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 550;
 }
 

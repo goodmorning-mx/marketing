@@ -113,6 +113,7 @@ window.GMPostPreview = (() => {
     const todayKey = dateKey(today);
     let view = new Date(today.getFullYear(), today.getMonth(), 1);
     let selected = todayKey;
+    let focused = todayKey;
     let viewMode = "week";
 
     const statusText = {
@@ -121,6 +122,7 @@ window.GMPostPreview = (() => {
     };
 
     function selectedDate() { return new Date(`${selected}T12:00:00`); }
+    function focusedDate() { return new Date(`${focused}T12:00:00`); }
     function startOfWeek(date) {
       const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
@@ -216,11 +218,12 @@ window.GMPostPreview = (() => {
       });
     }
 
-    function render() {
+    function render(restoreDateFocus = false) {
+      const shouldRestoreDateFocus = restoreDateFocus || grid.contains(document.activeElement);
       const lang = language();
       const year = view.getFullYear();
       const month = view.getMonth();
-      const activeWeekStart = startOfWeek(selectedDate());
+      const activeWeekStart = startOfWeek(focusedDate());
       if (viewMode === "month") {
         monthLabel.textContent = dateFormatter({ month: "long", year: "numeric" }).format(view);
       } else {
@@ -232,33 +235,50 @@ window.GMPostPreview = (() => {
       document.querySelector("#month-view").setAttribute("aria-pressed", String(viewMode === "month"));
       document.querySelector("#week-view").setAttribute("aria-pressed", String(viewMode === "week"));
       grid.replaceChildren();
+      const headingRow = document.createElement("div");
+      headingRow.className = "calendar-row calendar-heading-row";
+      headingRow.setAttribute("role", "row");
       weekdays[lang].forEach((day) => {
         const heading = document.createElement("div");
         heading.className = "weekday";
         heading.setAttribute("role", "columnheader");
         heading.textContent = day;
-        grid.append(heading);
+        headingRow.append(heading);
       });
+      grid.append(headingRow);
       const offset = (new Date(year, month, 1).getDay() + 6) % 7;
-      const start = viewMode === "week" ? activeWeekStart : new Date(year, month, 1 - offset);
+      const start = viewMode === "week" ? activeWeekStart : new Date(view.getFullYear(), view.getMonth(), 1 - offset);
       const count = viewMode === "week" ? 7 : Math.ceil((offset + new Date(year, month + 1, 0).getDate()) / 7) * 7;
+      grid.setAttribute("aria-rowcount", String(1 + count / 7));
+      grid.setAttribute("aria-colcount", "7");
+      let dateRow;
       for (let index = 0; index < count; index += 1) {
+        if (index % 7 === 0) {
+          dateRow = document.createElement("div");
+          dateRow.className = "calendar-row calendar-date-row";
+          dateRow.setAttribute("role", "row");
+          grid.append(dateRow);
+        }
         const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
         const key = dateKey(date);
         const button = document.createElement("button");
         button.type = "button";
         const dayItems = events[key] || [];
         const hasPosted = dayItems.some((item) => item.status === "posted");
-        button.className = `date-cell${viewMode === "month" && date.getMonth() !== month ? " outside" : ""}${key === todayKey ? " today-mark" : ""}${hasPosted ? " has-posted" : ""}`;
+        button.className = `date-cell${viewMode === "month" && date.getMonth() !== month ? " outside" : ""}${key === selected ? " is-selected" : ""}${key === todayKey ? " today-mark" : ""}${hasPosted ? " has-posted" : ""}`;
         button.setAttribute("role", "gridcell");
-        button.setAttribute("aria-pressed", String(key === selected));
+        button.setAttribute("aria-selected", String(key === selected));
+        if (key === todayKey) button.setAttribute("aria-current", "date");
+        button.tabIndex = key === focused ? 0 : -1;
+        button.dataset.dateKey = key;
         const dateLabel = dateFormatter({ weekday: "long", month: "long", day: "numeric", year: "numeric" }).format(date);
         const postedCount = dayItems.filter((item) => item.status === "posted").length;
         const scheduledCount = dayItems.filter((item) => item.status === "scheduled").length;
         const contentStatus = lang === "es"
           ? [postedCount && `${postedCount} publicado${postedCount === 1 ? "" : "s"}`, scheduledCount && `${scheduledCount} programado${scheduledCount === 1 ? "" : "s"}`].filter(Boolean).join(", ")
           : [postedCount && `${postedCount} posted`, scheduledCount && `${scheduledCount} scheduled`].filter(Boolean).join(", ");
-        button.setAttribute("aria-label", contentStatus ? `${dateLabel}, ${contentStatus}` : dateLabel);
+        const todayLabel = key === todayKey ? (lang === "es" ? "hoy" : "today") : "";
+        button.setAttribute("aria-label", [dateLabel, todayLabel, contentStatus].filter(Boolean).join(", "));
         const number = document.createElement("span");
         number.className = "date-num";
         number.textContent = String(date.getDate());
@@ -277,25 +297,44 @@ window.GMPostPreview = (() => {
         }
         button.addEventListener("click", () => {
           selected = key;
-          if (viewMode === "month" && date.getMonth() !== month) view = new Date(date.getFullYear(), date.getMonth(), 1);
-          render();
+          focused = key;
+          if (viewMode === "month" && (date.getMonth() !== month || date.getFullYear() !== year)) view = new Date(date.getFullYear(), date.getMonth(), 1);
+          render(true);
         });
-        grid.append(button);
+        dateRow.append(button);
       }
       renderEvents();
+      if (shouldRestoreDateFocus) grid.querySelector(`[data-date-key="${focused}"]`)?.focus();
     }
+
+    grid.addEventListener("keydown", (event) => {
+      const cell = event.target.closest('[role="gridcell"][data-date-key]');
+      if (!cell) return;
+      const dayOffset = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key];
+      if (dayOffset === undefined) return;
+      event.preventDefault();
+      const date = new Date(`${cell.dataset.dateKey}T12:00:00`);
+      date.setDate(date.getDate() + dayOffset);
+      focused = dateKey(date);
+      if (viewMode === "month" && (date.getMonth() !== view.getMonth() || date.getFullYear() !== view.getFullYear())) {
+        view = new Date(date.getFullYear(), date.getMonth(), 1);
+      }
+      render(true);
+    });
     document.querySelector("#prev-month").addEventListener("click", () => {
       if (viewMode === "week") selected = dateKey(new Date(selectedDate().getFullYear(), selectedDate().getMonth(), selectedDate().getDate() - 7));
       else { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); selected = dateKey(view); }
+      focused = selected;
       render();
     });
     document.querySelector("#next-month").addEventListener("click", () => {
       if (viewMode === "week") selected = dateKey(new Date(selectedDate().getFullYear(), selectedDate().getMonth(), selectedDate().getDate() + 7));
       else { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); selected = dateKey(view); }
+      focused = selected;
       render();
     });
-    document.querySelector("#today-button").addEventListener("click", () => { view = new Date(today.getFullYear(), today.getMonth(), 1); selected = todayKey; render(); });
-    document.querySelector("#month-view").addEventListener("click", () => { viewMode = "month"; view = new Date(selectedDate().getFullYear(), selectedDate().getMonth(), 1); render(); });
+    document.querySelector("#today-button").addEventListener("click", () => { view = new Date(today.getFullYear(), today.getMonth(), 1); selected = todayKey; focused = todayKey; render(); });
+    document.querySelector("#month-view").addEventListener("click", () => { viewMode = "month"; view = new Date(focusedDate().getFullYear(), focusedDate().getMonth(), 1); render(); });
     document.querySelector("#week-view").addEventListener("click", () => { viewMode = "week"; render(); });
     document.addEventListener("goodmarketing:language-change", render);
     render();

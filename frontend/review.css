@@ -1700,3 +1700,9 @@ main > .stack-stage + .stack-stage {
 .channel-float.linkedin .channel-logo {
   border-radius: 0;
 }
+
+.channel-float.linkedin .channel-logo.linkedin-logo,
+#workflow .strategy-platform-icon img.linkedin-logo,
+#coming-soon .linkedin-logo {
+  background-color: #f7f9fc;
+}

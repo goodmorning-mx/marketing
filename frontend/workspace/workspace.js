@@ -1,3 +1,40 @@
+window.GMPostPreview = (() => {
+  const ratios = {
+    facebook: { image: 1, video: 16 / 9 },
+    instagram: { image: 4 / 5, video: 9 / 16 },
+  };
+  const observers = new WeakMap();
+
+  function apply(frame, media, platform, mediaType) {
+    const ratio = ratios[platform]?.[mediaType];
+    frame.dataset.platformKind = platform;
+    frame.dataset.mediaType = mediaType;
+    media.dataset.platformKind = platform;
+    media.dataset.mediaType = mediaType;
+    if (!ratio) return;
+    frame.style.aspectRatio = `${ratio}`;
+    const host = frame.parentElement;
+    const resize = () => {
+      const hostWidth = host?.getBoundingClientRect().width || frame.getBoundingClientRect().width;
+      if (!hostWidth) return;
+      const width = Math.min(hostWidth, 320 * ratio);
+      frame.style.width = `${width}px`;
+      frame.style.height = `${width / ratio}px`;
+    };
+    resize();
+    if (host && window.ResizeObserver && !observers.has(frame)) {
+      const observer = new ResizeObserver(resize);
+      observer.observe(host);
+      observers.set(frame, observer);
+    } else if (!window.ResizeObserver && !observers.has(frame)) {
+      window.addEventListener("resize", resize, { passive: true });
+      observers.set(frame, { disconnect: () => window.removeEventListener("resize", resize) });
+    }
+  }
+
+  return { apply };
+})();
+
 (() => {
   if (window.matchMedia('(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)').matches) {
     document.querySelectorAll('.metric, .panel, .template-card, .format-option, .upload-card, .schedule-preview, .campaign-list-item, .account-row').forEach((card) => {
@@ -143,6 +180,8 @@
             cardHeading.append(platformLabel, platformStatus);
 
             const media = platform.mediaType === "video" ? document.createElement("video") : document.createElement("img");
+            const mediaFrame = document.createElement("div");
+            mediaFrame.className = "platform-post-media-frame";
             media.className = "platform-post-media";
             media.setAttribute("aria-label", platform.alt[language()]);
             if (platform.mediaType === "video") {
@@ -163,7 +202,9 @@
             const caption = document.createElement("p");
             caption.className = "platform-post-caption";
             caption.textContent = platform.caption[language()];
-            card.append(cardHeading, media, caption);
+            mediaFrame.append(media);
+            card.append(cardHeading, mediaFrame, caption);
+            if (window.GMPostPreview) window.GMPostPreview.apply(mediaFrame, media, platform.kind, platform.mediaType);
             platformGrid.append(card);
           });
           details.append(platformGrid);

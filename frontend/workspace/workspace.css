@@ -137,3 +137,14 @@ footer{border-color:var(--surface-hairline);color:#a1a1aa}
 .workspace-shortcut-copy strong{display:block}
 .workspace-shortcut-copy strong{display:block;font-size:.8rem}
 @media(max-width:820px){.sidebar{flex-wrap:wrap}.brand{flex:1}.workspace-label{display:none}.workspace-shortcut{position:static;order:2;margin:0;padding:5px 7px;border:0}.side-nav{order:3;flex:0 0 100%;overflow-x:auto}.side-nav a{flex:0 0 auto}}
+
+/* Brand asset mode: choose one clear path before editing the brief. */
+.asset-mode-switch{display:grid;grid-template-columns:1fr 1fr;width:min(620px,100%);margin:20px auto 18px;padding:5px;gap:5px;border:1px solid var(--surface-hairline);border-radius:13px;background:rgb(0 0 0 / 22%);box-shadow:var(--surface-specular)}
+.asset-mode-option{display:flex;justify-content:center;align-items:center;gap:10px;min-height:58px;padding:10px 16px;border:1px solid transparent;border-radius:9px;background:transparent;color:#aeb9ce;font-size:.88rem;font-weight:700;text-align:center;cursor:pointer;transition:background 180ms ease,border-color 180ms ease,color 180ms ease,transform 180ms ease}
+.asset-mode-option:hover{background:rgb(255 255 255 / 5%);color:#fff}
+.asset-mode-option[aria-pressed=true]{border-color:rgb(140 166 255 / 42%);background:linear-gradient(145deg,rgb(83 111 211 / 22%),rgb(255 255 255 / 4%));color:#fff;box-shadow:var(--surface-specular),inset 0 0 0 1px rgb(140 166 255 / 10%)}
+.asset-mode-icon{display:grid;place-items:center;width:28px;height:28px;border:1px solid var(--surface-hairline);border-radius:8px;background:rgb(94 121 208 / 12%);color:#becbff;font-size:1rem}
+.asset-mode-panel[hidden]{display:none!important}
+#asset-upload-panel{margin-top:0}
+.template-mode-panel .template-heading{margin-top:0}
+@media(max-width:520px){.asset-mode-switch{grid-template-columns:1fr}.asset-mode-option{min-height:52px}}

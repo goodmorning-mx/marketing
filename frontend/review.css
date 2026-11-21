@@ -277,12 +277,12 @@ textarea:focus-visible,
     padding: 12px 10px;
   }
 
-  .workflow-tab:nth-child(odd) {
+  .workflow-tab:nth-child(even) {
     border-left: 0;
     padding-left: 0;
   }
 
-  .workflow-tab:nth-child(n + 3) {
+  .workflow-tab:nth-child(n + 4) {
     border-top: 1px solid #a0aecb55;
   }
 

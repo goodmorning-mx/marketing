@@ -42,7 +42,7 @@
       const x = rawX * Math.cos(tilt) - rawY * Math.sin(tilt);
       const y = rawX * Math.sin(tilt) + rawY * Math.cos(tilt);
       const depth = Math.sin(angle);
-      const scale = 1;
+      const scale = reduced ? 1 : 0.82 + ((depth + 1) / 2) * 0.24;
       const opacity = reduced ? 1 : 0.67 + ((depth + 1) / 2) * 0.33;
 
       item.style.setProperty('--orbit-x', `${x.toFixed(1)}px`);

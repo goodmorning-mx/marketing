@@ -1340,6 +1340,30 @@ main > .stack-stage + .stack-stage {
   }
 }
 
+.feature-coming-soon {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid rgba(117, 183, 255, 0.38);
+  border-radius: 999px;
+  background: rgba(117, 183, 255, 0.1);
+  color: #a9d4ff;
+  font-size: 0.62rem;
+  font-weight: 750;
+  line-height: 1.2;
+  letter-spacing: 0.03em;
+}
+
+#workflow .strategy-platform .feature-coming-soon {
+  justify-self: center;
+  padding: 3px 5px;
+  font-size: clamp(0.47rem, 0.65vw, 0.58rem);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
 .publishing-benefits {
   gap: 16px;
   margin-top: 24px;

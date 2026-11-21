@@ -1222,6 +1222,49 @@ main > .stack-stage + .stack-stage {
   font-size: clamp(2.5rem, 5vw, 3.6rem);
 }
 
+#research .research-stat-dial {
+  position: absolute;
+  inset: 8%;
+  width: 84%;
+  height: 84%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+#research .research-stat-dial-track,
+#research .research-stat-dial-progress {
+  fill: none;
+  stroke-width: 1.5;
+}
+
+#research .research-stat-dial-track {
+  stroke: rgba(117, 183, 255, 0.18);
+}
+
+#research .research-stat-dial-progress {
+  stroke: #75b7ff;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 5.4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(117, 183, 255, 0.55));
+}
+
+@keyframes research-dial-fill {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 5.4; }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    #research .research-stat-dial-progress {
+      stroke-dashoffset: 100;
+      animation: research-dial-fill linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 45%;
+    }
+  }
+}
+
 .publishing-benefits {
   gap: 16px;
   margin-top: 24px;

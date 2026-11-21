@@ -79,7 +79,7 @@
       @media(max-width:900px){#research{padding:36px}.research-cards{gap:12px}.research-cards .research-visual{padding:16px 12px}.research-cards .research-stat-graphic{width:clamp(130px,18vw,190px)}}
       @media(max-width:620px){#research{padding:28px 22px}.research-cards{grid-template-columns:1fr;gap:16px}.research-cards .research-visual{padding:22px 16px}.research-cards .research-stat-graphic{width:190px}}
     </style>
-    <link rel="stylesheet" href="/review.css?v=research-card-format-3" />
+    <link rel="stylesheet" href="/review.css?v=research-card-dial-1" />
   </head>
   <body>
     <header class="wrap topbar" id="top">
@@ -166,7 +166,13 @@
             </figure>
             <figure class="research-visual">
               <p class="research-explanation" data-i18n data-en="Successful delivery of automated Instagram DMs" data-es="Entrega exitosa de mensajes directos automatizados en Instagram">Successful delivery of automated Instagram DMs</p>
-              <div class="research-stat-graphic" aria-hidden="true"><span class="research-stat-number research-stat-number-decimal">94.6<span>%</span></span></div>
+              <div class="research-stat-graphic" aria-hidden="true">
+                <svg class="research-stat-dial" viewBox="0 0 100 100" focusable="false" aria-hidden="true">
+                  <circle class="research-stat-dial-track" cx="50" cy="50" r="46" pathLength="100" />
+                  <circle class="research-stat-dial-progress" cx="50" cy="50" r="46" pathLength="100" transform="rotate(-90 50 50)" />
+                </svg>
+                <span class="research-stat-number research-stat-number-decimal">94.6<span>%</span></span>
+              </div>
               <figcaption>
                 <a href="https://dmdaddy.com/blog/instagram-dm-automation-benchmarks?utm_source=chatgpt.com" data-i18n data-en="DMdaddy Report" data-es="DMdaddy Report">DMdaddy Report</a>
               </figcaption>

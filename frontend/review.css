@@ -1049,56 +1049,6 @@ footer { border-color: rgba(255, 255, 255, 0.08); }
   background: radial-gradient(ellipse 60% 40% at 90% 0%, rgba(47, 113, 182, 0.11), transparent 65%), linear-gradient(145deg, #0b0d11, #08090c);
 }
 
-#workflow[data-brand-template="goodmarketing"] .brand-template[data-brand-template-option="goodmarketing"] {
-  grid-column: span 2;
-  grid-template-columns: 112px minmax(0, 1fr);
-  align-items: center;
-  gap: 16px;
-  min-height: 100px;
-  padding: 18px;
-  border-color: rgba(117, 183, 255, 0.7);
-  border-radius: 16px;
-  background: linear-gradient(120deg, rgba(43, 112, 184, 0.16), rgba(255, 255, 255, 0.035) 62%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 0 0 1px rgba(117, 183, 255, 0.1), 0 14px 38px rgba(0,  0, 0, 0.2);
-}
-
-#workflow[data-brand-template="goodmarketing"] .brand-template[data-brand-template-option="goodmarketing"] .brand-template-swatch {
-  grid-row: auto;
-  width: 112px;
-  height: 38px;
-  margin: 0;
-  border-radius: 10px;
-  background: linear-gradient(90deg, #75b7ff 0 20%, #1877e8 20% 40%, #a1a1aa 40% 60%, #08090c 60% 80%, #f8fafc 80%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.1);
-}
-
-#workflow[data-brand-template="goodmarketing"] .brand-template[data-brand-template-option="goodmarketing"] .brand-template-name {
-  font-family: var(--display);
-  font-size: 1rem;
-  font-weight: 680;
-  letter-spacing: -0.035em;
-}
-
-#workflow[data-brand-template="goodmarketing"] .brand-template[data-brand-template-option="goodmarketing"] .brand-template-tone {
-  color: #a1a1aa;
-  font-size: 0.77rem;
-}
-
-@media (max-width: 620px) {
-  #workflow[data-brand-template="goodmarketing"] .brand-template[data-brand-template-option="goodmarketing"] {
-    grid-column: 1 / -1;
-    grid-template-columns: 82px minmax(0, 1fr);
-    gap: 12px;
-    min-height: 86px;
-    padding: 14px;
-  }
-
-  #workflow[data-brand-template="goodmarketing"] .brand-template[data-brand-template-option="goodmarketing"] .brand-template-swatch {
-    width: 82px;
-    height: 32px;
-  }
-}
-
 /* One geometric spacing and container system for the complete landing page. */
 :root {
   --container-max: 1280px;

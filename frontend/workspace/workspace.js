@@ -5,30 +5,32 @@ window.GMPostPreview = (() => {
   };
   const observers = new WeakMap();
 
+  function resize(frame) {
+    const ratio = ratios[frame.dataset.platformKind]?.[frame.dataset.mediaType];
+    if (!ratio) return;
+    const hostWidth = frame.parentElement?.getBoundingClientRect().width || frame.getBoundingClientRect().width;
+    if (!hostWidth) return;
+    const width = Math.min(hostWidth, 320 * ratio);
+    frame.style.aspectRatio = `${ratio}`;
+    frame.style.width = `${width}px`;
+    frame.style.height = `${width / ratio}px`;
+  }
+
   function apply(frame, media, platform, mediaType) {
-    const ratio = ratios[platform]?.[mediaType];
     frame.dataset.platformKind = platform;
     frame.dataset.mediaType = mediaType;
     media.dataset.platformKind = platform;
     media.dataset.mediaType = mediaType;
-    if (!ratio) return;
-    frame.style.aspectRatio = `${ratio}`;
     const host = frame.parentElement;
-    const resize = () => {
-      const hostWidth = host?.getBoundingClientRect().width || frame.getBoundingClientRect().width;
-      if (!hostWidth) return;
-      const width = Math.min(hostWidth, 320 * ratio);
-      frame.style.width = `${width}px`;
-      frame.style.height = `${width / ratio}px`;
-    };
-    resize();
+    resize(frame);
     if (host && window.ResizeObserver && !observers.has(frame)) {
-      const observer = new ResizeObserver(resize);
+      const observer = new ResizeObserver(() => resize(frame));
       observer.observe(host);
       observers.set(frame, observer);
     } else if (!window.ResizeObserver && !observers.has(frame)) {
-      window.addEventListener("resize", resize, { passive: true });
-      observers.set(frame, { disconnect: () => window.removeEventListener("resize", resize) });
+      const onResize = () => resize(frame);
+      window.addEventListener("resize", onResize, { passive: true });
+      observers.set(frame, { disconnect: () => window.removeEventListener("resize", onResize) });
     }
   }
 

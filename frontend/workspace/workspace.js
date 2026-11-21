@@ -145,6 +145,23 @@
 
   const briefForm = document.querySelector("#brief-form");
   if (briefForm) briefForm.addEventListener("submit", (event) => event.preventDefault());
+  const assetModeButtons = [...document.querySelectorAll("[data-asset-mode]")];
+  const assetModePanels = {
+    upload: document.querySelector("#asset-upload-panel"),
+    templates: document.querySelector("#asset-template-panel")
+  };
+  function setAssetMode(mode) {
+    assetModeButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.assetMode === mode)));
+    Object.entries(assetModePanels).forEach(([name, panel]) => {
+      if (panel) panel.hidden = name !== mode;
+    });
+  }
+  assetModeButtons.forEach((button) => button.addEventListener("click", () => setAssetMode(button.dataset.assetMode)));
+  if (assetModeButtons.length) {
+    const selectedMode = assetModeButtons.find((button) => button.getAttribute("aria-pressed") === "true")?.dataset.assetMode || "templates";
+    setAssetMode(selectedMode);
+  }
+
   const templateChoices = [...document.querySelectorAll("[data-template-choice]")];
   const selectedTemplateName = document.querySelector("#template-preview-name");
   const selectedTemplateTone = document.querySelector("#template-preview-tone");

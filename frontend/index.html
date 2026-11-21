@@ -75,6 +75,9 @@
       #research{display:grid;align-items:center;padding:clamp(34px,6vw,78px);border-radius:26px;background:radial-gradient(ellipse at 82% 48%,#000555a8,transparent 44%),linear-gradient(120deg,#050612,#00010e 65%)}.research-inner{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:clamp(36px,7vw,100px)}.research-copy h2{max-width:650px;margin:22px 0 25px;font-family:"Arial Narrow",Impact,Inter,sans-serif;font-size:clamp(3.2rem,6.7vw,6.5rem);line-height:.86;letter-spacing:-.045em;text-transform:uppercase}.research-copy p{max-width:620px;margin:0;color:#d6daea;font-size:clamp(1rem,1.3vw,1.15rem);line-height:1.75}.research-visual{display:grid;justify-items:center;gap:22px;margin:0;padding:clamp(22px,3vw,34px);border:1px solid #718ed155;border-radius:24px;background:linear-gradient(145deg,#111643d9,#070817e8);box-shadow:0 28px 80px #0008;text-align:center}.research-stat-graphic{position:relative;display:grid;place-items:center;width:clamp(190px,24vw,280px);aspect-ratio:1;border:1px solid #718ed166;border-radius:50%;background:radial-gradient(circle,#101638 0 52%,#00055555 53%,transparent 72%);box-shadow:0 0 75px #000ce033,inset 0 0 50px #00055552}.research-stat-graphic:before,.research-stat-graphic:after{position:absolute;inset:9%;border:1px solid #718ed14d;border-radius:50%;content:""}.research-stat-graphic:after{inset:18%;border-style:dashed;opacity:.6}.research-stat-number{position:relative;color:#fefefe;font-size:clamp(4rem,8vw,7rem);font-weight:780;letter-spacing:-.08em;line-height:1}.research-stat-number span{color:#718ed1;font-size:.48em;letter-spacing:-.04em}.research-visual figcaption{display:grid;gap:8px;max-width:520px;color:#a0aecb;font-size:.92rem;line-height:1.6}.research-visual figcaption strong{color:#fefefe;font-size:1.05rem}.research-visual figcaption a{color:#9eb5ff;text-underline-offset:4px}.research-visual figcaption a:hover{color:#fff}
       @media(max-width:900px){.research-inner{grid-template-columns:1fr;gap:34px}.research-copy h2{max-width:750px}.research-visual{justify-self:stretch}}
       @media(max-width:620px){#research{padding:28px 22px;border-radius:18px}.research-inner{gap:28px}.research-copy h2{font-size:clamp(3rem,13vw,4.5rem)}.research-copy p{font-size:.97rem}.research-visual{padding:20px 16px}.research-stat-graphic{width:190px}.research-stat-number{font-size:5rem}.research-visual figcaption{font-size:.82rem}}
+      #research{padding:clamp(30px,4vw,48px)}#research .research-inner{grid-template-columns:1fr;align-items:start;gap:26px}.research-copy{max-width:950px}.research-copy h2{margin:14px 0 16px;font-size:clamp(3rem,5.3vw,5.2rem)}.research-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.research-cards .research-visual{gap:16px;min-width:0;padding:clamp(16px,2vw,26px);border-color:#ffffff24;border-radius:24px;background:linear-gradient(145deg,#ffffff0c,#ffffff04);box-shadow:inset 0 1px #ffffff0d,0 20px 54px #0006}.research-cards .research-stat-graphic{width:clamp(140px,16vw,220px);background:radial-gradient(circle,#101b29 0 52%,#16335444 53%,transparent 72%);border-color:#718ed155;box-shadow:0 0 60px #254f7a24,inset 0 0 40px #254f7a30}.research-cards .research-stat-number span{color:#fff}.research-cards .research-visual figcaption{gap:8px}.research-cards .research-visual figcaption strong{font-size:clamp(.9rem,1.2vw,1.05rem)}
+      @media(max-width:900px){#research{padding:36px}.research-cards{gap:12px}.research-cards .research-visual{padding:16px 12px}.research-cards .research-stat-graphic{width:clamp(130px,18vw,190px)}}
+      @media(max-width:620px){#research{padding:28px 22px}.research-cards{grid-template-columns:1fr;gap:16px}.research-cards .research-visual{padding:22px 16px}.research-cards .research-stat-graphic{width:190px}}
     </style>
     <link rel="stylesheet" href="/review.css?v=hero-frame-1" />
   </head>
@@ -147,13 +150,29 @@
             <h2 id="research-title" data-i18n data-en="Data &amp; Research" data-es="Datos e investigación">Data &amp; Research</h2>
             <p data-i18n data-en="Respondents at organizations reporting brand consistency issues estimated that always presenting the brand consistently could increase revenue by an average of 23%." data-es="Los encuestados de organizaciones que reportaron problemas de coherencia de marca estimaron que presentar siempre la marca de forma coherente podría aumentar los ingresos un 23% en promedio.">Respondents at organizations reporting brand consistency issues estimated that always presenting the brand consistently could increase revenue by an average of 23%.</p>
           </div>
-          <figure class="research-visual">
-            <div class="research-stat-graphic" aria-hidden="true"><span class="research-stat-number">23<span>%</span></span></div>
-            <figcaption>
-              <strong data-i18n data-en="Average estimated revenue increase" data-es="Aumento promedio estimado de ingresos">Average estimated revenue increase</strong>
-              <a href="https://d2slcw3kip6qmk.cloudfront.net/marketing/press/webinar/The-Impact-of-Brand-Consistency-Report-New_Cover.pdf" data-i18n data-en="2016 Benchmark Survey" data-es="Encuesta de referencia de 2016">2016 Benchmark Survey</a>
-            </figcaption>
-          </figure>
+          <div class="research-cards">
+            <figure class="research-visual">
+              <div class="research-stat-graphic" aria-hidden="true"><span class="research-stat-number">23<span>%</span></span></div>
+              <figcaption>
+                <strong data-i18n data-en="Average estimated revenue increase" data-es="Aumento promedio estimado de ingresos">Average estimated revenue increase</strong>
+                <a href="https://d2slcw3kip6qmk.cloudfront.net/marketing/press/webinar/The-Impact-of-Brand-Consistency-Report-New_Cover.pdf" data-i18n data-en="2016 Benchmark Survey" data-es="Encuesta de referencia de 2016">2016 Benchmark Survey</a>
+              </figcaption>
+            </figure>
+            <figure class="research-visual">
+              <div class="research-stat-graphic" aria-hidden="true"><span class="research-stat-number">0<span>%</span></span></div>
+              <figcaption>
+                <strong data-i18n data-en="Placeholder Data" data-es="Datos de marcador de posición">Placeholder Data</strong>
+                <a href="#research" data-i18n data-en="Study HyperLink" data-es="Enlace al estudio">Study HyperLink</a>
+              </figcaption>
+            </figure>
+            <figure class="research-visual">
+              <div class="research-stat-graphic" aria-hidden="true"><span class="research-stat-number">0<span>%</span></span></div>
+              <figcaption>
+                <strong data-i18n data-en="Placeholder Data" data-es="Datos de marcador de posición">Placeholder Data</strong>
+                <a href="#research" data-i18n data-en="Study HyperLink" data-es="Enlace al estudio">Study HyperLink</a>
+              </figcaption>
+            </figure>
+          </div>
         </div>
       </section></div>
       <div class="stack-stage workflow-stage" style="--stack-index:4"><section class="stack-card wrap section reveal" id="workflow" aria-labelledby="workflow-title" data-brand-template="goodmarketing">

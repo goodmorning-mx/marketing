@@ -1207,14 +1207,15 @@ main > .stack-stage + .stack-stage {
 #research .research-explanation {
   width: 100%;
   margin: 0;
-  color: #a0aecb;
-  font-size: clamp(0.92rem, 1.05vw, 1.05rem);
-  line-height: 1.5;
-  text-align: left;
+  color: #fefefe;
+  font-size: clamp(0.9rem, 1.2vw, 1.05rem);
+  font-weight: 650;
+  line-height: 1.4;
+  text-align: center;
 }
 
-#research .research-explanation:empty {
-  display: none;
+#research .research-explanation strong {
+  font-weight: 750;
 }
 
 .publishing-benefits {

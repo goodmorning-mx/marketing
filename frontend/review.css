@@ -1218,6 +1218,18 @@ main > .stack-stage + .stack-stage {
   font-weight: 750;
 }
 
+#research .research-growth-heading {
+  display: grid;
+  gap: 0;
+}
+
+#research .research-growth-heading strong {
+  color: #75b7ff;
+  font-size: clamp(1.35rem, 2vw, 1.65rem);
+  font-weight: 800;
+  line-height: 1;
+}
+
 #research .research-stat-number-decimal {
   font-size: clamp(2.5rem, 5vw, 3.6rem);
 }

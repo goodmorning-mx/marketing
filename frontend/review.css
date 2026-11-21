@@ -1204,6 +1204,142 @@ main > .stack-stage + .stack-stage {
   margin-block: 16px;
 }
 
+#research .research-explanation {
+  width: 100%;
+  margin: 0;
+  color: #fefefe;
+  font-size: clamp(0.9rem, 1.2vw, 1.05rem);
+  font-weight: 650;
+  line-height: 1.4;
+  text-align: center;
+}
+
+#research .research-explanation strong {
+  font-weight: 750;
+}
+
+#research .research-stat-number-decimal {
+  font-size: clamp(2.5rem, 5vw, 3.6rem);
+}
+
+#research .research-growth-chart {
+  position: absolute;
+  inset: 8%;
+  width: 84%;
+  height: 84%;
+  overflow: visible;
+  font-family: inherit;
+}
+
+#research .research-growth-axis,
+#research .research-growth-gridline,
+#research .research-growth-baseline,
+#research .research-growth-uplift {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#research .research-growth-axis {
+  stroke: rgba(224, 236, 255, 0.58);
+  stroke-width: 1.2;
+}
+
+#research .research-growth-gridline {
+  stroke: rgba(224, 236, 255, 0.15);
+  stroke-width: 0.8;
+  stroke-dasharray: 2 4;
+}
+
+#research .research-growth-baseline {
+  stroke: rgba(220, 231, 247, 0.74);
+  stroke-width: 2.2;
+  stroke-dasharray: 3 3;
+}
+
+#research .research-growth-uplift {
+  stroke: #75b7ff;
+  stroke-width: 3.2;
+  filter: drop-shadow(0 0 3px rgba(117, 183, 255, 0.65));
+}
+
+#research .research-growth-endpoint {
+  fill: #e2eaf7;
+}
+
+#research .research-growth-endpoint-highlight {
+  fill: #75b7ff;
+}
+
+#research .research-growth-value,
+#research .research-growth-tick,
+#research .research-growth-time {
+  fill: #d8e4f5;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+#research .research-growth-value-highlight {
+  fill: #a9d4ff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+#research .research-growth-tick,
+#research .research-growth-time {
+  fill: #aebbd0;
+  font-size: 8px;
+  font-weight: 550;
+}
+
+#research .research-chart-caption {
+  margin: 0;
+}
+
+#research .research-stat-dial {
+  position: absolute;
+  inset: 8%;
+  width: 84%;
+  height: 84%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+#research .research-stat-dial-track,
+#research .research-stat-dial-progress {
+  fill: none;
+  stroke-width: 1.5;
+}
+
+#research .research-stat-dial-track {
+  stroke: rgba(117, 183, 255, 0.18);
+}
+
+#research .research-stat-dial-progress {
+  stroke: #75b7ff;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 5.4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(117, 183, 255, 0.55));
+}
+
+@keyframes research-dial-fill {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 5.4; }
+}
+
+#research .research-stat-dial-progress.is-animating {
+  stroke-dashoffset: 100;
+  animation: research-dial-fill 1400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #research .research-stat-dial-progress.is-animating {
+    animation: none;
+    stroke-dashoffset: 5.4;
+  }
+}
+
 .publishing-benefits {
   gap: 16px;
   margin-top: 24px;

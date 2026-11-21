@@ -52,17 +52,41 @@
     const eventsContainer = document.querySelector("#day-events");
     const weekdays = { en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], es: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"] };
     const events = {
-      "2026-11-20": [{ time: "10:00", title: { en: "Review campaign drafts", es: "Revisar borradores de campaña" } }],
-      "2026-11-21": [{ time: "13:30", title: { en: "Winter Campaign · content review", es: "Winter Campaign · revisión de contenido" } }],
-      "2026-11-24": [{ time: "09:00", title: { en: "Winter Campaign · milestone", es: "Winter Campaign · hito" }, milestone: true }, { time: "15:00", title: { en: "Community story", es: "Historia de comunidad" } }],
-      "2026-11-26": [{ time: "11:00", title: { en: "Monthly recap", es: "Resumen mensual" } }],
-      "2026-11-28": [{ time: "10:30", title: { en: "Customer spotlight", es: "Enfoque en clientes" } }],
+      "2026-11-20": [{ time: "10:00", type: "content", status: "posted", title: { en: "First look: Leopold", es: "Primer vistazo: Leopold" }, platforms: [
+        { name: "Instagram", kind: "instagram", status: "posted", mediaType: "image", src: "/workspace/assets/calendar/leopold-analog-1.jpg", alt: { en: "Leopold analog watch with a digital date and battery display", es: "Reloj analógico Leopold con pantalla digital de fecha y batería" }, caption: { en: "Introducing Leopold: an analog watch designed around the details that matter. OCT 26 · 85%.", es: "Te presentamos Leopold: un reloj analógico diseñado alrededor de los detalles que importan. OCT 26 · 85%." } },
+        { name: "Facebook", kind: "facebook", status: "posted", mediaType: "image", src: "/workspace/assets/calendar/leopold-analog-1.jpg", alt: { en: "Leopold analog watch with a digital date and battery display", es: "Reloj analógico Leopold con pantalla digital de fecha y batería" }, caption: { en: "Meet Leopold. A bold analog design with a subtle digital readout for everyday life.", es: "Conoce Leopold. Un diseño analógico distintivo con una discreta lectura digital para todos los días." } }
+      ] }],
+      "2026-11-21": [{ time: "13:30", type: "content", status: "scheduled", title: { en: "Inside the movement", es: "El movimiento por dentro" }, platforms: [
+        { name: "Instagram", kind: "instagram", status: "scheduled", mediaType: "video", src: "/workspace/assets/calendar/leopold-mechanics.mp4", poster: "/workspace/assets/calendar/leopold-mechanics-poster.png", alt: { en: "Leopold watch mechanism turning in close-up", es: "Mecanismo del reloj Leopold en movimiento, en primer plano" }, caption: { en: "Precision in motion. Take a closer look at the mechanics behind Leopold.", es: "Precisión en movimiento. Mira de cerca la mecánica detrás de Leopold." } },
+        { name: "Facebook", kind: "facebook", status: "scheduled", mediaType: "video", src: "/workspace/assets/calendar/leopold-mechanics.mp4", poster: "/workspace/assets/calendar/leopold-mechanics-poster.png", alt: { en: "Leopold watch mechanism turning in close-up", es: "Mecanismo del reloj Leopold en movimiento, en primer plano" }, caption: { en: "A closer look at the movement and craft behind the Leopold analog watch.", es: "Un vistazo más cercano al movimiento y la elaboración del reloj analógico Leopold." } }
+      ] }],
+      "2026-11-24": [{ time: "09:00", title: { en: "Leopold campaign milestone", es: "Hito de la campaña Leopold" }, milestone: true }, { time: "15:00", type: "content", status: "scheduled", title: { en: "Readability, reimagined", es: "Legibilidad renovada" }, platforms: [
+        { name: "Instagram", kind: "instagram", status: "scheduled", mediaType: "image", src: "/workspace/assets/calendar/leopold-analog-2.jpg", alt: { en: "Leopold watch face with a full set of analog hour markers", es: "Esfera del reloj Leopold con marcadores analógicos para cada hora" }, caption: { en: "A clearer way to read time. Leopold brings considered markers to a clean analog face.", es: "Una forma más clara de leer la hora. Leopold suma marcadores bien pensados a una esfera analógica limpia." } },
+        { name: "Facebook", kind: "facebook", status: "scheduled", mediaType: "image", src: "/workspace/assets/calendar/leopold-analog-2.jpg", alt: { en: "Leopold watch face with a full set of analog hour markers", es: "Esfera del reloj Leopold con marcadores analógicos para cada hora" }, caption: { en: "Designed for a quick glance and a closer look: meet the refined Leopold dial.", es: "Diseñado para verse de un vistazo y apreciarse de cerca: conoce la refinada esfera Leopold." } }
+      ] }],
+      "2026-11-26": [{ time: "11:00", type: "content", status: "scheduled", title: { en: "Gold-hour details", es: "Detalles en tono dorado" }, platforms: [
+        { name: "Instagram", kind: "instagram", status: "scheduled", mediaType: "image", src: "/workspace/assets/calendar/leopold-analog-3.jpg", alt: { en: "Leopold analog watch with gold accents around the dial", es: "Reloj analógico Leopold con detalles dorados alrededor de la esfera" }, caption: { en: "A little brilliance in every hour. Discover the Leopold dial with golden details.", es: "Un destello en cada hora. Descubre la esfera Leopold con detalles dorados." } },
+        { name: "Facebook", kind: "facebook", status: "scheduled", mediaType: "image", src: "/workspace/assets/calendar/leopold-analog-3.jpg", alt: { en: "Leopold analog watch with gold accents around the dial", es: "Reloj analógico Leopold con detalles dorados alrededor de la esfera" }, caption: { en: "The finishing touch: warm gold markers meet Leopold’s signature analog design.", es: "El toque final: marcadores dorados se unen al diseño analógico distintivo de Leopold." } }
+      ] }],
       "2026-11-30": [{ time: "14:00", title: { en: "Campaign check-in", es: "Revisión de campaña" } }]
     };
     const today = new Date();
     const todayKey = dateKey(today);
     let view = new Date(today.getFullYear(), today.getMonth(), 1);
     let selected = todayKey;
+    let viewMode = "week";
+
+    const statusText = {
+      en: { posted: "Posted", scheduled: "Scheduled", content: "Post preview", video: "Play video" },
+      es: { posted: "Publicado", scheduled: "Programado", content: "Vista previa", video: "Reproducir video" }
+    };
+
+    function selectedDate() { return new Date(`${selected}T12:00:00`); }
+    function startOfWeek(date) {
+      const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+      return start;
+    }
 
     function renderEvents() {
       const date = new Date(`${selected}T12:00:00`);
@@ -72,21 +96,79 @@
       if (!items.length) {
         const empty = document.createElement("p");
         empty.className = "empty-day";
-        empty.textContent = language() === "es" ? "No hay actividad para este día." : "No activity for this day.";
+        empty.textContent = language() === "es" ? "No hay contenido ni actividad para este día." : "No content or activity for this day.";
         eventsContainer.append(empty);
         return;
       }
       items.forEach((item) => {
         const row = document.createElement("div");
-        row.className = "event-row";
+        row.className = `event-row${item.type === "content" ? " content-event" : ""}${item.status === "posted" ? " posted-event" : ""}`;
         const time = document.createElement("span");
         time.className = "event-time";
         time.textContent = item.time;
         const chip = document.createElement("i");
-        chip.className = `event-chip${item.milestone ? " milestone" : ""}`;
-        const title = document.createElement("span");
+        chip.className = `event-chip${item.milestone ? " milestone" : item.status === "posted" ? " posted" : ""}`;
+        const details = document.createElement("div");
+        details.className = "event-details";
+        const titleLine = document.createElement("div");
+        titleLine.className = "event-title-line";
+        const title = document.createElement("strong");
+        title.className = "event-title";
         title.textContent = item.title[language()];
-        row.append(time, chip, title);
+        titleLine.append(title);
+        if (item.status && !item.platforms) {
+          const status = document.createElement("span");
+          status.className = `event-status ${item.status}`;
+          status.textContent = statusText[language()][item.status];
+          titleLine.append(status);
+        }
+        details.append(titleLine);
+        if (item.platforms) {
+          const platformGrid = document.createElement("div");
+          platformGrid.className = "platform-post-grid";
+          item.platforms.forEach((platform) => {
+            const card = document.createElement("article");
+            card.className = "platform-post-card";
+            const cardHeading = document.createElement("div");
+            cardHeading.className = "platform-post-heading";
+            const platformLabel = document.createElement("strong");
+            platformLabel.className = `platform-post-name ${platform.kind}`;
+            const platformIcon = document.createElement("span");
+            platformIcon.setAttribute("aria-hidden", "true");
+            platformIcon.textContent = platform.kind === "instagram" ? "◎" : "f";
+            platformLabel.append(platformIcon, document.createTextNode(platform.name));
+            const platformStatus = document.createElement("span");
+            platformStatus.className = `event-status ${platform.status}`;
+            platformStatus.textContent = statusText[language()][platform.status];
+            cardHeading.append(platformLabel, platformStatus);
+
+            const media = platform.mediaType === "video" ? document.createElement("video") : document.createElement("img");
+            media.className = "platform-post-media";
+            media.setAttribute("aria-label", platform.alt[language()]);
+            if (platform.mediaType === "video") {
+              media.controls = true;
+              media.preload = "none";
+              media.playsInline = true;
+              media.poster = platform.poster;
+              const source = document.createElement("source");
+              source.src = platform.src;
+              source.type = "video/mp4";
+              media.append(source);
+            } else {
+              media.src = platform.src;
+              media.alt = platform.alt[language()];
+              media.loading = "lazy";
+            }
+
+            const caption = document.createElement("p");
+            caption.className = "platform-post-caption";
+            caption.textContent = platform.caption[language()];
+            card.append(cardHeading, media, caption);
+            platformGrid.append(card);
+          });
+          details.append(platformGrid);
+        }
+        row.append(time, chip, details);
         eventsContainer.append(row);
       });
     }
@@ -95,7 +177,17 @@
       const lang = language();
       const year = view.getFullYear();
       const month = view.getMonth();
-      monthLabel.textContent = dateFormatter({ month: "long", year: "numeric" }).format(view);
+      const activeWeekStart = startOfWeek(selectedDate());
+      if (viewMode === "month") {
+        monthLabel.textContent = dateFormatter({ month: "long", year: "numeric" }).format(view);
+      } else {
+        const endOfWeek = new Date(activeWeekStart.getFullYear(), activeWeekStart.getMonth(), activeWeekStart.getDate() + 6);
+        const shortDate = new Intl.DateTimeFormat(lang === "es" ? "es-MX" : "en-US", { month: "short", day: "numeric" });
+        const fullDate = new Intl.DateTimeFormat(lang === "es" ? "es-MX" : "en-US", { month: "short", day: "numeric", year: "numeric" });
+        monthLabel.textContent = `${shortDate.format(activeWeekStart)} – ${fullDate.format(endOfWeek)}`;
+      }
+      document.querySelector("#month-view").setAttribute("aria-pressed", String(viewMode === "month"));
+      document.querySelector("#week-view").setAttribute("aria-pressed", String(viewMode === "week"));
       grid.replaceChildren();
       weekdays[lang].forEach((day) => {
         const heading = document.createElement("div");
@@ -105,17 +197,25 @@
         grid.append(heading);
       });
       const offset = (new Date(year, month, 1).getDay() + 6) % 7;
-      const start = new Date(year, month, 1 - offset);
-      const count = Math.ceil((offset + new Date(year, month + 1, 0).getDate()) / 7) * 7;
+      const start = viewMode === "week" ? activeWeekStart : new Date(year, month, 1 - offset);
+      const count = viewMode === "week" ? 7 : Math.ceil((offset + new Date(year, month + 1, 0).getDate()) / 7) * 7;
       for (let index = 0; index < count; index += 1) {
         const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
         const key = dateKey(date);
         const button = document.createElement("button");
         button.type = "button";
-        button.className = `date-cell${date.getMonth() !== month ? " outside" : ""}${key === todayKey ? " today-mark" : ""}`;
+        const dayItems = events[key] || [];
+        const hasPosted = dayItems.some((item) => item.status === "posted");
+        button.className = `date-cell${viewMode === "month" && date.getMonth() !== month ? " outside" : ""}${key === todayKey ? " today-mark" : ""}${hasPosted ? " has-posted" : ""}`;
         button.setAttribute("role", "gridcell");
         button.setAttribute("aria-pressed", String(key === selected));
-        button.setAttribute("aria-label", dateFormatter({ weekday: "long", month: "long", day: "numeric", year: "numeric" }).format(date));
+        const dateLabel = dateFormatter({ weekday: "long", month: "long", day: "numeric", year: "numeric" }).format(date);
+        const postedCount = dayItems.filter((item) => item.status === "posted").length;
+        const scheduledCount = dayItems.filter((item) => item.status === "scheduled").length;
+        const contentStatus = lang === "es"
+          ? [postedCount && `${postedCount} publicado${postedCount === 1 ? "" : "s"}`, scheduledCount && `${scheduledCount} programado${scheduledCount === 1 ? "" : "s"}`].filter(Boolean).join(", ")
+          : [postedCount && `${postedCount} posted`, scheduledCount && `${scheduledCount} scheduled`].filter(Boolean).join(", ");
+        button.setAttribute("aria-label", contentStatus ? `${dateLabel}, ${contentStatus}` : dateLabel);
         const number = document.createElement("span");
         number.className = "date-num";
         number.textContent = String(date.getDate());
@@ -125,26 +225,57 @@
           pills.className = "event-dots";
           events[key].slice(0, 2).forEach((event) => {
             const pill = document.createElement("span");
-            pill.className = `event-pill${event.milestone ? " milestone" : ""}`;
-            pill.textContent = event.title[lang];
+            pill.className = `event-pill${event.milestone ? " milestone" : event.status === "posted" ? " posted" : ""}`;
+            const platformNames = event.platforms?.map((platform) => platform.name).join(" + ");
+            pill.textContent = event.type === "content" ? `${event.status === "posted" ? "✓ " : ""}${platformNames} · ${event.title[lang]}` : event.title[lang];
             pills.append(pill);
           });
           button.append(pills);
         }
-        button.addEventListener("click", () => { selected = key; render(); });
+        button.addEventListener("click", () => {
+          selected = key;
+          if (viewMode === "month" && date.getMonth() !== month) view = new Date(date.getFullYear(), date.getMonth(), 1);
+          render();
+        });
         grid.append(button);
       }
       renderEvents();
     }
-    document.querySelector("#prev-month").addEventListener("click", () => { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); render(); });
-    document.querySelector("#next-month").addEventListener("click", () => { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); render(); });
+    document.querySelector("#prev-month").addEventListener("click", () => {
+      if (viewMode === "week") selected = dateKey(new Date(selectedDate().getFullYear(), selectedDate().getMonth(), selectedDate().getDate() - 7));
+      else { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); selected = dateKey(view); }
+      render();
+    });
+    document.querySelector("#next-month").addEventListener("click", () => {
+      if (viewMode === "week") selected = dateKey(new Date(selectedDate().getFullYear(), selectedDate().getMonth(), selectedDate().getDate() + 7));
+      else { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); selected = dateKey(view); }
+      render();
+    });
     document.querySelector("#today-button").addEventListener("click", () => { view = new Date(today.getFullYear(), today.getMonth(), 1); selected = todayKey; render(); });
+    document.querySelector("#month-view").addEventListener("click", () => { viewMode = "month"; view = new Date(selectedDate().getFullYear(), selectedDate().getMonth(), 1); render(); });
+    document.querySelector("#week-view").addEventListener("click", () => { viewMode = "week"; render(); });
     document.addEventListener("goodmarketing:language-change", render);
     render();
   }
 
   const briefForm = document.querySelector("#brief-form");
   if (briefForm) briefForm.addEventListener("submit", (event) => event.preventDefault());
+  const directMessagePreference = document.querySelector("#direct-message-responses");
+  const directMessageSaved = document.querySelector("#direct-message-settings-saved");
+  if (directMessagePreference) {
+    try { directMessagePreference.checked = localStorage.getItem("goodmarketing.directMessageResponses") === "true"; } catch {}
+    directMessagePreference.addEventListener("change", () => {
+      try {
+        localStorage.setItem("goodmarketing.directMessageResponses", String(directMessagePreference.checked));
+        if (directMessageSaved) directMessageSaved.hidden = false;
+      } catch {
+        if (directMessageSaved) {
+          directMessageSaved.hidden = false;
+          directMessageSaved.textContent = language() === "es" ? "No se pudo guardar en este navegador." : "Could not save in this browser.";
+        }
+      }
+    });
+  }
   const assetModeButtons = [...document.querySelectorAll("[data-asset-mode]")];
   const assetModePanels = {
     upload: document.querySelector("#asset-upload-panel"),
@@ -193,6 +324,16 @@
     input.addEventListener("change", () => setFileName(name, input.files, emptyText));
     setFileName(name, [], emptyText);
   });
+  const contentPicker = document.querySelector("#content-assets");
+  document.querySelector("[data-open-content-picker]")?.addEventListener("click", () => contentPicker?.click());
+  contentPicker?.addEventListener("change", updateCampaignContentEstimate);
+  const startAiContent = document.querySelector("#start-ai-content");
+  const aiContentPathStatus = document.querySelector("#ai-content-path-status");
+  startAiContent?.addEventListener("click", () => {
+    startAiContent.setAttribute("aria-pressed", "true");
+    startAiContent.closest(".content-option")?.classList.add("is-selected");
+    if (aiContentPathStatus) aiContentPathStatus.hidden = false;
+  });
   const logoInput = document.querySelector("#logo-file");
   const logoPreview = document.querySelector("#logo-preview");
   let logoPreviewUrl;
@@ -213,6 +354,57 @@
   const campaignForm = document.querySelector("#campaign-form");
   const campaignStages = [...document.querySelectorAll("[data-campaign-stage]")];
   const stepButtons = [...document.querySelectorAll("[data-step-target]")];
+  const strategyPlatforms = [...document.querySelectorAll("#campaign-stage-1 [data-strategy-platform]")];
+  const strategyDuration = document.querySelector("#campaign-stage-1 #strategy-duration");
+  const strategyDurationOutput = document.querySelector("#campaign-stage-1 [data-strategy-duration-output]");
+  const strategyFrequencies = [...document.querySelectorAll('#campaign-stage-1 input[name="strategy-frequency"]')];
+  const contentEstimateNumber = document.querySelector("#campaign-stage-2 [data-content-estimate-number]");
+  const contentEstimateLabel = document.querySelector("#campaign-stage-2 [data-content-estimate-label]");
+  const contentEstimateNote = document.querySelector("#campaign-stage-2 [data-content-estimate-note]");
+  function updateCampaignContentEstimate() {
+    if (!strategyDuration || !contentEstimateNumber || !contentEstimateLabel || !contentEstimateNote) return;
+    const currentLanguage = language() === "es" ? "es" : "en";
+    const frequency = strategyFrequencies.find((option) => option.checked);
+    const postsPerWeek = { low: 3, medium: 4, high: 5 }[frequency?.value] || 4;
+    const days = Number(strategyDuration.value);
+    const contentPieces = Math.ceil((postsPerWeek * days) / 7);
+    const uploadedPieces = contentPicker?.files.length || 0;
+    const generatedPieces = document.querySelectorAll("#campaign-stage-2 [data-generated-content]").length;
+    const completedPieces = uploadedPieces + generatedPieces;
+    const numberFormat = new Intl.NumberFormat(currentLanguage);
+    contentEstimateNumber.textContent = `${numberFormat.format(completedPieces)}/${numberFormat.format(contentPieces)}`;
+    contentEstimateLabel.textContent = currentLanguage === "es"
+      ? `pieza${contentPieces === 1 ? "" : "s"} de contenido`
+      : `content piece${contentPieces === 1 ? "" : "s"}`;
+    contentEstimateNote.textContent = currentLanguage === "es"
+      ? `Según ${postsPerWeek} publicaciones por semana durante ${days} ${days === 1 ? "día" : "días"}. Se redondea hacia arriba para cubrir toda la campaña.`
+      : `Based on ${postsPerWeek} posts per week over ${days} ${days === 1 ? "day" : "days"}. Rounded up to cover the full campaign.`;
+  }
+  function updateCampaignStrategyLanguage() {
+    const currentLanguage = language() === "es" ? "es" : "en";
+    strategyPlatforms.forEach((platform) => {
+      const selected = platform.getAttribute("aria-pressed") === "true";
+      const platformName = platform.querySelector(".strategy-platform-name")?.textContent.trim() || platform.dataset.strategyPlatform;
+      const state = selected ? { en: "selected", es: "seleccionado" } : { en: "not selected", es: "no seleccionado" };
+      platform.setAttribute("aria-label", `${platformName}, ${state[currentLanguage]}`);
+    });
+    if (strategyDuration && strategyDurationOutput) {
+      const days = Number(strategyDuration.value);
+      const duration = currentLanguage === "es" ? `${days} ${days === 1 ? "día" : "días"}` : `${days} ${days === 1 ? "day" : "days"}`;
+      strategyDurationOutput.textContent = duration;
+      strategyDuration.setAttribute("aria-valuetext", duration);
+    }
+    updateCampaignContentEstimate();
+  }
+  strategyPlatforms.forEach((platform) => platform.addEventListener("click", () => {
+    platform.setAttribute("aria-pressed", String(platform.getAttribute("aria-pressed") !== "true"));
+    updateCampaignStrategyLanguage();
+    renderChannelSummaries();
+    renderContentPreview();
+  }));
+  strategyDuration?.addEventListener("input", updateCampaignStrategyLanguage);
+  strategyFrequencies.forEach((frequency) => frequency.addEventListener("change", updateCampaignContentEstimate));
+  updateCampaignStrategyLanguage();
   function showCampaignStep(step, moveFocus = true) {
     campaignStages.forEach((stage) => { stage.hidden = stage.dataset.campaignStage !== String(step); });
     stepButtons.forEach((button) => {
@@ -229,30 +421,15 @@
   document.querySelectorAll("[data-prev-step]").forEach((button) => button.addEventListener("click", () => showCampaignStep(Number(button.dataset.prevStep))));
   if (campaignForm) campaignForm.addEventListener("submit", (event) => { event.preventDefault(); showCampaignStep(2); });
 
-  const contentTitle = document.querySelector("#content-title");
-  const contentCopy = document.querySelector("#content-copy");
-  const formatChoices = [...document.querySelectorAll("[data-content-format]")];
-  const formatNames = { social: { en: "Social post", es: "Publicación social" }, story: { en: "Story", es: "Historia" }, email: { en: "Email update", es: "Correo electrónico" } };
-  let selectedFormat = "social";
   function renderContentPreview() {
-    if (!contentTitle || !contentCopy) return;
-    document.querySelector("#content-preview-title").textContent = contentTitle.value;
-    document.querySelector("#content-preview-copy").textContent = contentCopy.value;
-    const format = formatNames[selectedFormat][language()];
-    document.querySelectorAll("#content-preview-format, #schedule-preview-format").forEach((element) => { element.textContent = format; });
-    const scheduleTitle = document.querySelector("#schedule-preview-title");
-    if (scheduleTitle) scheduleTitle.textContent = contentTitle.value;
+    const contentLabel = language() === "es" ? "Contenido de campaña" : "Campaign content";
+    document.querySelectorAll("#content-preview-format, #schedule-preview-format").forEach((element) => { element.textContent = contentLabel; });
   }
-  formatChoices.forEach((button) => button.addEventListener("click", () => {
-    selectedFormat = button.dataset.contentFormat;
-    formatChoices.forEach((choice) => choice.setAttribute("aria-pressed", String(choice === button)));
-    renderContentPreview();
-  }));
-  contentTitle?.addEventListener("input", renderContentPreview);
-  contentCopy?.addEventListener("input", renderContentPreview);
 
   function renderChannelSummaries() {
-    const selectedChannels = [...document.querySelectorAll("[data-campaign-channel]:checked")].map((input) => input.closest("label")?.querySelector("span")?.textContent.trim()).filter(Boolean);
+    const selectedChannels = strategyPlatforms.length
+      ? strategyPlatforms.filter((platform) => platform.getAttribute("aria-pressed") === "true").map((platform) => platform.querySelector(".strategy-platform-name")?.textContent.trim()).filter(Boolean)
+      : [...document.querySelectorAll("[data-campaign-channel]:checked")].map((input) => input.closest("label")?.querySelector("span")?.textContent.trim()).filter(Boolean);
     ["#content-channel-summary", "#schedule-channel-summary"].forEach((selector) => {
       const container = document.querySelector(selector);
       if (!container) return;
@@ -299,6 +476,7 @@
   placeholders();
   sampleValues();
   document.addEventListener("goodmarketing:language-change", () => {
+    updateCampaignStrategyLanguage();
     placeholders();
     sampleValues();
     const selectedTemplate = templateChoices.find((button) => button.getAttribute("aria-pressed") === "true");

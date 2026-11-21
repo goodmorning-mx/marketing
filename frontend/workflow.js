@@ -106,6 +106,7 @@
 
   strategyPlatforms.forEach((platform) => {
     platform.addEventListener("click", () => {
+      if (platform.disabled) return;
       platform.setAttribute("aria-pressed", String(platform.getAttribute("aria-pressed") !== "true"));
       updateStrategyPlatformLabel(platform);
     });
@@ -123,13 +124,12 @@
       tiktok: { en: "TikTok", es: "TikTok" },
       youtube: { en: "YouTube", es: "YouTube" }
     };
-    const state = selected
+    const state = platform.dataset.comingSoon === "true"
+      ? { en: "coming soon", es: "próximamente" }
+      : selected
       ? { en: "selected", es: "seleccionado" }
       : { en: "not selected", es: "no seleccionado" };
-    const availability = platform.dataset.comingSoon === "true"
-      ? { en: "coming soon, ", es: "próximamente, " }
-      : { en: "", es: "" };
-    platform.setAttribute("aria-label", `${labels[name][language]}, ${availability[language]}${state[language]}`);
+    platform.setAttribute("aria-label", `${labels[name][language]}, ${state[language]}`);
   }
 
   function formatStrategyDuration(days, language = document.documentElement.lang) {

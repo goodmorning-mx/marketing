@@ -1364,6 +1364,22 @@ main > .stack-stage + .stack-stage {
   white-space: nowrap;
 }
 
+#workflow .strategy-platforms-coming-soon {
+  display: table;
+  margin: 10px auto 0;
+}
+
+#workflow .strategy-platform:disabled {
+  cursor: not-allowed;
+  opacity: 0.54;
+  filter: grayscale(1);
+}
+
+#workflow .strategy-platform:disabled:hover {
+  transform: none;
+  border-color: var(--brand-line);
+}
+
 .publishing-benefits {
   gap: 16px;
   margin-top: 24px;

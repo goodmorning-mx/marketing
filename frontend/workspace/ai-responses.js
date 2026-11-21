@@ -6,13 +6,15 @@
       instagram: "Instagram", facebook: "Facebook", question: "Question", suggested: "AI response",
       approve: "Approve", edit: "Edit", save: "Save changes", cancel: "Cancel", approved: "Approved",
       emptyPending: "You’re all caught up. No responses need approval.", emptyLog: "Approved responses will appear here.",
-      responseLabel: "Edit AI response", editQuestion: "Edit response for this question", approvalLabel: "Approve this response"
+      responseLabel: "Edit AI response", editQuestion: "Edit response for this question", approvalLabel: "Approve this response",
+      required: "Enter a response before saving."
     },
     es: {
       instagram: "Instagram", facebook: "Facebook", question: "Pregunta", suggested: "Respuesta de IA",
       approve: "Aprobar", edit: "Editar", save: "Guardar cambios", cancel: "Cancelar", approved: "Aprobada",
       emptyPending: "Todo está al día. No hay respuestas que necesiten aprobación.", emptyLog: "Las respuestas aprobadas aparecerán aquí.",
-      responseLabel: "Editar respuesta de IA", editQuestion: "Editar respuesta para esta pregunta", approvalLabel: "Aprobar esta respuesta"
+      responseLabel: "Editar respuesta de IA", editQuestion: "Editar respuesta para esta pregunta", approvalLabel: "Aprobar esta respuesta",
+      required: "Escribe una respuesta antes de guardar."
     }
   };
   const seed = {
@@ -38,6 +40,8 @@
     state = structuredClone(seed);
   }
   const editing = new Set();
+  const drafts = new Map();
+  const draftKey = (id, lang) => `${id}:${lang}`;
   const persist = () => {
     try { localStorage.setItem(storageKey, JSON.stringify(state)); } catch { /* Keep edits in memory for this page. */ }
   };
@@ -72,10 +76,14 @@
     const isEditing = editing.has(item.id);
     if (isEditing) {
       const textarea = element("textarea", "response-editor");
-      textarea.value = item.response[lang] || item.response.en || "";
+      textarea.value = drafts.has(draftKey(item.id, lang)) ? drafts.get(draftKey(item.id, lang)) : (item.response[lang] || item.response.en || "");
       textarea.setAttribute("aria-label", approved ? text.responseLabel : text.editQuestion);
       textarea.rows = 4;
       card.append(textarea);
+      const feedback = element("p", "response-validation", copy[lang].required);
+      feedback.setAttribute("role", "alert");
+      feedback.hidden = true;
+      card.append(feedback);
       const actions = element("div", "response-actions");
       actions.append(button(text.save, "save", "response-save"));
       actions.append(button(text.cancel, "cancel", "response-cancel response-secondary"));
@@ -123,13 +131,24 @@
     if (!card) return;
     const id = card.dataset.responseId;
     const action = control.dataset.responseAction;
+    const lang = locale();
     if (action === "edit") editing.add(id);
-    if (action === "cancel") editing.delete(id);
+    if (action === "cancel") {
+      editing.delete(id);
+      drafts.delete(draftKey(id, lang));
+    }
     if (action === "save") {
       const item = [...state.pending, ...state.approved].find((entry) => entry.id === id);
       const textarea = card.querySelector("textarea");
+      if (item && textarea && !textarea.value.trim()) {
+        const feedback = card.querySelector(".response-validation");
+        if (feedback) feedback.hidden = false;
+        textarea.focus();
+        return;
+      }
       if (item && textarea) {
-        item.response[locale()] = textarea.value.trim();
+        item.response[lang] = textarea.value.trim();
+        drafts.delete(draftKey(id, lang));
         persist();
       }
       editing.delete(id);
@@ -145,10 +164,21 @@
     }
     renderReview();
     renderLog();
+    if (action === "edit") document.querySelector(`[data-response-id="${CSS.escape(id)}"] textarea`)?.focus();
+    if (action === "cancel" || action === "save") document.querySelector(`[data-response-id="${CSS.escape(id)}"] [data-response-action="edit"]`)?.focus();
+  }
+
+  function handleInput(event) {
+    const textarea = event.target.closest(".response-editor");
+    if (!textarea) return;
+    const card = textarea.closest("[data-response-id]");
+    if (card) drafts.set(draftKey(card.dataset.responseId, locale()), textarea.value);
   }
 
   document.querySelector("#response-review-list")?.addEventListener("click", handleAction);
   document.querySelector("#response-log-list")?.addEventListener("click", handleAction);
+  document.querySelector("#response-review-list")?.addEventListener("input", handleInput);
+  document.querySelector("#response-log-list")?.addEventListener("input", handleInput);
   function render() { renderReview(); renderLog(); }
   render();
   document.addEventListener("goodmarketing:language-change", render);

@@ -1681,3 +1681,22 @@ main > .stack-stage + .stack-stage {
     font-size: 0.78rem;
   }
 }
+
+/* Preserve each platform mark's original silhouette instead of clipping it to a generic rounded shape. */
+.channel-float .channel-logo,
+#publishing .platform-icon,
+#workflow .strategy-platform-icon img,
+#workflow .publish-account img {
+  border-radius: 0;
+}
+
+.channel-float .channel-logo.facebook-logo,
+#publishing .platform-icon.facebook-logo,
+#workflow .strategy-platform-icon img.facebook-logo,
+#workflow .publish-account img.facebook-logo {
+  border-radius: 50%;
+}
+
+.channel-float.linkedin .channel-logo {
+  border-radius: 0;
+}

@@ -1244,12 +1244,8 @@ main > .stack-stage + .stack-stage {
 }
 
 #research .research-growth-axis,
-#research .research-growth-gridline,
-#research .research-growth-baseline,
-#research .research-growth-uplift {
+#research .research-growth-gridline {
   fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 #research .research-growth-axis {
@@ -1263,38 +1259,26 @@ main > .stack-stage + .stack-stage {
   stroke-dasharray: 2 4;
 }
 
-#research .research-growth-baseline {
-  stroke: rgba(220, 231, 247, 0.74);
-  stroke-width: 2.2;
-  stroke-dasharray: 3 3;
+#research .research-growth-bar-baseline,
+#research .research-growth-legend-baseline {
+  fill: rgba(220, 231, 247, 0.8);
 }
 
-#research .research-growth-uplift {
-  stroke: #75b7ff;
-  stroke-width: 3.2;
-  filter: drop-shadow(0 0 3px rgba(117, 183, 255, 0.65));
-}
-
-#research .research-growth-endpoint {
-  fill: #e2eaf7;
-}
-
-#research .research-growth-endpoint-highlight {
+#research .research-growth-bar-uplift,
+#research .research-growth-legend-uplift {
   fill: #75b7ff;
 }
 
-#research .research-growth-value,
+#research .research-growth-bar-uplift {
+  filter: drop-shadow(0 0 2px rgba(117, 183, 255, 0.5));
+}
+
+#research .research-growth-legend,
 #research .research-growth-tick,
 #research .research-growth-time {
   fill: #d8e4f5;
   font-size: 10px;
   font-weight: 650;
-}
-
-#research .research-growth-value-highlight {
-  fill: #a9d4ff;
-  font-size: 12px;
-  font-weight: 800;
 }
 
 #research .research-growth-tick,

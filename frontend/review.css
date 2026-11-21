@@ -1222,6 +1222,80 @@ main > .stack-stage + .stack-stage {
   font-size: clamp(2.5rem, 5vw, 3.6rem);
 }
 
+#research .research-growth-chart {
+  position: absolute;
+  inset: 8%;
+  width: 84%;
+  height: 84%;
+  overflow: visible;
+  font-family: inherit;
+}
+
+#research .research-growth-axis,
+#research .research-growth-gridline,
+#research .research-growth-baseline,
+#research .research-growth-uplift {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#research .research-growth-axis {
+  stroke: rgba(224, 236, 255, 0.58);
+  stroke-width: 1.2;
+}
+
+#research .research-growth-gridline {
+  stroke: rgba(224, 236, 255, 0.15);
+  stroke-width: 0.8;
+  stroke-dasharray: 2 4;
+}
+
+#research .research-growth-baseline {
+  stroke: rgba(220, 231, 247, 0.74);
+  stroke-width: 2.2;
+  stroke-dasharray: 3 3;
+}
+
+#research .research-growth-uplift {
+  stroke: #75b7ff;
+  stroke-width: 3.2;
+  filter: drop-shadow(0 0 3px rgba(117, 183, 255, 0.65));
+}
+
+#research .research-growth-endpoint {
+  fill: #e2eaf7;
+}
+
+#research .research-growth-endpoint-highlight {
+  fill: #75b7ff;
+}
+
+#research .research-growth-value,
+#research .research-growth-tick,
+#research .research-growth-time {
+  fill: #d8e4f5;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+#research .research-growth-value-highlight {
+  fill: #a9d4ff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+#research .research-growth-tick,
+#research .research-growth-time {
+  fill: #aebbd0;
+  font-size: 8px;
+  font-weight: 550;
+}
+
+#research .research-chart-caption {
+  margin: 0;
+}
+
 #research .research-stat-dial {
   position: absolute;
   inset: 8%;

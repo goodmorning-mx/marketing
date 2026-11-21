@@ -1365,8 +1365,12 @@ main > .stack-stage + .stack-stage {
 }
 
 #workflow .strategy-platforms-coming-soon {
-  display: table;
-  margin: 10px auto 0;
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin: 2px 0;
+  border-color: rgba(174, 178, 188, 0.3);
+  background: rgba(174, 178, 188, 0.08);
+  color: #a5a7ae;
 }
 
 #workflow .strategy-platform:disabled {

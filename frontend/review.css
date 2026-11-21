@@ -1218,6 +1218,10 @@ main > .stack-stage + .stack-stage {
   font-weight: 750;
 }
 
+#research .research-stat-number-decimal {
+  font-size: clamp(2.5rem, 5vw, 3.6rem);
+}
+
 .publishing-benefits {
   gap: 16px;
   margin-top: 24px;

@@ -126,7 +126,10 @@
     const state = selected
       ? { en: "selected", es: "seleccionado" }
       : { en: "not selected", es: "no seleccionado" };
-    platform.setAttribute("aria-label", `${labels[name][language]}, ${state[language]}`);
+    const availability = platform.dataset.comingSoon === "true"
+      ? { en: "coming soon, ", es: "próximamente, " }
+      : { en: "", es: "" };
+    platform.setAttribute("aria-label", `${labels[name][language]}, ${availability[language]}${state[language]}`);
   }
 
   function formatStrategyDuration(days, language = document.documentElement.lang) {

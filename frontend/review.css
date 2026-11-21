@@ -1204,6 +1204,19 @@ main > .stack-stage + .stack-stage {
   margin-block: 16px;
 }
 
+#research .research-explanation {
+  width: 100%;
+  margin: 0;
+  color: #a0aecb;
+  font-size: clamp(0.92rem, 1.05vw, 1.05rem);
+  line-height: 1.5;
+  text-align: left;
+}
+
+#research .research-explanation:empty {
+  display: none;
+}
+
 .publishing-benefits {
   gap: 16px;
   margin-top: 24px;

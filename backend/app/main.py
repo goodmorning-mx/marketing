@@ -11,16 +11,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 from psycopg.rows import dict_row
+from sqlalchemy import create_engine
+from app.adapters import router as adapters_router
+from app.config import get_settings
+from app.database import engine
+from app.models import Base
 
-app = FastAPI(title="GoodMarketing API", version="0.1.0")
-origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "https://dev.marketing.goodmorning.mx").split(",") if origin.strip()]
+settings = get_settings()
+app = FastAPI(title=settings.app_name, version="0.1.0")
+origins = settings.allowed_origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
+    allow_headers=["*"],
 )
+app.include_router(adapters_router)
 basic_auth = HTTPBasic(auto_error=False)
 statuses = ("new", "qualified", "not_qualified", "contacted", "invited", "closed")
 
@@ -74,6 +81,40 @@ def ensure_table(connection):
     connection.commit()
 
 
+@app.on_event("startup")
+def startup_database():
+    if not os.getenv("DATABASE_URL"):
+        return
+    database_url = os.environ["DATABASE_URL"]
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    schema_engine = create_engine(database_url, pool_pre_ping=True)
+    migrations_dir = os.path.join(os.path.dirname(__file__), "..", "migrations")
+    try:
+        with database_connection() as connection:
+            connection.execute("CREATE TABLE IF NOT EXISTS goodmarketing_schema_migrations (version VARCHAR(80) PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())")
+            connection.commit()
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext('goodmarketing-auth-migrations')::bigint)")
+            migrations = (
+                ("marketing:adapters-models:189869c", lambda: Base.metadata.create_all(schema_engine)),
+                ("demo-requests:1", "003_demo_requests.sql"),
+                ("marketing:strategy-fields:1", "004_marketing_strategy_fields.sql"),
+            )
+            for version, migration in migrations:
+                found = connection.execute("SELECT 1 FROM goodmarketing_schema_migrations WHERE version = %s", (version,)).fetchone()
+                if found:
+                    continue
+                if callable(migration):
+                    migration()
+                else:
+                    with open(os.path.join(migrations_dir, migration), encoding="utf-8") as source:
+                        connection.execute(source.read(), prepare=False)
+                connection.execute("INSERT INTO goodmarketing_schema_migrations (version) VALUES (%s)", (version,))
+            connection.commit()
+    finally:
+        schema_engine.dispose()
+
+
 def require_admin(credentials: HTTPBasicCredentials | None = Depends(basic_auth)):
     username = os.getenv("ADMIN_USERNAME")
     password = os.getenv("ADMIN_PASSWORD")
@@ -93,7 +134,7 @@ def require_admin(credentials: HTTPBasicCredentials | None = Depends(basic_auth)
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"service": "GoodMarketing API", "status": "ok"}
+    return {"service": settings.app_name, "status": "ok", "environment": settings.app_env}
 
 
 @app.post("/demo-requests", status_code=status.HTTP_201_CREATED)

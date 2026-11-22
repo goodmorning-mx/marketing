@@ -90,47 +90,35 @@ window.GMPostPreview = (() => {
     const selectedLabel = document.querySelector("#selected-date");
     const eventsContainer = document.querySelector("#day-events");
     const weekdays = { en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], es: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"] };
-    const events = {
-      "2026-11-20": [{ time: "10:00", type: "content", status: "posted", title: { en: "First look: Leopold", es: "Primer vistazo: Leopold" }, platforms: [
-        { name: "Instagram", kind: "instagram", status: "posted", mediaType: "image", src: "/workspace/assets/calendar/leopold-analog-1.jpg", alt: { en: "Leopold analog watch with a digital date and battery display", es: "Reloj analógico Leopold con pantalla digital de fecha y batería" }, caption: { en: "Introducing Leopold: an analog watch designed around the details that matter. OCT 26 · 85%.", es: "Te presentamos Leopold: un reloj analógico diseñado alrededor de los detalles que importan. OCT 26 · 85%." } },
-        { name: "Facebook", kind: "facebook", status: "posted", mediaType: "image", src: "/workspace/assets/calendar/leopold-analog-1.jpg", alt: { en: "Leopold analog watch with a digital date and battery display", es: "Reloj analógico Leopold con pantalla digital de fecha y batería" }, caption: { en: "Meet Leopold. A bold analog design with a subtle digital readout for everyday life.", es: "Conoce Leopold. Un diseño analógico distintivo con una discreta lectura digital para todos los días." } }
-      ] }],
-      "2026-11-21": [{ time: "13:30", type: "content", status: "scheduled", title: { en: "Inside the movement", es: "El movimiento por dentro" }, platforms: [
-        { name: "Instagram", kind: "instagram", status: "scheduled", mediaType: "video", src: "/workspace/assets/calendar/leopold-mechanics.mp4", poster: "/workspace/assets/calendar/leopold-mechanics-poster.png", alt: { en: "Leopold watch mechanism turning in close-up", es: "Mecanismo del reloj Leopold en movimiento, en primer plano" }, caption: { en: "Precision in motion. Take a closer look at the mechanics behind Leopold.", es: "Precisión en movimiento. Mira de cerca la mecánica detrás de Leopold." } },
-        { name: "Facebook", kind: "facebook", status: "scheduled", mediaType: "video", src: "/workspace/assets/calendar/leopold-mechanics.mp4", poster: "/workspace/assets/calendar/leopold-mechanics-poster.png", alt: { en: "Leopold watch mechanism turning in close-up", es: "Mecanismo del reloj Leopold en movimiento, en primer plano" }, caption: { en: "A closer look at the movement and craft behind the Leopold analog watch.", es: "Un vistazo más cercano al movimiento y la elaboración del reloj analógico Leopold." } }
-      ] }],
-      "2026-11-24": [{ time: "09:00", title: { en: "Leopold campaign milestone", es: "Hito de la campaña Leopold" }, milestone: true }, { time: "15:00", type: "content", status: "scheduled", title: { en: "Readability, reimagined", es: "Legibilidad renovada" }, platforms: [
-        { name: "Instagram", kind: "instagram", status: "scheduled", mediaType: "image", src: "/workspace/assets/calendar/leopold-analog-2.jpg", alt: { en: "Leopold watch face with a full set of analog hour markers", es: "Esfera del reloj Leopold con marcadores analógicos para cada hora" }, caption: { en: "A clearer way to read time. Leopold brings considered markers to a clean analog face.", es: "Una forma más clara de leer la hora. Leopold suma marcadores bien pensados a una esfera analógica limpia." } },
-        { name: "Facebook", kind: "facebook", status: "scheduled", mediaType: "image", src: "/workspace/assets/calendar/leopold-analog-2.jpg", alt: { en: "Leopold watch face with a full set of analog hour markers", es: "Esfera del reloj Leopold con marcadores analógicos para cada hora" }, caption: { en: "Designed for a quick glance and a closer look: meet the refined Leopold dial.", es: "Diseñado para verse de un vistazo y apreciarse de cerca: conoce la refinada esfera Leopold." } }
-      ] }],
-      "2026-11-26": [{ time: "11:00", type: "content", status: "scheduled", title: { en: "Gold-hour details", es: "Detalles en tono dorado" }, platforms: [
-        { name: "Instagram", kind: "instagram", status: "scheduled", mediaType: "image", src: "/workspace/assets/calendar/leopold-analog-3.jpg", alt: { en: "Leopold analog watch with gold accents around the dial", es: "Reloj analógico Leopold con detalles dorados alrededor de la esfera" }, caption: { en: "A little brilliance in every hour. Discover the Leopold dial with golden details.", es: "Un destello en cada hora. Descubre la esfera Leopold con detalles dorados." } },
-        { name: "Facebook", kind: "facebook", status: "scheduled", mediaType: "image", src: "/workspace/assets/calendar/leopold-analog-3.jpg", alt: { en: "Leopold analog watch with gold accents around the dial", es: "Reloj analógico Leopold con detalles dorados alrededor de la esfera" }, caption: { en: "The finishing touch: warm gold markers meet Leopold’s signature analog design.", es: "El toque final: marcadores dorados se unen al diseño analógico distintivo de Leopold." } }
-      ] }],
-      "2026-11-30": [{ time: "14:00", title: { en: "Campaign check-in", es: "Revisión de campaña" } }]
-    };
-    const today = new Date();
-    const todayKey = dateKey(today);
-    let view = new Date(today.getFullYear(), today.getMonth(), 1);
+    const selectors = window.GoodMarketingCampaigns;
+    const records = window.GoodMarketingDemoCampaigns;
+    const campaignId = new URLSearchParams(window.location.search).get("campaign");
+    const asOf = window.GoodMarketingCampaignView.asOf;
+    const model = selectors.calendar(records, { campaignId, asOf });
+    const events = model.days;
+    // UTC-noon cursors represent date-only cells, never scheduled instants. The model
+    // already grouped actual instants in the declared campaign/display IANA zone.
+    const calendarDate = (year, month, day = 1) => new Date(Date.UTC(year, month, day, 12));
+    const dateKey = (date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+    const dateFormatter = (options) => new Intl.DateTimeFormat(language() === "es" ? "es-MX" : "en-US", { ...options, timeZone: "UTC" });
+    const todayKey = selectors.dayKey(asOf, model.timeZone);
+    const today = new Date(`${todayKey}T12:00:00Z`);
+    let view = calendarDate(today.getUTCFullYear(), today.getUTCMonth());
     let selected = todayKey;
     let focused = todayKey;
     let viewMode = "week";
 
-    const statusText = {
-      en: { posted: "Posted", scheduled: "Scheduled", content: "Post preview", video: "Play video" },
-      es: { posted: "Publicado", scheduled: "Programado", content: "Vista previa", video: "Reproducir video" }
-    };
 
-    function selectedDate() { return new Date(`${selected}T12:00:00`); }
-    function focusedDate() { return new Date(`${focused}T12:00:00`); }
+    function selectedDate() { return new Date(`${selected}T12:00:00Z`); }
+    function focusedDate() { return new Date(`${focused}T12:00:00Z`); }
     function startOfWeek(date) {
-      const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+      const start = calendarDate(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+      start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
       return start;
     }
 
     function renderEvents() {
-      const date = new Date(`${selected}T12:00:00`);
+      const date = new Date(`${selected}T12:00:00Z`);
       selectedLabel.textContent = dateFormatter({ weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(date);
       eventsContainer.replaceChildren();
       const items = events[selected] || [];
@@ -155,12 +143,12 @@ window.GMPostPreview = (() => {
         titleLine.className = "event-title-line";
         const title = document.createElement("strong");
         title.className = "event-title";
-        title.textContent = item.title[language()];
+        title.textContent = `${item.campaignName} · ${item.title[language()]}`;
         titleLine.append(title);
         if (item.status && !item.platforms) {
           const status = document.createElement("span");
           status.className = `event-status ${item.status}`;
-          status.textContent = statusText[language()][item.status];
+          status.textContent = window.GoodMarketingCampaignView.statusLabel(item.status);
           titleLine.append(status);
         }
         details.append(titleLine);
@@ -180,7 +168,7 @@ window.GMPostPreview = (() => {
             platformLabel.append(platformIcon, document.createTextNode(platform.name));
             const platformStatus = document.createElement("span");
             platformStatus.className = `event-status ${platform.status}`;
-            platformStatus.textContent = statusText[language()][platform.status];
+            platformStatus.textContent = window.GoodMarketingCampaignView.statusLabel(platform.status);
             cardHeading.append(platformLabel, platformStatus);
 
             const media = platform.mediaType === "video" ? document.createElement("video") : document.createElement("img");
@@ -219,17 +207,33 @@ window.GMPostPreview = (() => {
     }
 
     function render(restoreDateFocus = false) {
+      const scope = document.querySelector("#calendar-scope");
+      scope.textContent = `${model.campaign?.name || (language() === "es" ? "Todas las campañas de demostración" : "All demo campaigns")} · ${language() === "es" ? "Zona horaria" : "Display time zone"}: ${model.timeZone}`;
+      const campaignLink = document.querySelector("#calendar-campaign-link");
+      campaignLink.textContent = model.campaign?.name || (language() === "es" ? "Todas las campañas" : "All campaigns");
+      campaignLink.href = model.campaign?.detailPath || "/workspace/campaigns/";
+      if (model.notFound) {
+        scope.textContent = language() === "es" ? "No se encontró la campaña de demostración." : "Demo campaign not found.";
+        grid.hidden = true;
+        monthLabel.textContent = "";
+        selectedLabel.textContent = scope.textContent;
+        eventsContainer.textContent = language() === "es" ? "Abre el calendario sin filtro para ver las campañas disponibles." : "Open the unfiltered calendar to see available campaigns.";
+        campaignLink.href = "/workspace/calendar/";
+        campaignLink.textContent = language() === "es" ? "Abrir calendario sin filtro" : "Open unfiltered calendar";
+        document.querySelectorAll(".calendar-controls button, .calendar-view-toggle button").forEach((button) => { button.disabled = true; });
+        return;
+      }
       const shouldRestoreDateFocus = restoreDateFocus || grid.contains(document.activeElement);
       const lang = language();
-      const year = view.getFullYear();
-      const month = view.getMonth();
+      const year = view.getUTCFullYear();
+      const month = view.getUTCMonth();
       const activeWeekStart = startOfWeek(focusedDate());
       if (viewMode === "month") {
         monthLabel.textContent = dateFormatter({ month: "long", year: "numeric" }).format(view);
       } else {
-        const endOfWeek = new Date(activeWeekStart.getFullYear(), activeWeekStart.getMonth(), activeWeekStart.getDate() + 6);
-        const shortDate = new Intl.DateTimeFormat(lang === "es" ? "es-MX" : "en-US", { month: "short", day: "numeric" });
-        const fullDate = new Intl.DateTimeFormat(lang === "es" ? "es-MX" : "en-US", { month: "short", day: "numeric", year: "numeric" });
+        const endOfWeek = calendarDate(activeWeekStart.getUTCFullYear(), activeWeekStart.getUTCMonth(), activeWeekStart.getUTCDate() + 6);
+        const shortDate = new Intl.DateTimeFormat(lang === "es" ? "es-MX" : "en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+        const fullDate = new Intl.DateTimeFormat(lang === "es" ? "es-MX" : "en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
         monthLabel.textContent = `${shortDate.format(activeWeekStart)} – ${fullDate.format(endOfWeek)}`;
       }
       document.querySelector("#month-view").setAttribute("aria-pressed", String(viewMode === "month"));
@@ -246,9 +250,9 @@ window.GMPostPreview = (() => {
         headingRow.append(heading);
       });
       grid.append(headingRow);
-      const offset = (new Date(year, month, 1).getDay() + 6) % 7;
-      const start = viewMode === "week" ? activeWeekStart : new Date(view.getFullYear(), view.getMonth(), 1 - offset);
-      const count = viewMode === "week" ? 7 : Math.ceil((offset + new Date(year, month + 1, 0).getDate()) / 7) * 7;
+      const offset = (calendarDate(year, month, 1).getUTCDay() + 6) % 7;
+      const start = viewMode === "week" ? activeWeekStart : calendarDate(view.getUTCFullYear(), view.getUTCMonth(), 1 - offset);
+      const count = viewMode === "week" ? 7 : Math.ceil((offset + calendarDate(year, month + 1, 0).getUTCDate()) / 7) * 7;
       grid.setAttribute("aria-rowcount", String(1 + count / 7));
       grid.setAttribute("aria-colcount", "7");
       let dateRow;
@@ -259,29 +263,26 @@ window.GMPostPreview = (() => {
           dateRow.setAttribute("role", "row");
           grid.append(dateRow);
         }
-        const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
+        const date = calendarDate(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + index);
         const key = dateKey(date);
         const button = document.createElement("button");
         button.type = "button";
         const dayItems = events[key] || [];
         const hasPosted = dayItems.some((item) => item.status === "posted");
-        button.className = `date-cell${viewMode === "month" && date.getMonth() !== month ? " outside" : ""}${key === selected ? " is-selected" : ""}${key === todayKey ? " today-mark" : ""}${hasPosted ? " has-posted" : ""}`;
+        button.className = `date-cell${viewMode === "month" && date.getUTCMonth() !== month ? " outside" : ""}${key === selected ? " is-selected" : ""}${key === todayKey ? " today-mark" : ""}${hasPosted ? " has-posted" : ""}`;
         button.setAttribute("role", "gridcell");
         button.setAttribute("aria-selected", String(key === selected));
         if (key === todayKey) button.setAttribute("aria-current", "date");
         button.tabIndex = key === focused ? 0 : -1;
         button.dataset.dateKey = key;
         const dateLabel = dateFormatter({ weekday: "long", month: "long", day: "numeric", year: "numeric" }).format(date);
-        const postedCount = dayItems.filter((item) => item.status === "posted").length;
-        const scheduledCount = dayItems.filter((item) => item.status === "scheduled").length;
-        const contentStatus = lang === "es"
-          ? [postedCount && `${postedCount} publicado${postedCount === 1 ? "" : "s"}`, scheduledCount && `${scheduledCount} programado${scheduledCount === 1 ? "" : "s"}`].filter(Boolean).join(", ")
-          : [postedCount && `${postedCount} posted`, scheduledCount && `${scheduledCount} scheduled`].filter(Boolean).join(", ");
+        const statuses = [...new Set(dayItems.filter((item) => item.type === "content").map((item) => item.status))];
+        const contentStatus = statuses.map((status) => `${dayItems.filter((item) => item.status === status).length} ${window.GoodMarketingCampaignView.statusLabel(status)}`).join(", ");
         const todayLabel = key === todayKey ? (lang === "es" ? "hoy" : "today") : "";
         button.setAttribute("aria-label", [dateLabel, todayLabel, contentStatus].filter(Boolean).join(", "));
         const number = document.createElement("span");
         number.className = "date-num";
-        number.textContent = String(date.getDate());
+        number.textContent = String(date.getUTCDate());
         button.append(number);
         if (events[key]) {
           const pills = document.createElement("span");
@@ -290,7 +291,7 @@ window.GMPostPreview = (() => {
             const pill = document.createElement("span");
             pill.className = `event-pill${event.milestone ? " milestone" : event.status === "posted" ? " posted" : ""}`;
             const platformNames = event.platforms?.map((platform) => platform.name).join(" + ");
-            pill.textContent = event.type === "content" ? `${event.status === "posted" ? "✓ " : ""}${platformNames} · ${event.title[lang]}` : event.title[lang];
+            pill.textContent = event.type === "content" ? `${event.status === "posted" ? "✓ " : ""}${event.campaignName} · ${platformNames} · ${event.title[lang]}` : `${event.campaignName} · ${event.title[lang]}`;
             pills.append(pill);
           });
           button.append(pills);
@@ -298,7 +299,7 @@ window.GMPostPreview = (() => {
         button.addEventListener("click", () => {
           selected = key;
           focused = key;
-          if (viewMode === "month" && (date.getMonth() !== month || date.getFullYear() !== year)) view = new Date(date.getFullYear(), date.getMonth(), 1);
+          if (viewMode === "month" && (date.getUTCMonth() !== month || date.getUTCFullYear() !== year)) view = calendarDate(date.getUTCFullYear(), date.getUTCMonth(), 1);
           render(true);
         });
         dateRow.append(button);
@@ -313,28 +314,28 @@ window.GMPostPreview = (() => {
       const dayOffset = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key];
       if (dayOffset === undefined) return;
       event.preventDefault();
-      const date = new Date(`${cell.dataset.dateKey}T12:00:00`);
-      date.setDate(date.getDate() + dayOffset);
+      const date = new Date(`${cell.dataset.dateKey}T12:00:00Z`);
+      date.setUTCDate(date.getUTCDate() + dayOffset);
       focused = dateKey(date);
-      if (viewMode === "month" && (date.getMonth() !== view.getMonth() || date.getFullYear() !== view.getFullYear())) {
-        view = new Date(date.getFullYear(), date.getMonth(), 1);
+      if (viewMode === "month" && (date.getUTCMonth() !== view.getUTCMonth() || date.getUTCFullYear() !== view.getUTCFullYear())) {
+        view = calendarDate(date.getUTCFullYear(), date.getUTCMonth(), 1);
       }
       render(true);
     });
     document.querySelector("#prev-month").addEventListener("click", () => {
-      if (viewMode === "week") selected = dateKey(new Date(selectedDate().getFullYear(), selectedDate().getMonth(), selectedDate().getDate() - 7));
-      else { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); selected = dateKey(view); }
+      if (viewMode === "week") selected = dateKey(calendarDate(selectedDate().getUTCFullYear(), selectedDate().getUTCMonth(), selectedDate().getUTCDate() - 7));
+      else { view = calendarDate(view.getUTCFullYear(), view.getUTCMonth() - 1, 1); selected = dateKey(view); }
       focused = selected;
       render();
     });
     document.querySelector("#next-month").addEventListener("click", () => {
-      if (viewMode === "week") selected = dateKey(new Date(selectedDate().getFullYear(), selectedDate().getMonth(), selectedDate().getDate() + 7));
-      else { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); selected = dateKey(view); }
+      if (viewMode === "week") selected = dateKey(calendarDate(selectedDate().getUTCFullYear(), selectedDate().getUTCMonth(), selectedDate().getUTCDate() + 7));
+      else { view = calendarDate(view.getUTCFullYear(), view.getUTCMonth() + 1, 1); selected = dateKey(view); }
       focused = selected;
       render();
     });
-    document.querySelector("#today-button").addEventListener("click", () => { view = new Date(today.getFullYear(), today.getMonth(), 1); selected = todayKey; focused = todayKey; render(); });
-    document.querySelector("#month-view").addEventListener("click", () => { viewMode = "month"; view = new Date(focusedDate().getFullYear(), focusedDate().getMonth(), 1); render(); });
+    document.querySelector("#today-button").addEventListener("click", () => { view = calendarDate(today.getUTCFullYear(), today.getUTCMonth(), 1); selected = todayKey; focused = todayKey; render(); });
+    document.querySelector("#month-view").addEventListener("click", () => { viewMode = "month"; view = calendarDate(focusedDate().getUTCFullYear(), focusedDate().getUTCMonth(), 1); render(); });
     document.querySelector("#week-view").addEventListener("click", () => { viewMode = "week"; render(); });
     document.addEventListener("goodmarketing:language-change", render);
     render();

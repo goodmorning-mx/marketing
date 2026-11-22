@@ -3,7 +3,8 @@
   const panel = document.querySelector("#workflow-panel");
   if (!tabs.length || !panel) return;
 
-  const descriptions = [...panel.querySelectorAll("[data-workflow-description]")];
+  const descriptions = [...document.querySelectorAll("[data-workflow-description]")];
+  const brandPanel = document.querySelector("#workflow-brand-panel");
 
   if (window.matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)").matches) {
     document.querySelectorAll(".platforms, .research-visual, #workflow .strategy-control, #workflow .content-option, #workflow .publish-source, #workflow .publish-accounts").forEach((surface) => {
@@ -46,7 +47,10 @@
       description.hidden = description.dataset.workflowDescription !== key;
     });
 
-    panel.setAttribute("aria-labelledby", tab.id);
+    const isBrandMessaging = key === "brand-messaging";
+    panel.hidden = isBrandMessaging;
+    if (isBrandMessaging) brandPanel.setAttribute("aria-labelledby", tab.id);
+    else panel.setAttribute("aria-labelledby", tab.id);
     if (focus) tab.focus();
   }
 

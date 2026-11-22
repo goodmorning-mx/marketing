@@ -7,7 +7,8 @@
       approve: "Approve", edit: "Edit", save: "Save changes", cancel: "Cancel", approved: "Approved",
       emptyPending: "No example responses need approval.", emptyLog: "Approved example responses will appear here.",
       responseLabel: "Edit AI response", editQuestion: "Edit response for this question", approvalLabel: "Approve this response",
-      required: "Enter a response before saving.", storageReadError: "Saved example responses couldn’t be read. Showing examples for this visit.",
+      required: "Enter a response before saving.", storageReadError: "Saved responses couldn’t be read. Showing examples for this visit; the saved queue is unchanged.",
+      readOnlyNotice: "This change applies to these examples for this visit only. The saved queue was not read or changed.",
       storageWriteError: "Couldn’t save this change. It will last only until you leave this page.",
       approvedNotice: (count) => count ? `Example response approved. ${count} still need approval.` : "Example response approved. The demo queue is empty.",
       savedNotice: "Example response saved in this browser.", canceledNotice: "Unsaved edits discarded."
@@ -17,7 +18,8 @@
       approve: "Aprobar", edit: "Editar", save: "Guardar cambios", cancel: "Cancelar", approved: "Aprobada",
       emptyPending: "No hay respuestas de ejemplo que necesiten aprobación.", emptyLog: "Las respuestas de ejemplo aprobadas aparecerán aquí.",
       responseLabel: "Editar respuesta de IA", editQuestion: "Editar respuesta para esta pregunta", approvalLabel: "Aprobar esta respuesta",
-      required: "Escribe una respuesta antes de guardar.", storageReadError: "No se pudieron leer las respuestas de ejemplo guardadas. Se mostrarán ejemplos durante esta visita.",
+      required: "Escribe una respuesta antes de guardar.", storageReadError: "No se pudieron leer las respuestas guardadas. Se mostrarán ejemplos durante esta visita; la cola guardada no se modificó.",
+      readOnlyNotice: "Este cambio solo se aplica a estos ejemplos durante esta visita. La cola guardada no se leyó ni se modificó.",
       storageWriteError: "No se pudo guardar el cambio. Solo estará disponible hasta que salgas de esta página.",
       approvedNotice: (count) => count ? `Respuesta de ejemplo aprobada. Quedan ${count} por aprobar.` : "Respuesta de ejemplo aprobada. La cola de demostración está vacía.",
       savedNotice: "Respuesta de ejemplo guardada en este navegador.", canceledNotice: "Se descartaron los cambios sin guardar."
@@ -52,6 +54,7 @@
   const drafts = new Map();
   const draftKey = (id, lang) => `${id}:${lang}`;
   const persist = () => {
+    if (storageError === "read") return false;
     try {
       localStorage.setItem(storageKey, JSON.stringify(state));
       storageError = "";
@@ -174,7 +177,7 @@
       if (item && textarea) {
         item.response[lang] = textarea.value.trim();
         drafts.delete(draftKey(id, lang));
-        if (persist()) queueNotice = "savedNotice";
+        queueNotice = persist() ? "savedNotice" : storageError === "read" ? "readOnlyNotice" : "storageWriteError";
       }
       editing.delete(id);
     }
@@ -183,7 +186,9 @@
       if (index >= 0) {
         const [item] = state.pending.splice(index, 1);
         state.approved.unshift({ ...item, approvedAt: new Date().toISOString() });
-        if (persist()) queueNotice = { key: "approvedNotice", count: state.pending.length };
+        queueNotice = persist()
+          ? { key: "approvedNotice", count: state.pending.length }
+          : storageError === "read" ? "readOnlyNotice" : "storageWriteError";
       }
       editing.delete(id);
     }

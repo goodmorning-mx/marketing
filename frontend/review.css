@@ -1754,7 +1754,6 @@ main > .stack-stage + .stack-stage {
 
 #workflow .strategy-platform-icon img.linkedin-logo,
 #coming-soon .linkedin-logo {
-  background-color: #fff;
   border-radius: 0;
   clip-path: none;
   overflow: visible;
@@ -1768,7 +1767,6 @@ main > .stack-stage + .stack-stage {
   width: 32px;
   height: 32px;
   flex-basis: 32px;
-  background-color: #fff;
   border-radius: 0;
   clip-path: none;
   overflow: visible;
@@ -1781,7 +1779,6 @@ main > .stack-stage + .stack-stage {
 }
 
 .channel-float.linkedin .channel-logo.linkedin-logo {
-  background-color: #fff;
   border-radius: 0;
   clip-path: none;
   overflow: visible;

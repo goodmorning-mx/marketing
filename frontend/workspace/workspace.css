@@ -313,6 +313,11 @@ footer{border-color:var(--surface-hairline);color:#a1a1aa}
 
 /* AI response approval and editable approved-response log. */
 .metric-ai-responses{gap:13px}
+.overview-demo-notice{align-items:center}
+.overview-demo-pill,.response-demo-pill{flex:0 0 auto;font-size:.61rem;letter-spacing:.06em}
+.response-demo-note{margin:-5px 0 0;color:var(--type-muted);font-size:.68rem;line-height:1.45}
+.response-review-status{color:#f0c879;font-size:.72rem;line-height:1.45}
+.response-review-status:empty{display:none}
 .review-card-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .review-card-heading>div{display:grid;gap:5px;min-width:0}
 .review-card-heading>div>span{color:#c4c4cc;font-size:.77rem}

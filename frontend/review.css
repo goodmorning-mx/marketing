@@ -1233,13 +1233,29 @@ main > .stack-stage + .stack-stage {
 
 #research .research-growth-graphic {
   width: min(100%, 280px);
-  height: 190px;
-  aspect-ratio: auto;
+  height: auto;
+  aspect-ratio: 28 / 19;
   overflow: visible;
   border: 0;
   border-radius: 0;
   background: none;
   box-shadow: none;
+}
+
+@media (min-width: 901px) {
+  #research .research-cards .research-visual {
+    box-sizing: border-box;
+    height: 348px;
+    padding-block: 18px;
+  }
+
+  #research .research-cards .research-stat-graphic:not(.research-growth-graphic) {
+    width: 160px;
+  }
+
+  #research .research-cards .research-growth-graphic {
+    width: min(100%, 244px);
+  }
 }
 
 #research .research-growth-graphic::before,

@@ -434,8 +434,27 @@ window.GMPostPreview = (() => {
   });
 
   const campaignForm = document.querySelector("#campaign-form");
+  const campaignName = document.querySelector("#campaign-name");
+  const campaignNameError = document.querySelector("#campaign-name-error");
   const campaignStages = [...document.querySelectorAll("[data-campaign-stage]")];
   const stepButtons = [...document.querySelectorAll("[data-step-target]")];
+  function clearCampaignNameError() {
+    if (!campaignName || !campaignNameError) return;
+    campaignName.removeAttribute("aria-invalid");
+    campaignNameError.hidden = true;
+  }
+  function validateCampaignName() {
+    if (campaignName?.value.trim()) {
+      clearCampaignNameError();
+      return true;
+    }
+    campaignName?.setAttribute("aria-invalid", "true");
+    if (campaignNameError) campaignNameError.hidden = false;
+    return false;
+  }
+  campaignName?.addEventListener("input", () => {
+    if (campaignName.value.trim()) clearCampaignNameError();
+  });
   const strategyPlatforms = [...document.querySelectorAll("#campaign-stage-1 [data-strategy-platform]")];
   const strategyDuration = document.querySelector("#campaign-stage-1 #strategy-duration");
   const strategyDurationOutput = document.querySelector("#campaign-stage-1 [data-strategy-duration-output]");
@@ -488,13 +507,17 @@ window.GMPostPreview = (() => {
   strategyFrequencies.forEach((frequency) => frequency.addEventListener("change", updateCampaignContentEstimate));
   updateCampaignStrategyLanguage();
   function showCampaignStep(step, moveFocus = true) {
+    const blocked = step > 1 && !validateCampaignName();
+    if (blocked) step = 1;
     campaignStages.forEach((stage) => { stage.hidden = stage.dataset.campaignStage !== String(step); });
     stepButtons.forEach((button) => {
       const active = button.dataset.stepTarget === String(step);
       button.classList.toggle("active", active);
-      button.setAttribute("aria-selected", String(active));
+      if (active) button.setAttribute("aria-current", "step");
+      else button.removeAttribute("aria-current");
     });
-    if (moveFocus) document.querySelector(`#campaign-stage-${step} h2`)?.focus();
+    if (blocked) campaignName?.focus();
+    else if (moveFocus) document.querySelector(`#campaign-stage-${step} h2`)?.focus();
     if (step === 2) { renderChannelSummaries(); renderContentPreview(); }
     if (step === 3) { renderChannelSummaries(); renderSchedulePreview(); }
   }

@@ -134,7 +134,8 @@
       whatsapp: { en: "WhatsApp", es: "WhatsApp" },
       linkedin: { en: "LinkedIn", es: "LinkedIn" },
       tiktok: { en: "TikTok", es: "TikTok" },
-      youtube: { en: "YouTube", es: "YouTube" }
+      youtube: { en: "YouTube", es: "YouTube" },
+      x: { en: "X", es: "X" }
     };
     const state = platform.dataset.comingSoon === "true"
       ? { en: "coming soon", es: "próximamente" }

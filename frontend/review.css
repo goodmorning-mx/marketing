@@ -1739,6 +1739,8 @@ main > .stack-stage + .stack-stage {
 .channel-float.whatsapp .channel-logo { width: 34px; height: 34px; }
 .channel-float.tiktok .channel-logo,
 .channel-float.youtube .channel-logo { width: 40px; height: 40px; }
+.channel-float.tiktok .tiktok-logo { width: 32px; height: 36px; }
+.channel-float.youtube .youtube-logo { width: 40px; height: 28px; }
 .channel-float.linkedin .channel-logo { width: 34px; height: 31px; }
 .channel-float.x .channel-logo { width: 32px; height: 33px; }
 
@@ -1773,6 +1775,28 @@ main > .stack-stage + .stack-stage {
   object-position: center;
 }
 
+#workflow .strategy-platform-icon img.tiktok-logo { width: 26px; height: 30px; }
+#workflow .strategy-platform-icon img.youtube-logo { width: 30px; height: 21px; }
+#workflow .strategy-platform-icon img.x-logo { width: 25px; height: 26px; }
+#coming-soon .tiktok-logo { width: 42px; height: 48px; }
+#coming-soon .youtube-logo { width: 62px; height: 43px; }
+
+.learn-more-coming-platforms .coming-title { margin: 0 0 12px; }
+.learn-more-coming-platforms .coming-platform-list { gap: 8px; }
+.learn-more-coming-platforms .coming-platform-list li {
+  min-height: 92px;
+  padding: 10px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.24);
+}
+.learn-more-coming-platforms .platform-icon { width: 32px; height: 32px; flex-basis: 32px; }
+.learn-more-coming-platforms .platform-icon.tiktok-logo { width: 28px; height: 32px; }
+.learn-more-coming-platforms .platform-icon.youtube-logo { width: 36px; height: 25px; }
+.learn-more-coming-platforms .platform-icon.x-logo { width: 24px; height: 25px; }
+.learn-more-coming-platforms .coming-platform-list span { font-size: 0.7rem; }
+.learn-more-coming-platforms .platform-note { margin-top: 10px; }
+
 .meta-logo {
   border-radius: 0;
   background: transparent;
@@ -1795,6 +1819,10 @@ main > .stack-stage + .stack-stage {
   .channel-float.whatsapp .channel-logo { width: 30px; height: 30px; }
   .channel-float.tiktok .channel-logo,
   .channel-float.youtube .channel-logo { width: 34px; height: 34px; }
+  .channel-float.tiktok .tiktok-logo { width: 28px; height: 32px; }
+  .channel-float.youtube .youtube-logo { width: 36px; height: 25px; }
   .channel-float.linkedin .channel-logo { width: 30px; height: 28px; }
   .channel-float.x .channel-logo { width: 30px; height: 31px; }
+  #coming-soon .tiktok-logo { width: 36px; height: 41px; }
+  #coming-soon .youtube-logo { width: 52px; height: 36px; }
 }

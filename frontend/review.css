@@ -1000,7 +1000,8 @@ footer { border-color: rgba(255, 255, 255, 0.08); }
 
   .hero .art-caption {
     bottom: 4px;
-    font-size: 0.55rem;
+    font-size: 0.51rem;
+    letter-spacing: 0.025em;
   }
 }
 
@@ -1642,7 +1643,7 @@ main > .stack-stage + .stack-stage {
 
 .coming-soon-platform-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin: 0;
   padding: 0;
@@ -1661,6 +1662,11 @@ main > .stack-stage + .stack-stage {
   width: 56px;
   height: 56px;
   flex-basis: 56px;
+}
+
+.coming-soon-platform-list .x-logo {
+  width: 40px;
+  height: 41px;
 }
 
 .coming-soon-platform-list span {
@@ -1702,6 +1708,11 @@ main > .stack-stage + .stack-stage {
     flex-basis: 42px;
   }
 
+  .coming-soon-platform-list .x-logo {
+    width: 32px;
+    height: 33px;
+  }
+
   .coming-soon-platform-list span {
     font-size: 0.78rem;
   }
@@ -1729,6 +1740,7 @@ main > .stack-stage + .stack-stage {
 .channel-float.tiktok .channel-logo,
 .channel-float.youtube .channel-logo { width: 40px; height: 40px; }
 .channel-float.linkedin .channel-logo { width: 34px; height: 31px; }
+.channel-float.x .channel-logo { width: 32px; height: 33px; }
 
 #publishing .platform-icon.facebook-logo,
 #workflow .strategy-platform-icon img.facebook-logo,
@@ -1740,7 +1752,25 @@ main > .stack-stage + .stack-stage {
 
 #workflow .strategy-platform-icon img.linkedin-logo,
 #coming-soon .linkedin-logo {
-  background: transparent;
+  background-color: #fff;
+  border-radius: 0;
+  clip-path: none;
+  overflow: visible;
+  mask: none;
+  -webkit-mask: none;
+  object-fit: contain;
+  object-position: center;
+}
+
+.channel-float.linkedin .channel-logo.linkedin-logo {
+  background-color: #fff;
+  border-radius: 0;
+  clip-path: none;
+  overflow: visible;
+  mask: none;
+  -webkit-mask: none;
+  object-fit: contain;
+  object-position: center;
 }
 
 .meta-logo {
@@ -1766,4 +1796,5 @@ main > .stack-stage + .stack-stage {
   .channel-float.tiktok .channel-logo,
   .channel-float.youtube .channel-logo { width: 34px; height: 34px; }
   .channel-float.linkedin .channel-logo { width: 30px; height: 28px; }
+  .channel-float.x .channel-logo { width: 30px; height: 31px; }
 }

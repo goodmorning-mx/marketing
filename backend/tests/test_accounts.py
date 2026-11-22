@@ -52,9 +52,10 @@ def client(monkeypatch, tmp_path):
     monkeypatch.setattr(main, "database_connection", database_connection)
     monkeypatch.setattr(main, "auth_service", service)
     monkeypatch.setenv("AUTH_JWT_SECRET", "test-secret-that-is-long-enough-for-jwt")
+    monkeypatch.setenv("AUTH_COOKIE_DOMAIN", "dev.marketing.goodmorning.mx")
     monkeypatch.setenv("ADMIN_USERNAME", "staff")
     monkeypatch.setenv("ADMIN_PASSWORD", "staff-test-password")
-    with TestClient(main.app, base_url="https://dev.marketing.goodmorning.mx") as test_client:
+    with TestClient(main.app, base_url="https://dev.marketing.goodmorning.mx", raise_server_exceptions=False) as test_client:
         yield test_client, service, engine
     engine.dispose()
 
@@ -81,9 +82,36 @@ def test_activation_is_email_bound_single_use_and_token_is_hashed(client):
         stored = connection.execute(text("SELECT token_hash FROM goodmarketing_invitations")).scalar_one()
     assert stored == hashlib.sha256(token.encode()).hexdigest()
     assert activate(test_client, "other@example.test", token).status_code == 400
-    assert activate(test_client, "owner@example.test", token).status_code == 200
+    activation = activate(test_client, "owner@example.test", token)
+    assert activation.status_code == 200
+    cookies = activation.headers.get_list("set-cookie")
+    assert all("Domain=dev.marketing.goodmorning.mx" in cookie for cookie in cookies)
+    assert all("Domain=.marketing.goodmorning.mx" not in cookie for cookie in cookies)
     assert activate(test_client, "owner@example.test", token).status_code == 400
     assert test_client.get("/workspace").json()["display_name"] == "North"
+
+
+def test_activation_retry_recovers_account_created_before_invitation_commit(client, monkeypatch):
+    test_client, service, engine = client
+    _, token = invite(test_client, "retry@example.test", "Retry Workspace", "owner")
+    original_execute = Connection.execute
+    failed_once = False
+    def fail_invitation_update(self, statement, params=(), prepare=None):
+        nonlocal failed_once
+        if not failed_once and statement.startswith("UPDATE goodmarketing_invitations SET used_at"):
+            failed_once = True
+            raise RuntimeError("simulated transient invitation write failure")
+        return original_execute(self, statement, params, prepare)
+    monkeypatch.setattr(Connection, "execute", fail_invitation_update)
+
+    first_attempt = activate(test_client, "retry@example.test", token)
+    assert first_attempt.status_code == 500
+    with service.engine.connect() as connection:
+        assert connection.execute(text("SELECT count(*) FROM gm_auth_users WHERE email = 'retry@example.test'")).scalar_one() == 1
+        assert connection.execute(text("SELECT used_at FROM goodmarketing_invitations")).scalar_one() is None
+
+    assert activate(test_client, "retry@example.test", token).status_code == 200
+    assert activate(test_client, "retry@example.test", token).status_code == 400
 
 
 def test_expired_invitation_cannot_be_redeemed(client):

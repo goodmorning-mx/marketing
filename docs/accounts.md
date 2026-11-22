@@ -9,7 +9,7 @@ adds hashed invitation records and a workspace display-name profile.
 
 The API requires `DATABASE_URL`, `CORS_ORIGINS`, and the runtime secret
 `AUTH_JWT_SECRET` (minimum 32 characters). Factory provisions the signing value
-as a generated backend secret. `AUTH_COOKIE_DOMAIN` is `.marketing.goodmorning.mx`
+as a generated backend secret. `AUTH_COOKIE_DOMAIN` is `dev.marketing.goodmorning.mx`
 so the frontend can verify its session with the API; both session cookies are
 Secure, HttpOnly, and SameSite=Lax. The frontend uses `VITE_API_URL` for its
 Nginx session check. Never commit secret values or invitation links.

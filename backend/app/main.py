@@ -1,8 +1,8 @@
+import hashlib
 import os
 import re
 import secrets
 import uuid
-import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -91,13 +91,13 @@ class WorkspaceNameInput(BaseModel):
 
 
 def set_session(response: Response, tokens):
-    domain = os.getenv("AUTH_COOKIE_DOMAIN", ".marketing.goodmorning.mx")
+    domain = os.getenv("AUTH_COOKIE_DOMAIN", "dev.marketing.goodmorning.mx")
     response.set_cookie("gm_access", tokens.access_token, httponly=True, secure=True, samesite="lax", max_age=tokens.expires_in, path="/", domain=domain)
     response.set_cookie("gm_refresh", tokens.refresh_token, httponly=True, secure=True, samesite="lax", max_age=30 * 86400, path="/auth", domain=domain)
 
 
 def clear_session(response: Response):
-    domain = os.getenv("AUTH_COOKIE_DOMAIN", ".marketing.goodmorning.mx")
+    domain = os.getenv("AUTH_COOKIE_DOMAIN", "dev.marketing.goodmorning.mx")
     response.delete_cookie("gm_access", path="/", domain=domain)
     response.delete_cookie("gm_refresh", path="/auth", domain=domain)
 
@@ -106,10 +106,12 @@ def clear_session(response: Response):
 def startup_auth():
     global auth_service
     if os.getenv("DATABASE_URL") and os.getenv("AUTH_JWT_SECRET"):
-        auth_service = configure_auth()
+        if auth_service is None:
+            auth_service = configure_auth()
         with database_connection() as connection:
             connection.execute("CREATE TABLE IF NOT EXISTS goodmarketing_schema_migrations (version VARCHAR(80) PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())")
             connection.commit()
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext('goodmarketing-auth-migrations')::bigint)")
             for migration in ("001_gm_auth.sql", "002_workspace_accounts.sql"):
                 found = connection.execute("SELECT 1 FROM goodmarketing_schema_migrations WHERE version = %s", (migration,)).fetchone()
                 if not found:
@@ -117,7 +119,7 @@ def startup_auth():
                     with open(sql, encoding="utf-8") as source:
                         connection.execute(source.read(), prepare=False)
                     connection.execute("INSERT INTO goodmarketing_schema_migrations (version) VALUES (%s)", (migration,))
-                    connection.commit()
+            connection.commit()
 
 
 class DemoRequest(BaseModel):
@@ -236,10 +238,13 @@ def activate_account(payload: ActivateInput, response: Response, service: AuthSe
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
             if invitation is None or invitation["used_at"] is not None or expires_at <= datetime.now(timezone.utc) or invitation["email"] != email:
                 raise HTTPException(status_code=400, detail="Invitation is invalid, expired, or already used.")
-            identity = service.create_user(email=email, name=payload.name.strip(), password=payload.password,
-                organization_id=invitation["organization_id"], roles=set(invitation["roles"]), permissions=set(invitation["permissions"]))
+            tokens = service.login(email=email, password=payload.password, organization_id=invitation["organization_id"])
+            if tokens is None:
+                identity = service.create_user(email=email, name=payload.name.strip(), password=payload.password,
+                    organization_id=invitation["organization_id"], roles=set(invitation["roles"]), permissions=set(invitation["permissions"]))
             connection.execute("UPDATE goodmarketing_invitations SET used_at = %s WHERE id = %s", (datetime.now(timezone.utc), invitation["id"]))
-        tokens = service.login(email=email, password=payload.password, organization_id=identity.organization_id)
+        if tokens is None:
+            tokens = service.login(email=email, password=payload.password, organization_id=identity.organization_id)
     except HTTPException:
         raise
     except Exception as exc:

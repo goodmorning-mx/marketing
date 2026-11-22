@@ -2,27 +2,122 @@ import os
 import re
 import secrets
 import uuid
-from datetime import datetime, timezone
+import hashlib
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 import psycopg
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security import HTTPBasic, HTTPBasicCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from psycopg.rows import dict_row
+from sqlalchemy import create_engine, text
+from gm_auth import AuthIdentity, AuthService, AuthSettings
 
 app = FastAPI(title="GoodMarketing API", version="0.1.0")
 origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "https://dev.marketing.goodmorning.mx").split(",") if origin.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PUT"],
     allow_headers=["Authorization", "Content-Type"],
 )
 basic_auth = HTTPBasic(auto_error=False)
+bearer = HTTPBearer(auto_error=False)
 statuses = ("new", "qualified", "not_qualified", "contacted", "invited", "closed")
+auth_service: AuthService | None = None
+
+
+def configure_auth() -> AuthService:
+    secret = os.getenv("AUTH_JWT_SECRET", "")
+    if not secret or len(secret) < 32:
+        raise HTTPException(status_code=503, detail="Account access is not configured.")
+    database_url = os.getenv("DATABASE_URL", "")
+    if not database_url:
+        raise HTTPException(status_code=503, detail="Account storage is not configured.")
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return AuthService(create_engine(database_url, pool_pre_ping=True), AuthSettings(jwt_secret=secret, issuer="goodmarketing"))
+
+
+def account_service() -> AuthService:
+    global auth_service
+    if auth_service is None:
+        auth_service = configure_auth()
+    return auth_service
+
+
+def current_customer(request: Request, credentials=Depends(bearer), service: AuthService = Depends(account_service)) -> AuthIdentity:
+    token = credentials.credentials if credentials else request.cookies.get("gm_access")
+    if not token:
+        raise HTTPException(status_code=401, detail="Sign-in required.")
+    try:
+        return service.identity_from_access_token(token)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail="Sign-in required.") from exc
+
+
+def require_staff(credentials: HTTPBasicCredentials | None = Depends(basic_auth)):
+    username, password = os.getenv("ADMIN_USERNAME"), os.getenv("ADMIN_PASSWORD")
+    if not username or not password:
+        raise HTTPException(status_code=503, detail="Admin access is not configured.")
+    if credentials is None or not (secrets.compare_digest(credentials.username.encode(), username.encode()) and secrets.compare_digest(credentials.password.encode(), password.encode())):
+        raise HTTPException(status_code=401, detail="Sign-in required.", headers={"WWW-Authenticate": "Basic"})
+    return credentials.username
+
+
+class LoginInput(BaseModel):
+    email: str = Field(min_length=5, max_length=320)
+    password: str = Field(min_length=8, max_length=256)
+
+
+class ActivateInput(LoginInput):
+    name: str = Field(min_length=2, max_length=255)
+    token: str = Field(min_length=32, max_length=256)
+
+
+class InvitationInput(BaseModel):
+    email: str = Field(min_length=5, max_length=320)
+    workspace_name: str = Field(min_length=2, max_length=255)
+    workspace_id: str | None = Field(default=None, max_length=128)
+    role: Literal["owner", "viewer"]
+    expires_hours: int = Field(default=72, ge=1, le=720)
+
+
+class WorkspaceNameInput(BaseModel):
+    display_name: str = Field(min_length=2, max_length=120)
+
+
+def set_session(response: Response, tokens):
+    domain = os.getenv("AUTH_COOKIE_DOMAIN", ".marketing.goodmorning.mx")
+    response.set_cookie("gm_access", tokens.access_token, httponly=True, secure=True, samesite="lax", max_age=tokens.expires_in, path="/", domain=domain)
+    response.set_cookie("gm_refresh", tokens.refresh_token, httponly=True, secure=True, samesite="lax", max_age=30 * 86400, path="/auth", domain=domain)
+
+
+def clear_session(response: Response):
+    domain = os.getenv("AUTH_COOKIE_DOMAIN", ".marketing.goodmorning.mx")
+    response.delete_cookie("gm_access", path="/", domain=domain)
+    response.delete_cookie("gm_refresh", path="/auth", domain=domain)
+
+
+@app.on_event("startup")
+def startup_auth():
+    global auth_service
+    if os.getenv("DATABASE_URL") and os.getenv("AUTH_JWT_SECRET"):
+        auth_service = configure_auth()
+        with database_connection() as connection:
+            connection.execute("CREATE TABLE IF NOT EXISTS goodmarketing_schema_migrations (version VARCHAR(80) PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())")
+            connection.commit()
+            for migration in ("001_gm_auth.sql", "002_workspace_accounts.sql"):
+                found = connection.execute("SELECT 1 FROM goodmarketing_schema_migrations WHERE version = %s", (migration,)).fetchone()
+                if not found:
+                    sql = (os.path.join(os.path.dirname(__file__), "..", "migrations", migration))
+                    with open(sql, encoding="utf-8") as source:
+                        connection.execute(source.read(), prepare=False)
+                    connection.execute("INSERT INTO goodmarketing_schema_migrations (version) VALUES (%s)", (migration,))
+                    connection.commit()
 
 
 class DemoRequest(BaseModel):
@@ -94,6 +189,117 @@ def require_admin(credentials: HTTPBasicCredentials | None = Depends(basic_auth)
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"service": "GoodMarketing API", "status": "ok"}
+
+
+@app.post("/auth/login")
+def customer_login(payload: LoginInput, response: Response, service: AuthService = Depends(account_service)):
+    tokens = service.login(email=payload.email.strip().lower(), password=payload.password)
+    if tokens is None:
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+    set_session(response, tokens)
+    return {"identity": tokens.identity.as_dict()}
+
+
+@app.post("/auth/logout", status_code=204)
+def customer_logout(request: Request, response: Response, service: AuthService = Depends(account_service)):
+    refresh = request.cookies.get("gm_refresh")
+    if refresh:
+        service.logout(refresh)
+    clear_session(response)
+
+
+@app.post("/auth/refresh")
+def customer_refresh(request: Request, response: Response, service: AuthService = Depends(account_service)):
+    refresh = request.cookies.get("gm_refresh")
+    tokens = service.refresh(refresh) if refresh else None
+    if tokens is None:
+        clear_session(response)
+        raise HTTPException(status_code=401, detail="Sign-in required.")
+    set_session(response, tokens)
+    return {"identity": tokens.identity.as_dict()}
+
+
+@app.get("/auth/me")
+def customer_me(identity: AuthIdentity = Depends(current_customer)):
+    return identity.as_dict()
+
+
+@app.post("/auth/activate")
+def activate_account(payload: ActivateInput, response: Response, service: AuthService = Depends(account_service)):
+    token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
+    email = payload.email.strip().lower()
+    try:
+        with database_connection() as connection:
+            invitation = connection.execute("SELECT * FROM goodmarketing_invitations WHERE token_hash = %s FOR UPDATE", (token_hash,)).fetchone()
+            expires_at = invitation["expires_at"] if invitation else None
+            if expires_at is not None and expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if invitation is None or invitation["used_at"] is not None or expires_at <= datetime.now(timezone.utc) or invitation["email"] != email:
+                raise HTTPException(status_code=400, detail="Invitation is invalid, expired, or already used.")
+            identity = service.create_user(email=email, name=payload.name.strip(), password=payload.password,
+                organization_id=invitation["organization_id"], roles=set(invitation["roles"]), permissions=set(invitation["permissions"]))
+            connection.execute("UPDATE goodmarketing_invitations SET used_at = %s WHERE id = %s", (datetime.now(timezone.utc), invitation["id"]))
+        tokens = service.login(email=email, password=payload.password, organization_id=identity.organization_id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if "unique" in str(exc).lower() or "duplicate" in str(exc).lower():
+            raise HTTPException(status_code=400, detail="An account already exists for this email.") from exc
+        raise
+    if tokens is None:
+        raise HTTPException(status_code=500, detail="Account activation could not be completed.")
+    set_session(response, tokens)
+    return {"identity": tokens.identity.as_dict()}
+
+
+@app.post("/admin/invitations")
+def issue_invitation(payload: InvitationInput, _admin: str = Depends(require_staff)):
+    email = payload.email.strip().lower()
+    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+        raise HTTPException(status_code=422, detail="Enter a valid email.")
+    service = account_service()
+    service.create_schema()
+    organization_id = payload.workspace_id or str(uuid.uuid4())
+    with service.engine.begin() as connection:
+        workspace = connection.execute(text("SELECT id FROM gm_auth_organizations WHERE id = :id"), {"id": organization_id}).first()
+        if workspace is None:
+            slug = re.sub(r"[^a-z0-9]+", "-", payload.workspace_name.lower()).strip("-")[:110] or str(uuid.uuid4())[:8]
+            connection.execute(text("INSERT INTO gm_auth_organizations (id, slug, name, created_at) VALUES (:id, :slug, :name, :now)"), {"id": organization_id, "slug": f"{slug}-{organization_id[:8]}", "name": payload.workspace_name.strip(), "now": datetime.now(timezone.utc)})
+            connection.execute(text("INSERT INTO goodmarketing_workspace_profiles (organization_id, display_name) VALUES (:id, :name)"), {"id": organization_id, "name": payload.workspace_name.strip()})
+        else:
+            profile = connection.execute(text("SELECT organization_id FROM goodmarketing_workspace_profiles WHERE organization_id = :id"), {"id": organization_id}).first()
+            if profile is None:
+                connection.execute(text("INSERT INTO goodmarketing_workspace_profiles (organization_id, display_name) VALUES (:id, :name)"), {"id": organization_id, "name": payload.workspace_name.strip()})
+    token = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    roles = [payload.role]
+    permissions = ["workspace:read", "workspace:name:update"] if payload.role == "owner" else ["workspace:read"]
+    with database_connection() as connection:
+        connection.execute("INSERT INTO goodmarketing_invitations (id, email, organization_id, roles, permissions, token_hash, expires_at, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (str(uuid.uuid4()), email, organization_id, psycopg.types.json.Jsonb(roles), psycopg.types.json.Jsonb(permissions), hashlib.sha256(token.encode()).hexdigest(), now + timedelta(hours=payload.expires_hours), now))
+    return {"invitation_url": f"https://dev.marketing.goodmorning.mx/activate/#token={token}", "email": email, "workspace_id": organization_id, "role": payload.role, "expires_at": now + timedelta(hours=payload.expires_hours)}
+
+
+@app.get("/workspace")
+def workspace_read(identity: AuthIdentity = Depends(current_customer), service: AuthService = Depends(account_service)):
+    if "workspace:read" not in identity.permissions:
+        raise HTTPException(status_code=403, detail="Workspace access is not permitted.")
+    with service.engine.connect() as connection:
+        row = connection.execute(text("SELECT display_name FROM goodmarketing_workspace_profiles WHERE organization_id = :id"), {"id": identity.organization_id}).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Workspace not found.")
+    return {"display_name": row[0], "organization_id": identity.organization_id}
+
+
+@app.put("/workspace")
+def workspace_update(payload: WorkspaceNameInput, identity: AuthIdentity = Depends(current_customer), service: AuthService = Depends(account_service)):
+    if "workspace:name:update" not in identity.permissions:
+        raise HTTPException(status_code=403, detail="Workspace update is not permitted.")
+    with service.engine.begin() as connection:
+        row = connection.execute(text("UPDATE goodmarketing_workspace_profiles SET display_name = :name, updated_at = :now WHERE organization_id = :id RETURNING display_name"), {"name": payload.display_name.strip(), "now": datetime.now(timezone.utc), "id": identity.organization_id}).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Workspace not found.")
+    return {"display_name": row[0], "organization_id": identity.organization_id}
 
 
 @app.post("/demo-requests", status_code=status.HTTP_201_CREATED)

@@ -345,10 +345,13 @@ window.GMPostPreview = (() => {
   const directMessagePreference = document.querySelector("#direct-message-responses");
   const directMessageSaved = document.querySelector("#direct-message-settings-saved");
   if (directMessagePreference) {
-    try { directMessagePreference.checked = localStorage.getItem("goodmarketing.directMessageResponses") === "true"; } catch {}
+    const settingKey = () => window.GMAuth?.key("directMessageResponses") || "goodmarketing.directMessageResponses";
+    const loadPreference = () => { try { directMessagePreference.checked = localStorage.getItem(settingKey()) === "true"; } catch {} };
+    if (window.GMAuth?.identity) loadPreference();
+    else document.addEventListener("goodmarketing:account-ready", loadPreference, { once: true });
     directMessagePreference.addEventListener("change", () => {
       try {
-        localStorage.setItem("goodmarketing.directMessageResponses", String(directMessagePreference.checked));
+        localStorage.setItem(settingKey(), String(directMessagePreference.checked));
         if (directMessageSaved) directMessageSaved.hidden = false;
       } catch {
         if (directMessageSaved) {

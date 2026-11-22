@@ -1,7 +1,14 @@
 FROM nginx:1.27-alpine
 
+ENV NGINX_ENVSUBST_FILTER=VITE_API_URL
+ENV VITE_API_URL=https://api.dev.marketing.goodmorning.mx
+
 COPY index.html /usr/share/nginx/html/index.html
 COPY language.js /usr/share/nginx/html/language.js
+COPY auth.js /usr/share/nginx/html/auth.js
+COPY login.js /usr/share/nginx/html/login.js
+COPY activate.js /usr/share/nginx/html/activate.js
+COPY account.css /usr/share/nginx/html/account.css
 COPY orbit.js /usr/share/nginx/html/orbit.js
 COPY workflow.js /usr/share/nginx/html/workflow.js
 COPY research-dial.js /usr/share/nginx/html/research-dial.js
@@ -9,8 +16,10 @@ COPY review.css /usr/share/nginx/html/review.css
 COPY assets /usr/share/nginx/html/assets
 COPY signup /usr/share/nginx/html/signup
 COPY admin /usr/share/nginx/html/admin
+COPY login /usr/share/nginx/html/login
+COPY activate /usr/share/nginx/html/activate
 COPY workspace /usr/share/nginx/html/workspace
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 EXPOSE 80
 

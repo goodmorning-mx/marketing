@@ -1,3 +1,6 @@
 fastapi==0.116.1
 uvicorn[standard]==0.35.0
 psycopg[binary]==3.2.10
+SQLAlchemy>=2.0,<3
+PyJWT>=2.9,<3
+gm-auth @ git+https://github.com/goodmorning-mx/gm-auth.git@138d66cb44a94781e0d38d8afd1be2dbf718c294

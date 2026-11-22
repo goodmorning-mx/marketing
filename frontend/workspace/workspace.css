@@ -465,3 +465,5 @@ footer{border-color:var(--surface-hairline);color:#a1a1aa}
 .calendar-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 
 #campaign-stage-1 .strategy-name-field .validation-error{color:#ffb4b4}
+
+@media(max-width:520px){.overview-demo-notice{align-items:flex-start;flex-wrap:wrap}.overview-demo-notice>p{min-width:0;flex:1 1 100%}.overview-demo-pill{max-width:100%;white-space:normal}}

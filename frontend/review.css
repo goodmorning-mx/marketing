@@ -1764,7 +1764,7 @@ main > .stack-stage + .stack-stage {
   object-position: center;
 }
 
-.learn-more-coming-platforms .platform-icon.linkedin-logo {
+#publishing .learn-more-coming-platforms .platform-icon.linkedin-logo {
   width: 32px;
   height: 32px;
   flex-basis: 32px;

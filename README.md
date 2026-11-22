@@ -5,6 +5,10 @@ Clean starting point for a general-purpose marketing automation platform.
 The repository keeps the Factory deployment shape: a frontend application, a
 backend API, and a private PostgreSQL resource managed outside Git.
 
+## Social platform logos
+
+For future social platform logo changes, follow the [social platform logo usage guide](frontend/assets/brand/social/USAGE.md). Its scope excludes GoodMarketing's own logo and customer-uploaded company logos.
+
 ## Frontend language and account status
 
 - Public frontend pages must be available in English and Spanish.

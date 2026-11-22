@@ -408,13 +408,50 @@ window.GMPostPreview = (() => {
   });
   const contentPicker = document.querySelector("#content-assets");
   document.querySelector("[data-open-content-picker]")?.addEventListener("click", () => contentPicker?.click());
-  contentPicker?.addEventListener("change", updateCampaignContentEstimate);
+  let selectedCampaignContent = null;
+  let contentPreviewUrl = "";
+  const selectedContentSummary = document.querySelector("#selected-content-summary");
+  const selectedContentLabel = document.querySelector("#selected-content-label");
+  function releaseContentPreviewUrl() {
+    if (contentPreviewUrl) URL.revokeObjectURL(contentPreviewUrl);
+    contentPreviewUrl = "";
+  }
   const startAiContent = document.querySelector("#start-ai-content");
   const aiContentPathStatus = document.querySelector("#ai-content-path-status");
+  const contentAssetsName = document.querySelector("#content-assets-name");
+  contentPicker?.addEventListener("change", () => {
+    releaseContentPreviewUrl();
+    const files = [...contentPicker.files];
+    const file = files[0];
+    selectedCampaignContent = file ? { type: "upload", files, file } : null;
+    if (file?.type.startsWith("image/") || file?.type.startsWith("video/")) contentPreviewUrl = URL.createObjectURL(file);
+    startAiContent?.setAttribute("aria-pressed", "false");
+    startAiContent?.closest(".content-option")?.classList.remove("is-selected");
+    if (aiContentPathStatus) aiContentPathStatus.hidden = true;
+    updateCampaignContentEstimate();
+    renderContentPreview();
+  });
   startAiContent?.addEventListener("click", () => {
+    releaseContentPreviewUrl();
+    selectedCampaignContent = { type: "generated" };
+    if (contentPicker) contentPicker.value = "";
+    setFileName(contentAssetsName, [], { en: "No files selected", es: "Ningún archivo seleccionado" });
     startAiContent.setAttribute("aria-pressed", "true");
     startAiContent.closest(".content-option")?.classList.add("is-selected");
     if (aiContentPathStatus) aiContentPathStatus.hidden = false;
+    updateCampaignContentEstimate();
+    renderContentPreview();
+  });
+  document.querySelector("#remove-selected-content")?.addEventListener("click", () => {
+    releaseContentPreviewUrl();
+    selectedCampaignContent = null;
+    if (contentPicker) contentPicker.value = "";
+    setFileName(contentAssetsName, [], { en: "No files selected", es: "Ningún archivo seleccionado" });
+    startAiContent?.setAttribute("aria-pressed", "false");
+    startAiContent?.closest(".content-option")?.classList.remove("is-selected");
+    if (aiContentPathStatus) aiContentPathStatus.hidden = true;
+    updateCampaignContentEstimate();
+    renderContentPreview();
   });
   const logoInput = document.querySelector("#logo-file");
   const logoPreview = document.querySelector("#logo-preview");
@@ -469,8 +506,8 @@ window.GMPostPreview = (() => {
     const postsPerWeek = { low: 3, medium: 4, high: 5 }[frequency?.value] || 4;
     const days = Number(strategyDuration.value);
     const contentPieces = Math.ceil((postsPerWeek * days) / 7);
-    const uploadedPieces = contentPicker?.files.length || 0;
-    const generatedPieces = document.querySelectorAll("#campaign-stage-2 [data-generated-content]").length;
+    const uploadedPieces = selectedCampaignContent?.type === "upload" ? selectedCampaignContent.files.length : 0;
+    const generatedPieces = selectedCampaignContent?.type === "generated" ? 1 : 0;
     const completedPieces = uploadedPieces + generatedPieces;
     const numberFormat = new Intl.NumberFormat(currentLanguage);
     contentEstimateNumber.textContent = `${numberFormat.format(completedPieces)}/${numberFormat.format(contentPieces)}`;
@@ -527,8 +564,74 @@ window.GMPostPreview = (() => {
   if (campaignForm) campaignForm.addEventListener("submit", (event) => { event.preventDefault(); showCampaignStep(2); });
 
   function renderContentPreview() {
-    const contentLabel = language() === "es" ? "Contenido de campaña" : "Campaign content";
-    document.querySelectorAll("#content-preview-format, #schedule-preview-format").forEach((element) => { element.textContent = contentLabel; });
+    const isSpanish = language() === "es";
+    const title = document.querySelector("#content-preview-title");
+    const copy = document.querySelector("#content-preview-copy");
+    const art = document.querySelector("#content-preview-art");
+    const selected = selectedCampaignContent;
+    let format = isSpanish ? "Contenido de campaña" : "Campaign content";
+    let previewTitle = isSpanish ? "No hay contenido seleccionado" : "No content selected";
+    let previewCopy = isSpanish ? "Elige un archivo o genera un borrador para ver la vista previa." : "Choose a file or generate a draft to preview it.";
+    if (selected?.type === "generated") {
+      format = isSpanish ? "Ejemplo de borrador con IA" : "AI draft example";
+      previewTitle = title?.dataset[isSpanish ? "defaultEs" : "defaultEn"] || previewTitle;
+      previewCopy = copy?.dataset[isSpanish ? "defaultEs" : "defaultEn"] || previewCopy;
+      if (art) { art.hidden = false; art.setAttribute("aria-hidden", "true"); art.innerHTML = '<span>W</span><i>✳</i>'; }
+    } else if (selected?.type === "upload") {
+      const { file, files } = selected;
+      const kind = file.type.startsWith("image/") ? (isSpanish ? "Imagen cargada" : "Uploaded image")
+        : file.type.startsWith("video/") ? (isSpanish ? "Video cargado" : "Uploaded video")
+          : (isSpanish ? "Archivo cargado" : "Uploaded file");
+      format = kind;
+      previewTitle = file.name;
+      previewCopy = files.length > 1
+        ? (isSpanish ? `Este contenido incluye ${files.length} archivos.` : `This content includes ${files.length} files.`)
+        : (isSpanish ? "Este archivo está listo para revisar." : "This file is ready to review.");
+      if (art) {
+        art.hidden = false;
+        art.replaceChildren();
+        if (file.type.startsWith("image/") && contentPreviewUrl) {
+          const image = document.createElement("img");
+          image.className = "campaign-preview-media";
+          image.src = contentPreviewUrl;
+          image.alt = file.name;
+          art.setAttribute("aria-hidden", "false");
+          art.append(image);
+        } else if (file.type.startsWith("video/") && contentPreviewUrl) {
+          const video = document.createElement("video");
+          video.className = "campaign-preview-media";
+          video.src = contentPreviewUrl;
+          video.controls = true;
+          video.playsInline = true;
+          video.setAttribute("aria-label", isSpanish ? `Vista previa: ${file.name}` : `Preview: ${file.name}`);
+          art.setAttribute("aria-hidden", "false");
+          art.append(video);
+        } else {
+          const fileMark = document.createElement("span");
+          fileMark.className = "campaign-preview-file-mark";
+          fileMark.textContent = file.name.split(".").pop()?.slice(0, 4).toUpperCase() || "FILE";
+          art.setAttribute("aria-hidden", "true");
+          art.append(fileMark);
+        }
+      }
+    } else if (art) {
+      art.hidden = true;
+      art.replaceChildren();
+      art.setAttribute("aria-hidden", "true");
+    }
+    if (title) title.textContent = previewTitle;
+    if (copy) copy.textContent = previewCopy;
+    document.querySelectorAll("#content-preview-format, #schedule-preview-format").forEach((element) => { element.textContent = format; });
+    const scheduleTitle = document.querySelector("#schedule-preview-title");
+    if (scheduleTitle) scheduleTitle.textContent = previewTitle;
+    if (selectedContentSummary) {
+      selectedContentSummary.hidden = !selected;
+      if (selectedContentLabel && selected) {
+        selectedContentLabel.textContent = selected.type === "generated"
+          ? (isSpanish ? "Borrador de ejemplo generado con IA" : "AI-generated example draft")
+          : `${isSpanish ? "Seleccionado" : "Selected"}: ${selected.files.map((file) => file.name).join(", ")}`;
+      }
+    }
   }
 
   function renderChannelSummaries() {
@@ -578,10 +681,12 @@ window.GMPostPreview = (() => {
   timeZone?.addEventListener("change", renderSchedulePreview);
 
 
+  renderContentPreview();
   placeholders();
   sampleValues();
   document.addEventListener("goodmarketing:language-change", () => {
     updateCampaignStrategyLanguage();
+    renderContentPreview();
     placeholders();
     sampleValues();
     const selectedTemplate = templateChoices.find((button) => button.getAttribute("aria-pressed") === "true");

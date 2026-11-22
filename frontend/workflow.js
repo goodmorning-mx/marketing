@@ -1,10 +1,20 @@
 (() => {
-  const tabs = [...document.querySelectorAll(".workflow-tab")];
+  const tabs = [...document.querySelectorAll(".workflow-stage-tabs .workflow-tab")];
   const panel = document.querySelector("#workflow-panel");
   if (!tabs.length || !panel) return;
 
-  const descriptions = [...document.querySelectorAll("[data-workflow-description]")];
+  const descriptions = [...panel.querySelectorAll("[data-workflow-description]")];
   const brandPanel = document.querySelector("#workflow-brand-panel");
+  const brandToggle = document.querySelector('[data-workflow-toggle="brand-messaging"]');
+
+  if (brandToggle && brandPanel) {
+    brandPanel.hidden = brandToggle.getAttribute("aria-expanded") !== "true";
+    brandToggle.addEventListener("click", () => {
+      const expanded = brandToggle.getAttribute("aria-expanded") !== "true";
+      brandToggle.setAttribute("aria-expanded", String(expanded));
+      brandPanel.hidden = !expanded;
+    });
+  }
 
   if (window.matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)").matches) {
     document.querySelectorAll(".platforms, .research-visual, #workflow .strategy-control, #workflow .content-option, #workflow .publish-source, #workflow .publish-accounts").forEach((surface) => {
@@ -47,10 +57,8 @@
       description.hidden = description.dataset.workflowDescription !== key;
     });
 
-    const isBrandMessaging = key === "brand-messaging";
-    panel.hidden = isBrandMessaging;
-    if (isBrandMessaging) brandPanel.setAttribute("aria-labelledby", tab.id);
-    else panel.setAttribute("aria-labelledby", tab.id);
+    panel.hidden = false;
+    panel.setAttribute("aria-labelledby", tab.id);
     if (focus) tab.focus();
   }
 

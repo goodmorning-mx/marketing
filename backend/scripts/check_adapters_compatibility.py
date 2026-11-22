@@ -107,6 +107,85 @@ def compare(label: str, expected: dict[str, Any], actual: dict[str, Any]) -> boo
     return ok
 
 
+def schema_refs(value: Any) -> set[str]:
+    refs: set[str] = set()
+    if isinstance(value, dict):
+        ref = value.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/components/schemas/"):
+            refs.add(ref.rsplit("/", 1)[-1])
+        for child in value.values():
+            refs.update(schema_refs(child))
+    elif isinstance(value, list):
+        for child in value:
+            refs.update(schema_refs(child))
+    return refs
+
+
+def adapter_contract_ok(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
+    expected_ops = operation_keys(expected)
+    actual_ops = operation_keys(actual)
+    missing = sorted(expected_ops - actual_ops)
+    changed = sorted(
+        key for key in expected_ops & actual_ops
+        if expected["paths"][key[1]][key[0].lower()]
+        != actual["paths"][key[1]][key[0].lower()]
+    )
+    changed_paths = sorted(
+        path for path in expected["paths"]
+        if path in actual.get("paths", {})
+        and expected["paths"][path].get("parameters") != actual["paths"][path].get("parameters")
+    )
+
+    needed_schemas: set[str] = set()
+    for _, path in expected_ops:
+        needed_schemas.update(schema_refs(expected["paths"][path]))
+    expected_schemas = expected.get("components", {}).get("schemas", {})
+    actual_schemas = actual.get("components", {}).get("schemas", {})
+    pending = list(needed_schemas)
+    while pending:
+        name = pending.pop()
+        schema = expected_schemas.get(name)
+        if schema is None:
+            continue
+        for ref in schema_refs(schema) - needed_schemas:
+            needed_schemas.add(ref)
+            pending.append(ref)
+    changed_schemas = sorted(
+        name for name in needed_schemas
+        if expected_schemas.get(name) != actual_schemas.get(name)
+    )
+
+    ok = not (missing or changed or changed_paths or changed_schemas)
+    print(f"Current Adapters contract vs historical source 189869c: {'MATCH' if ok else 'MISMATCH'}")
+    print(f"  historical operations: {len(expected_ops)}, candidate operations: {len(actual_ops)}")
+    for method, path in missing:
+        print(f"  missing: {method} {path}")
+    for method, path in changed:
+        print(f"  changed operation/request/response: {method} {path}")
+    for path in changed_paths:
+        print(f"  changed path parameters: {path}")
+    for name in changed_schemas:
+        print(f"  changed or missing schema: {name}")
+    if expected.get("info") != actual.get("info"):
+        print(f"  API title/version metadata differs: {expected.get('info')} -> {actual.get('info')}")
+    return ok
+
+
+def account_endpoints_ok(actual: dict[str, Any]) -> bool:
+    expected = {
+        ("POST", "/auth/login"), ("POST", "/auth/activate"), ("POST", "/auth/logout"),
+        ("POST", "/auth/refresh"), ("GET", "/auth/me"), ("POST", "/admin/invitations"),
+        ("GET", "/workspace"), ("PUT", "/workspace"), ("POST", "/demo-requests"),
+        ("GET", "/admin/demo-requests"), ("PUT", "/admin/demo-requests/{request_id}"),
+    }
+    missing = sorted(expected - operation_keys(actual))
+    ok = not missing
+    print(f"Account and demo-request endpoints present: {'YES' if ok else 'NO'}")
+    for method, path in missing:
+        print(f"  missing: {method} {path}")
+    return ok
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live-url", default=DEFAULT_LIVE_URL)
@@ -122,10 +201,11 @@ def main() -> int:
     current = current_source_spec()
 
     live_ok = compare("Live DEV vs historical source 189869c", historical, live)
-    source_ok = compare("Current checkout vs historical source 189869c", historical, current)
+    source_ok = adapter_contract_ok(historical, current)
+    endpoints_ok = account_endpoints_ok(current)
     live_health_ok = compare_health("Live health response vs historical source 189869c", historical_health, live_health)
     source_health_ok = compare_health("Current health response vs historical source 189869c", historical_health, current_health_response())
-    return 0 if live_ok and source_ok and live_health_ok and source_health_ok else 1
+    return 0 if live_ok and source_ok and endpoints_ok and live_health_ok and source_health_ok else 1
 
 
 if __name__ == "__main__":

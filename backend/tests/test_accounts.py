@@ -2,6 +2,7 @@ from contextlib import contextmanager
 from datetime import datetime
 import hashlib
 import json
+from uuid import UUID
 from urllib.parse import urlparse, parse_qs
 
 import psycopg.types.json
@@ -25,6 +26,8 @@ class Result:
         for key in ("roles", "permissions"):
             if key in data and isinstance(data[key], str): data[key] = json.loads(data[key])
         return data
+    def fetchall(self):
+        return [dict(row._mapping) for row in self.result.fetchall()]
 
 
 class Connection:
@@ -32,8 +35,9 @@ class Connection:
     def execute(self, statement, params=(), prepare=None):
         statement = statement.replace(" FOR UPDATE", "").replace("%s", "?")
         values = tuple(json.dumps(value.obj) if isinstance(value, psycopg.types.json.Jsonb) else value for value in params)
+        values = tuple(str(value) if isinstance(value, UUID) else value for value in values)
         return Result(self.connection.exec_driver_sql(statement, values))
-    def commit(self): self.connection.commit()
+    def commit(self): pass
 
 
 @pytest.fixture
@@ -150,3 +154,31 @@ def test_login_logout_and_workspace_role_isolation(client):
     owner = service.login(email="owner@example.test", password="a sufficiently long password")
     assert owner is not None and owner.identity.organization_id == owner_id
     assert test_client.get("/workspace", headers={"Authorization": f"Bearer {owner.access_token}"}).json()["display_name"] == "North Studio"
+
+
+def test_public_demo_request_flow_and_staff_follow_up(client):
+    test_client, _, _ = client
+    payload = {
+        "name": "Demo prospect",
+        "email": "prospect@example.test",
+        "company": "Example Studio",
+        "role": "Marketing lead",
+        "website": "https://example.test",
+        "goals": "We want to plan a bilingual campaign and review weekly performance.",
+        "market": "Mexico",
+        "consent": True,
+        "honeypot": "",
+    }
+    submitted = test_client.post("/demo-requests", json=payload)
+    assert submitted.status_code == 201, submitted.text
+    assert submitted.json()["message"] == "Your request has been received."
+
+    rows = test_client.get("/admin/demo-requests", auth=("staff", "staff-test-password"))
+    assert rows.status_code == 200
+    assert len(rows.json()) == 1
+    request_id = rows.json()[0]["id"]
+    updated = test_client.put(f"/admin/demo-requests/{request_id}", auth=("staff", "staff-test-password"), json={
+        "qualification_status": "contacted", "admin_notes": "Follow up through the existing process.",
+    })
+    assert updated.status_code == 200
+    assert updated.json()["qualification_status"] == "contacted"

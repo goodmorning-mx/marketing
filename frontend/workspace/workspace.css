@@ -196,6 +196,7 @@ body:before{position:fixed;z-index:-1;inset:0;background-image:radial-gradient(r
 .date-cell{min-height:126px;border-color:var(--surface-hairline);border-radius:9px;background:rgb(255 255 255 / 2.2%);transition:background 180ms ease,border-color 180ms ease,transform 180ms ease}
 .date-cell:hover{border-color:rgb(140 166 255 / 38%);background:rgb(140 166 255 / 6%);transform:translateY(-1px)}
 .date-cell.is-selected{border-color:rgb(140 166 255 / 52%);background:linear-gradient(145deg,rgb(73 101 196 / 16%),rgb(255 255 255 / 2%));box-shadow:var(--surface-specular)}
+.date-cell.today-mark:not(.is-selected) .date-num{background:#4057d0}
 .date-num{border-radius:7px}
 .event-pill{border-color:rgb(140 166 255 / 20%);border-radius:6px;background:rgb(80 109 208 / 18%);color:#d8e0ff;font-size:.69rem}
 .event-pill.milestone{border-color:rgb(245 199 112 / 24%);background:rgb(245 199 112 / 8%)}

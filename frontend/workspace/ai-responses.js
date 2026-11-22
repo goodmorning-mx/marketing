@@ -195,6 +195,10 @@
     if (action === "cancel") queueNotice = "canceledNotice";
     renderReview();
     renderLog();
+    if (action === "approve") {
+      const nextApproval = document.querySelector('#response-review-list [data-response-action="approve"]');
+      (nextApproval || document.querySelector("#response-review-status"))?.focus();
+    }
     if (action === "edit") document.querySelector(`[data-response-id="${CSS.escape(id)}"] textarea`)?.focus();
     if (action === "cancel" || action === "save") document.querySelector(`[data-response-id="${CSS.escape(id)}"] [data-response-action="edit"]`)?.focus();
   }

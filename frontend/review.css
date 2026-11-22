@@ -1682,27 +1682,63 @@ main > .stack-stage + .stack-stage {
   }
 }
 
-/* Preserve each platform mark's original silhouette instead of clipping it to a generic rounded shape. */
+/* Keep official social artwork transparent, undistorted, and optically balanced by context. */
 .channel-float .channel-logo,
 #publishing .platform-icon,
 #workflow .strategy-platform-icon img,
-#workflow .publish-account img {
+#workflow .publish-account img,
+#coming-soon .platform-icon {
+  display: block;
   border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  filter: none;
+  object-fit: contain;
+  object-position: center;
 }
 
-.channel-float .channel-logo.facebook-logo,
+.channel-float.facebook .channel-logo { width: 30px; height: 30px; }
+.channel-float.instagram .channel-logo { width: 30px; height: 30px; }
+.channel-float.whatsapp .channel-logo { width: 34px; height: 34px; }
+.channel-float.tiktok .channel-logo,
+.channel-float.youtube .channel-logo { width: 40px; height: 40px; }
+.channel-float.linkedin .channel-logo { width: 34px; height: 31px; }
+
 #publishing .platform-icon.facebook-logo,
 #workflow .strategy-platform-icon img.facebook-logo,
 #workflow .publish-account img.facebook-logo {
-  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  flex-basis: 24px;
 }
 
-.channel-float.linkedin .channel-logo {
-  border-radius: 0;
-}
-
-.channel-float.linkedin .channel-logo.linkedin-logo,
 #workflow .strategy-platform-icon img.linkedin-logo,
 #coming-soon .linkedin-logo {
-  background-color: #f7f9fc;
+  background: transparent;
+}
+
+.meta-logo {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  object-fit: contain;
+  object-position: center;
+  transform: scale(1.25);
+  transform-origin: left center;
+}
+
+#workflow .strategy-platform[aria-pressed="false"],
+#workflow .strategy-platform:disabled {
+  filter: none;
+  opacity: 1;
+}
+
+@media (max-width: 620px) {
+  .channel-float.facebook .channel-logo { width: 26px; height: 26px; }
+  .channel-float.instagram .channel-logo { width: 28px; height: 28px; }
+  .channel-float.whatsapp .channel-logo { width: 30px; height: 30px; }
+  .channel-float.tiktok .channel-logo,
+  .channel-float.youtube .channel-logo { width: 34px; height: 34px; }
+  .channel-float.linkedin .channel-logo { width: 30px; height: 28px; }
 }

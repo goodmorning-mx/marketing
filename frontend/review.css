@@ -598,7 +598,7 @@ nav a:hover,
 }
 
 .language-switch button { transition: color 180ms ease, background 220ms ease, box-shadow 220ms ease; }
-.language-switch button[aria-pressed="true"] { background: #1877e8; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25); }
+.language-switch button[aria-pressed="true"] { background: #1269dc; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25); }
 
 .stack-card {
   border-color: rgba(255, 255, 255, 0.09);
@@ -1015,7 +1015,13 @@ footer { border-color: rgba(255, 255, 255, 0.08); }
 }
 
 @media (max-width: 620px) {
-  .topbar { width: calc(100% - 24px); min-height: 64px; padding-inline: 12px; border-radius: 14px; }
+  .topbar { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: 8px; width: calc(100% - 24px); min-height: 64px; padding: 8px 12px; border-radius: 14px; }
+  .brand,
+  .brand-copy { min-width: 0; }
+  .brand-byline { white-space: normal; font-size: 0.68rem; }
+  .nav-right { justify-content: flex-end; }
+  .nav-right nav { display: none; }
+  .platforms-heading { flex-wrap: wrap; }
   .hero h1,
   :lang(es) .hero h1 { font-size: clamp(2.5rem, 10.5vw, 3.65rem); }
   .stack-card,
@@ -1052,7 +1058,7 @@ footer { border-color: rgba(255, 255, 255, 0.08); }
 /* One geometric spacing and container system for the complete landing page. */
 :root {
   --container-max: 1280px;
-  --container-gutter: 48px;
+  --container-gutter: 24px;
   --section-space: 64px;
   --compact-space: 56px;
   --section-inline: clamp(24px, 4vw, 48px);
@@ -1390,6 +1396,7 @@ main > .stack-stage + .stack-stage {
 }
 
 .platforms {
+  min-width: 0;
   padding: 24px;
 }
 

@@ -13,7 +13,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE_PATH = ROOT / "contracts" / "marketing-adapters-189869c.openapi.json"
+HEALTH_BASELINE_PATH = ROOT / "contracts" / "marketing-adapters-189869c.health.json"
 DEFAULT_LIVE_URL = "https://api.dev.marketing.goodmorning.mx/openapi.json"
+DEFAULT_HEALTH_URL = "https://api.dev.marketing.goodmorning.mx/health"
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -22,6 +24,8 @@ def load_json(path: Path) -> dict[str, Any]:
 
 def live_spec(url: str) -> dict[str, Any]:
     # curl verifies TLS certificates by default; do not add --insecure here.
+    if not url.startswith("https://"):
+        raise ValueError("Live contract URLs must use HTTPS with certificate validation.")
     result = subprocess.run(
         ["curl", "--fail", "--silent", "--show-error", "--location", "--max-time", "30", url],
         check=True,
@@ -29,6 +33,21 @@ def live_spec(url: str) -> dict[str, Any]:
         text=True,
     )
     return json.loads(result.stdout)
+
+
+def current_health_response() -> dict[str, Any]:
+    from app.main import health
+
+    return health()
+
+
+def compare_health(label: str, expected: dict[str, Any], actual: dict[str, Any]) -> bool:
+    ok = expected == actual
+    print(f"{label}: {'MATCH' if ok else 'MISMATCH'}")
+    if not ok:
+        print(f"  expected response: {json.dumps(expected, sort_keys=True)}")
+        print(f"  actual response:   {json.dumps(actual, sort_keys=True)}")
+    return ok
 
 
 def current_source_spec() -> dict[str, Any]:
@@ -91,16 +110,22 @@ def compare(label: str, expected: dict[str, Any], actual: dict[str, Any]) -> boo
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live-url", default=DEFAULT_LIVE_URL)
+    parser.add_argument("--live-health-url", default=DEFAULT_HEALTH_URL)
     parser.add_argument("--live-openapi-file", type=Path, help="Use a previously fetched OpenAPI JSON file.")
+    parser.add_argument("--live-health-file", type=Path, help="Use a previously fetched health JSON file.")
     args = parser.parse_args()
 
     historical = load_json(BASELINE_PATH)
+    historical_health = load_json(HEALTH_BASELINE_PATH)
     live = load_json(args.live_openapi_file) if args.live_openapi_file else live_spec(args.live_url)
+    live_health = load_json(args.live_health_file) if args.live_health_file else live_spec(args.live_health_url)
     current = current_source_spec()
 
     live_ok = compare("Live DEV vs historical source 189869c", historical, live)
     source_ok = compare("Current checkout vs historical source 189869c", historical, current)
-    return 0 if live_ok and source_ok else 1
+    live_health_ok = compare_health("Live health response vs historical source 189869c", historical_health, live_health)
+    source_health_ok = compare_health("Current health response vs historical source 189869c", historical_health, current_health_response())
+    return 0 if live_ok and source_ok and live_health_ok and source_health_ok else 1
 
 
 if __name__ == "__main__":

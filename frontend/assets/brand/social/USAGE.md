@@ -38,21 +38,23 @@ Official brand guidance governs permitted uses, colors, clear space, and minimum
 ## Rendering rules
 
 - Preserve the complete approved silhouette, aspect ratio, lettering, and colors. Do not redraw marks, substitute text characters, or invent color variants.
-- Inspect transparency and internal whitespace before adjusting CSS. Transparent lettering may require a backing surface; white details that belong to the logo must remain white.
+- Inspect transparency and internal whitespace before adjusting CSS. White details that belong to the logo must remain white. For LinkedIn, white lettering must be part of the artwork; do not supply it with an added backing surface.
 - Prefer an appropriate official transparent variant over removing an opaque background by hand. Do not erase backgrounds or trim canvas automatically. Any permitted canvas adjustment must preserve artwork and required clear space.
 - Use centered `object-fit: contain` sizing. Do not stretch artwork, use `object-fit: cover`, or clip logos into generic circles or rounded masks.
 - Match **visible artwork size** within a placement. Equal image-element dimensions do not ensure equal visual weight when source files contain different amounts of whitespace. Preserve wide marks such as YouTube's play button.
-- Use an approved variant that remains legible against its background. Keep intentional backing surfaces where needed, rather than removing every background indiscriminately.
+- Use an approved variant that remains legible against its background. Keep intentional backing surfaces only where approved for that platform. LinkedIn must have no added backing, white or otherwise.
 - Keep glass, shadows, and decorative effects on surrounding interface elements where appropriate; do not apply effects that alter the logo itself.
 - Provide adequate source detail for the rendered size and display density. Do not upscale small rasters to simulate higher quality.
 
 ## LinkedIn: preserve the user-approved version
 
-The approved reference is the exact SVG introduced in commit `a287e14e64d68a26969e1d48446cfbc6c2d8b02f`, titled **Replace LinkedIn mark with official vector**, at `frontend/assets/brand/social/linkedin.svg`.
+The approved shape reference is the SVG introduced in commit `a287e14e64d68a26969e1d48446cfbc6c2d8b02f`, titled **Replace LinkedIn mark with official vector**, at `frontend/assets/brand/social/linkedin.svg`. The user's latest approved appearance is the blue mark with white “in” lettering, with no added backing.
 
-Its approved appearance is a blue square with white “in” lettering and no registration symbol. Its SVG lettering is transparent, so the image requires a solid white backing to reproduce that appearance. Preserve the SVG's original square proportions and corner shape, with no circular clipping, masks, filters, or distortion.
+Its approved appearance is a blue square with white “in” lettering and no registration symbol. The blue square and white lettering are the logo artwork, not a backing. All space outside the logo's silhouette, including outside its rounded corners, must remain transparent. Do not add a white rectangle, colored backing, CSS background, or pseudo-element behind the image to fill its lettering. The image and any logo-specific wrapper must have transparent backgrounds; existing surrounding cards retain their own styling.
 
-Reuse this asset and backing treatment wherever LinkedIn is already required, including the landing hero, workflow upcoming-platform selector, Learn More platform group, and Coming Soon card. Context-specific sizing may differ; the artwork must not.
+The historical SVG has transparent lettering and is a shape reference, not a reason to restore white CSS backing. The rendered asset must contain white lettering as part of the artwork while preserving the approved geometry, colors, square proportions, and corner shape. Do not let the dark page show through the lettering. Preserve the complete silhouette with no circular clipping, masks, filters, or distortion.
+
+Reuse this approved appearance without added backing wherever LinkedIn is already required, including the landing hero, workflow upcoming-platform selector, Learn More platform group, and Coming Soon card. Context-specific sizing may differ; the artwork must not. This supersedes earlier instructions to use a solid white backing.
 
 Do not substitute the older 240 × 220 PNG, add a registration symbol, or download another variant as part of cleanup. The historical reference identifies the approved artwork; it is not an instruction to revert entire commits or stylesheets. Replacing this approved design requires a separate explicit request.
 

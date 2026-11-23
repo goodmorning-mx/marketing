@@ -1,13 +1,15 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <link rel="icon" type="image/png" sizes="512x512" href="/assets/brand/goodmarketing-logo.png?v=goodmarketing-logo-2" />
+
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Explore the GoodMarketing publishing lifecycle, research, and campaign toolkit." data-description-en="Explore the GoodMarketing publishing lifecycle, research, and campaign toolkit." data-description-es="Explora el ciclo de publicación, la investigación y las herramientas de campaña de GoodMarketing." />
     <meta name="theme-color" content="#07101e" />
     <title data-title-en="Learn More — GoodMarketing" data-title-es="Conoce más — GoodMarketing">Learn More — GoodMarketing</title>
     <link rel="stylesheet" href="/site.css?v=multi-page-navigation-2" />
-    <link rel="stylesheet" href="/review.css?v=social-platform-marks-5" />
+    <link rel="stylesheet" href="/review.css?v=goodmarketing-logo-1" />
     <style>
       .static-page-main{display:grid;gap:28px;min-height:calc(100svh - 158px);padding-block:clamp(28px,5vh,64px)}
       .static-page-heading{padding:clamp(25px,4vw,48px);border:1px solid #718ed155;border-radius:24px;background:radial-gradient(ellipse at 82% 15%,#00055565,transparent 48%),linear-gradient(145deg,#ffffff0a,#ffffff02)}
@@ -22,13 +24,59 @@
       .static-page-main .intro-inner{padding-block:clamp(28px,4vw,48px)}
       .static-page-main .coming-soon-section{padding-block:clamp(28px,4vw,48px)}
       @media(max-width:620px){.static-page-main{gap:18px}.static-page-heading{padding:24px 20px;border-radius:16px}.static-page-main #publishing{padding-block:28px}.static-page-main #publishing .publishing-panel{padding-block:0}.static-page-main #research{padding:28px 22px}.static-page-main .intro-inner{padding-block:30px}.static-page-main .coming-soon-section{padding-block:28px}}
+      /* Learn More launch pass: retain the shared brand tokens while giving each section a precise glass frame. */
+      .static-page-main{width:min(1280px,calc(100% - 64px));gap:24px;padding-block:clamp(56px,8vw,112px)}
+      .static-page-heading{position:relative;isolation:isolate;overflow:hidden;min-height:270px;display:flex;flex-direction:column;justify-content:flex-end;padding:clamp(32px,6vw,76px);border:1px solid #ffffff17;border-radius:28px;background:radial-gradient(ellipse at 82% 18%,#2487ff18,transparent 42%),linear-gradient(145deg,#ffffff0a,#ffffff02),#050507;box-shadow:inset 0 1px 0 #ffffff1f,0 28px 80px #0007}
+      .static-page-heading:after{position:absolute;z-index:-1;right:7%;top:-46%;width:min(42vw,520px);aspect-ratio:1;border:1px solid #ffffff12;border-radius:50%;box-shadow:0 0 0 28px #ffffff04,0 0 0 66px #ffffff03, inset 0 0 72px #2487ff0a;content:"";pointer-events:none}
+      .static-page-heading .eyebrow,.static-page-main .eyebrow{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase}
+      .static-page-heading h1{max-width:850px;margin:16px 0 0;font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:clamp(3.4rem,8vw,7rem);line-height:.92;letter-spacing:-.065em;background:linear-gradient(180deg,#fff 15%,#b9c1ce 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+      .static-page-main .stack-stage{height:auto;margin:0;padding:0}
+      .static-page-main .stack-card{position:relative;top:auto;width:100%;height:auto;min-height:0;margin:0;overflow:hidden;border:1px solid #ffffff14;border-radius:26px;background:#050507;box-shadow:inset 0 1px 0 #ffffff17,0 28px 80px #0006}
+      .static-page-main .stack-card:before{position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:radial-gradient(460px circle at var(--mouse-x,50%) var(--mouse-y,50%),#2487ff12,transparent 64%);content:""}
+      .static-page-main .stack-card > .wrap{width:100%;max-width:none;margin:0}
+      .static-page-main #publishing{padding:clamp(36px,5vw,68px)}
+      .static-page-main #publishing .publishing-panel{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.92fr);align-items:center;gap:clamp(36px,6vw,84px);padding:0}
+      .static-page-main .publishing-panel h3,.static-page-main .research-copy h2,.static-page-main .overview-aside-title{font-family:Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:-.055em;text-transform:none}
+      .static-page-main .publishing-panel h3{max-width:700px;font-size:clamp(2.4rem,5vw,4.7rem);line-height:.98}
+      .static-page-main .publishing-benefits{gap:14px;margin-top:28px}
+      .static-page-main .publishing-benefits li{color:#c4c4cc;line-height:1.6}
+      .static-page-main .platform-stack{display:grid;grid-template-columns:1fr;gap:14px;align-content:center}
+      .static-page-main .platforms{position:relative;min-width:0;padding:22px;border:1px solid #ffffff14;border-radius:20px;background:#ffffff06;box-shadow:inset 0 1px 0 #ffffff12;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+      .static-page-main .platforms-heading{display:flex;align-items:center;justify-content:space-between;gap:14px}
+      .static-page-main .platforms-label,.static-page-main .platform-note{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}
+      .static-page-main .platform-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:18px}
+      .static-page-main .platform-list li,.static-page-main .learn-more-coming-platforms .coming-platform-list li{min-width:0;border:1px solid #ffffff10;border-radius:14px;background:#ffffff05;transition:transform .28s cubic-bezier(.22,1,.36,1),border-color .28s,background .28s}
+      .static-page-main .platform-list li{display:grid;justify-items:center;gap:10px;padding:14px 8px}
+      .static-page-main .learn-more-coming-platforms .coming-platform-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}
+      .static-page-main .learn-more-coming-platforms .coming-platform-list li{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px 6px}
+      .static-page-main .platform-list li:hover,.static-page-main .learn-more-coming-platforms .coming-platform-list li:hover{transform:translateY(-3px);border-color:#ffffff2c;background:#ffffff0b}
+      #publishing .learn-more-coming-platforms .linkedin-logo{background:transparent!important}
+      .static-page-main #research{padding:clamp(36px,5vw,68px);background:radial-gradient(ellipse at 92% 0%,#2487ff0b,transparent 38%),#050507}
+      .static-page-main #research .research-inner{display:grid;grid-template-columns:1fr;align-items:start;gap:30px;width:100%;margin:0}
+      .static-page-main .research-copy h2{max-width:850px;margin:12px 0 0;font-size:clamp(2.8rem,6vw,5.5rem);line-height:.95;background:linear-gradient(180deg,#fff 15%,#a1a1aa 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+      .static-page-main .research-cards{grid-template-columns:1.12fr .94fr .94fr;gap:14px}
+      .static-page-main .research-cards .research-visual{position:relative;align-content:start;gap:16px;min-height:290px;padding:clamp(18px,2.5vw,30px);border:1px solid #ffffff12;border-radius:20px;background:#ffffff05;box-shadow:inset 0 1px 0 #ffffff12,0 18px 48px #0005;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transition:transform .35s cubic-bezier(.22,1,.36,1),border-color .35s}
+      .static-page-main .research-cards .research-visual:hover{transform:translateY(-4px);border-color:#ffffff28}
+      .static-page-main .research-explanation{max-width:28ch;color:#d4d4d8;text-align:left;line-height:1.55}
+      .static-page-main .research-cards .research-stat-graphic{width:clamp(132px,15vw,190px)}
+      .static-page-main .research-cards .research-visual figcaption{margin-top:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.74rem;letter-spacing:.02em;text-align:left}
+      .static-page-main .intro-band{min-height:0;padding:0;background:#050507}
+      .static-page-main .intro-inner{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:clamp(32px,7vw,100px);width:100%;margin:0;padding:clamp(36px,5vw,68px)}
+      .static-page-main .overview-aside{gap:24px}
+      .static-page-main .overview-aside-title{font-size:clamp(2.2rem,4.2vw,4rem);line-height:1.02;background:linear-gradient(180deg,#fff 10%,#a1a1aa 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+      .static-page-main .overview-side-benefits{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+      .static-page-main .intro-inner .overview-lead{max-width:24ch;font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:clamp(1.6rem,3vw,2.6rem);line-height:1.16;letter-spacing:-.035em;text-transform:none}
+      .static-page-main .intro-inner .overview-support{max-width:62ch;margin-top:22px;color:#a1a1aa;line-height:1.8}
+      .static-page-main .reveal{opacity:1;transform:none;filter:none;animation:none}
+      @media(max-width:900px){.static-page-main #publishing .publishing-panel{grid-template-columns:1fr}.static-page-main .research-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.static-page-main .research-cards .research-visual:first-child{grid-column:1/-1}.static-page-main .intro-inner{grid-template-columns:1fr}.static-page-main .overview-aside-title{max-width:18ch}}
+      @media(max-width:620px){.static-page-main{width:calc(100% - 32px);gap:16px;padding-block:36px 64px}.static-page-heading{min-height:220px;padding:28px 22px;border-radius:20px}.static-page-heading h1{font-size:clamp(3.2rem,16vw,5rem)}.static-page-main .stack-card{border-radius:20px}.static-page-main #publishing,.static-page-main #research{padding:28px 20px}.static-page-main .publishing-panel h3{font-size:clamp(2.4rem,12vw,3.6rem)}.static-page-main .platforms{padding:18px 14px}.static-page-main .platform-list{gap:6px}.static-page-main .platform-list li{padding:12px 5px;font-size:.78rem}.static-page-main .learn-more-coming-platforms .coming-platform-list{grid-template-columns:repeat(2,minmax(0,1fr))}.static-page-main .research-cards{grid-template-columns:1fr;gap:12px}.static-page-main .research-cards .research-visual:first-child{grid-column:auto}.static-page-main .research-cards .research-visual{min-height:0}.static-page-main .research-explanation{max-width:none}.static-page-main .research-cards .research-stat-graphic{width:180px}.static-page-main .intro-inner{gap:26px;padding:28px 20px}}
+      @media(prefers-reduced-motion:reduce){.static-page-main .stack-card,.static-page-main .research-visual,.static-page-main .platform-list li,.static-page-main .coming-platform-list li{scroll-behavior:auto;transition:none!important}}
     </style>
   </head>
   <body>
     <header class="wrap topbar" id="top">
       <a class="brand" href="/" aria-label="GoodMarketing home" data-aria-en="GoodMarketing home" data-aria-es="Inicio de GoodMarketing">
-        <span class="brand-mark" aria-hidden="true">gm</span>
-        <span class="brand-copy"><span class="brand-name">GoodMarketing</span><span class="brand-byline" data-i18n data-en="a GoodMorning.MX product" data-es="un producto de GoodMorning.MX">a GoodMorning.MX product</span></span>
+        <img class="brand-logo" src="/assets/brand/goodmarketing-logo.png?v=goodmarketing-logo-2" alt="GoodMarketing"/><span class="brand-copy"><span class="brand-byline" data-i18n data-en="a GoodMorning.MX product" data-es="un producto de GoodMorning.MX">a GoodMorning.MX product</span></span>
       </a>
       <div class="nav-right">
         <nav aria-label="Main navigation" data-aria-en="Main navigation" data-aria-es="Navegación principal">
@@ -136,7 +184,19 @@
       </section></div>
 
     </main>
-    <footer><div class="wrap footer-inner"><a class="brand" href="/" aria-label="GoodMarketing home" data-aria-en="GoodMarketing home" data-aria-es="Inicio de GoodMarketing"><span class="brand-mark" aria-hidden="true">gm</span><span class="brand-copy"><span class="brand-name">GoodMarketing</span><span class="brand-byline">GoodMorning.MX</span></span></a><span class="footer-note" data-i18n data-en="The platform is in development. More to come." data-es="La plataforma está en desarrollo. Pronto habrá más novedades.">The platform is in development. More to come.</span></div></footer>
+    <footer><div class="wrap footer-inner"><a class="brand" href="/" aria-label="GoodMarketing home" data-aria-en="GoodMarketing home" data-aria-es="Inicio de GoodMarketing"><img class="brand-logo" src="/assets/brand/goodmarketing-logo.png?v=goodmarketing-logo-2" alt="GoodMarketing"/><span class="brand-copy"><span class="brand-byline">GoodMorning.MX</span></span></a><span class="footer-note" data-i18n data-en="The platform is in development. More to come." data-es="La plataforma está en desarrollo. Pronto habrá más novedades.">The platform is in development. More to come.</span></div></footer>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        document.querySelectorAll(".static-page-main .stack-card").forEach((panel) => {
+          panel.addEventListener("pointermove", (event) => {
+            const bounds = panel.getBoundingClientRect();
+            panel.style.setProperty("--mouse-x", `${event.clientX - bounds.left}px`);
+            panel.style.setProperty("--mouse-y", `${event.clientY - bounds.top}px`);
+          }, { passive: true });
+        });
+      });
+    </script>
     <script src="/language.js" defer></script>
     <script src="/research-dial.js?v=complete-dial-2" defer></script>
   </body>

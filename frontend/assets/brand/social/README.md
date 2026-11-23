@@ -10,5 +10,6 @@ These locally stored assets are used only by the public landing page. Legacy sha
 - `tiktok-transparent.png` — official multicolor mark from TikTok's [developer logo pack](https://sf16-va.tiktokcdn.com/obj/eden-va2/uvzhqeh7nuhd/tt4d/logo-pack.zip), linked from the [TikTok design guidelines](https://developers.tiktok.com/docs/en/getting-started-design-guidelines).
 - `youtube-cropped.png` — official red play-button artwork from YouTube's [official icon pack](https://www.gstatic.com/marketing-cms/78/29/3e68a1414bb28d0b7e47b44c3c91/youtube-icon.zip), available from [YouTube Brand Resources](https://brand.youtube/youtube-icon).
 - `meta-wordmark.svg` — official transparent negative primary symbol-and-wordmark lockup from the [Meta company brand resources](https://www.meta.com/brand/resources/meta/company-brand/).
+- `meta-symbol.svg` — dashboard-sized symbol extracted from the official `meta-wordmark.svg` artwork above; used for the Meta channel icon.
 
 The earlier `instagram.png` and `whatsapp.png` exports and the legacy `facebook.jpg` and `meta-wordmark.jpg` files are retained; the public landing page now uses the locally stored files named above. TikTok and YouTube use crisp high-resolution transparent exports because their official packs provide standalone raster symbols rather than standalone symbol SVGs.

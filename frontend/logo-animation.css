@@ -17,7 +17,9 @@
   object-position: center;
   opacity: 1;
   transform: translate(-50%, -50%);
-  transition: opacity 1100ms ease;
+  -webkit-mask-image: radial-gradient(circle farthest-side, rgb(0 0 0 / 1) 0 68%, rgb(0 0 0 / .96) 78%, rgb(0 0 0 / .72) 88%, rgb(0 0 0 / 0) 100%);
+  mask-image: radial-gradient(circle farthest-side, rgb(0 0 0 / 1) 0 68%, rgb(0 0 0 / .96) 78%, rgb(0 0 0 / .72) 88%, rgb(0 0 0 / 0) 100%);
+  transition: opacity 2400ms ease-in-out;
   pointer-events: none;
 }
 
@@ -33,7 +35,7 @@
   object-position: center;
   opacity: 0;
   transform: translate(-50%, -50%) scale(.98);
-  transition: opacity 1100ms ease, transform 1100ms ease;
+  transition: opacity 2400ms ease-in-out, transform 2400ms ease-in-out;
   pointer-events: none;
 }
 

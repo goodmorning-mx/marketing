@@ -351,7 +351,30 @@ window.GMPostPreview = (() => {
     const pendingNavigationStatus = (identity) => { const state = readNavigationStatus(); return Boolean(identity?.organization_id && state?.workspace === identity.organization_id && state?.path === location.pathname); };
     const clearNavigationStatusAfterLoad = () => { try { const state = readNavigationStatus(); if (state?.path === location.pathname) sessionStorage.removeItem(navigationKey); } catch {} };
     const saveNavigationStatus = () => { try { sessionStorage.setItem(navigationKey, JSON.stringify({ workspace: window.GMAuth.identity.organization_id, path: location.pathname })); return true; } catch { return false; } };
-    const say = (key) => { feedback.dataset.status = key; feedback.textContent = key ? msg(key) : ""; };
+    const feedbackView = {
+      messageNode: null,
+      messageKey: null,
+      actions: [],
+      labels: [],
+      fieldLabels: [],
+      readFieldLabel: (field) => briefForm.elements.namedItem(field).closest("label").querySelector("span").textContent,
+    };
+    const renderFeedbackLanguage = () => window.GMBrandBriefFeedback.renderBrandBriefFeedbackLanguage(feedbackView, msg);
+    const clearFeedback = () => {
+      feedback.replaceChildren();
+      feedbackView.messageNode = null; feedbackView.messageKey = null;
+      feedbackView.actions = []; feedbackView.labels = []; feedbackView.fieldLabels = [];
+      delete feedback.dataset.status;
+    };
+    const say = (key) => {
+      clearFeedback();
+      if (!key) return;
+      feedback.dataset.status = key;
+      feedbackView.messageKey = key;
+      feedbackView.messageNode = document.createElement("span");
+      feedback.append(feedbackView.messageNode);
+      renderFeedbackLanguage();
+    };
     const readForm = () => Object.fromEntries(fields.map((name) => [name, briefForm.elements.namedItem(name).value]));
     const fill = (brief) => fields.forEach((name) => { briefForm.elements.namedItem(name).value = brief ? brief[name] : ""; });
     const owner = () => window.GMAuth?.identity?.roles?.includes("owner") === true;
@@ -360,15 +383,16 @@ window.GMPostPreview = (() => {
       const submit = briefForm.querySelector("button[type=submit]");
       submit.disabled = !enabled || !owner(); submit.hidden = !owner();
     };
-    const addAction = (key, action) => { const button = document.createElement("button"); button.type = "button"; button.dataset.status = key; button.textContent = msg(key); button.addEventListener("click", action); feedback.append(" ", button); return button; };
+    const addAction = (key, action) => { const button = document.createElement("button"); button.type = "button"; button.dataset.status = key; button.addEventListener("click", action); feedback.append(" ", button); feedbackView.actions.push({ node: button, key }); renderFeedbackLanguage(); return button; };
     const showComparison = (context) => {
       const comparison = document.createElement("div"); comparison.className = "brief-conflict-comparison";
       fields.forEach((key) => {
         const item = document.createElement("section"); item.className = "brief-conflict-field";
-        const label = briefForm.elements.namedItem(key).closest("label").querySelector("span").textContent;
-        const heading = document.createElement("strong"); heading.textContent = label; item.append(heading);
+        const heading = document.createElement("strong"); item.append(heading);
+        feedbackView.fieldLabels.push({ node: heading, field: key });
         [["serverVersion", context.serverBrief?.[key] ?? ""], ["yourDraft", context.draft[key]]].forEach(([title, value]) => {
           const version = document.createElement("div"); const name = document.createElement("b"); name.textContent = msg(title);
+          feedbackView.labels.push({ node: name, key: title });
           const text = document.createElement("pre"); text.textContent = value || msg("empty"); version.append(name, text); item.append(version);
         });
         comparison.append(item);
@@ -384,7 +408,7 @@ window.GMPostPreview = (() => {
       applyBrief: fill,
       setEditable,
       onStatus: (status) => {
-        if (status === null) { feedback.textContent = ""; delete feedback.dataset.status; return; }
+      if (status === null) { clearFeedback(); return; }
         if (status === "load-error") { briefForm.hidden = false; const saved = pendingNavigationStatus(window.GMAuth?.identity); say(saved ? "reload" : "load"); addAction("retryLoad", () => flow.load()); return; }
         if (status === "confirm-pending") { say("reload"); retryButton(); return; }
         if (status === "unknown-pending") { say("unknownConflict"); retryButton(); return; }
@@ -394,7 +418,7 @@ window.GMPostPreview = (() => {
       },
       onLoaded: () => {
         clearNavigationStatusAfterLoad();
-        feedback.textContent = ""; delete feedback.dataset.status; briefForm.hidden = false;
+        clearFeedback(); briefForm.hidden = false;
         if (!owner()) { say("viewer"); document.querySelector(".brand-assets")?.setAttribute("hidden", ""); }
       },
       beforeReload: saveNavigationStatus,
@@ -418,8 +442,7 @@ window.GMPostPreview = (() => {
     }, { once: true });
     briefForm.addEventListener("submit", (event) => { event.preventDefault(); flow.save(readForm()); });
     document.addEventListener("goodmarketing:language-change", () => {
-      if (feedback.dataset.status) feedback.textContent = msg(feedback.dataset.status);
-      feedback.querySelectorAll("button[data-status]").forEach((button) => { button.textContent = msg(button.dataset.status); });
+      renderFeedbackLanguage();
     });
     if (window.GMAuth?.identity) startInitialLoad();
   }

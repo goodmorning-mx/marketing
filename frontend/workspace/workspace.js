@@ -174,9 +174,12 @@ window.GMPostPreview = (() => {
             cardHeading.className = "platform-post-heading";
             const platformLabel = document.createElement("strong");
             platformLabel.className = `platform-post-name ${platform.kind}`;
-            const platformIcon = document.createElement("span");
+            const platformIcon = document.createElement("img");
+            platformIcon.src = platform.kind === "instagram"
+              ? "/assets/brand/social/instagram-gradient.png"
+              : "/assets/brand/social/facebook.png";
+            platformIcon.alt = "";
             platformIcon.setAttribute("aria-hidden", "true");
-            platformIcon.textContent = platform.kind === "instagram" ? "◎" : "f";
             platformLabel.append(platformIcon, document.createTextNode(platform.name));
             const platformStatus = document.createElement("span");
             platformStatus.className = `event-status ${platform.status}`;

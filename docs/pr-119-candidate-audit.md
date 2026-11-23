@@ -1,10 +1,11 @@
 # PR #119 candidate audit
 
 Candidate branch: `codex/gm-auth-account-flow`
-Current source candidate SHA: `c9bb783d3c02819de96a77a8a4873eb6c68cc109`
+Current PR head: `555d14c3d6d52bc0c54758b2024b42e26a597cd3`
+Account/Brand Brief implementation: `c9bb783d3c02819de96a77a8a4873eb6c68cc109`; subsequent changes configure the DEV origin in three PostgreSQL test cases only.
 Integrated latest `dev`: `e5ed7598e9f86e4dc9aefdf27301b6937129680f` (video-only; no account or Brand Brief changes).
-PR: [#119](https://github.com/goodmorning-mx/marketing/pull/119), open and mergeable as of the latest refresh; not merged or deployed.
-The current source candidate code is at `c9bb783d3c02819de96a77a8a4873eb6c68cc109`; subsequent pushed commits only refresh this audit document. The untracked `handoff/` Factory patch remains preserved.
+PR: [#119](https://github.com/goodmorning-mx/marketing/pull/119), open and not merged or deployed.
+The untracked `handoff/` Factory patch remains preserved.
 
 ## Candidate changes and validation
 
@@ -12,10 +13,10 @@ The current source candidate code is at `c9bb783d3c02819de96a77a8a4873eb6c68cc10
 - [x] Brand Brief recovery uses one state machine. Fields remain locked during confirmation, unknown-outcome, and stale-write recovery; retries are GET-only; stale comparisons require explicit choices and use the displayed server validator.
 - [x] Fixed language rendering: EN/ES updates now change existing message, action, and comparison-label nodes. They do not replace feedback content, remove retry/choice buttons, replace comparison text, alter customer values, or mutate the flow's validators/state. Added a cache-busted script URL.
 - [x] Focused Node suite: **9 passed, 0 failed**. Includes EN/ES changes during failed confirmation, lost-write recovery, and stale comparison; checks action-node identity, draft preservation, GET-only retries, one write until an explicit choice, and conditional conflict resolution.
-- [x] Full PostgreSQL 16.11 synthetic backend suite: **28 passed** on isolated `gm119_synthetic`, previously run on `b702bec`. The backend, SQL mapping, migrations and tests have not changed since that run; current `dev` integration and this fix changed frontend landing/Brand Brief files only.
+- [x] Full PostgreSQL 16 synthetic backend suite: **28 passed** on the current PR head in GitHub Actions run [45142525706](https://github.com/goodmorning-mx/marketing/actions/runs/45142525706). This also caught and corrected a test-only mismatch between the DEV request Origin and the test settings allowlist.
 - [x] Actual ChatGPT in-app browser, local candidate page and synthetic request harness: failed confirmation GET retained distinct customer values and disabled fields; EN switch preserved the Retry control; retry made GET only, completed a full page reload, and loaded the saved five values. Unknown PUT response plus failed recovery GET retained the draft; ES switch preserved Retry; retry made GET only and showed the comparison without a second PUT. A stale 412 showed both server and draft fields; EN switch retained comparison content and all three explicit choices; keep-draft followed by save used the displayed `etag-server-2` validator and completed a confirmation/reload.
 - [x] Responsive in-app browser checks at **320px** and **390px**: document/body scroll width matched each viewport (no horizontal page overflow); controls and brief content remained reachable. Default desktop width also had no horizontal overflow.
-- [x] JavaScript syntax checks and `git diff --check` passed. Previous backend checks include `pip check`, Python compileall and a high-confidence secret-pattern scan; the added renderer contains no credentials or runtime secrets.
+- [x] Current GitHub Actions run also passed Brand Brief recovery tests, JavaScript syntax, backend syntax, clean backend/frontend image builds and frontend startup smoke. Previous local checks include `pip check` and a high-confidence secret-pattern scan; the added renderer contains no credentials or runtime secrets.
 
 The new browser language-transition runs used a local synthetic request layer to deterministically induce failure and conflict responses; they did not write to DEV or customer storage. Prior DB-backed browser acceptance against an isolated PostgreSQL fixture remains applicable to unchanged backend behavior.
 
@@ -23,10 +24,9 @@ The new browser language-transition runs used a local synthetic request layer to
 
 ### A. Preservation release, PR #122
 
-- Current PR state is **open, mergeable, no submitted reviews**. Candidate head `e4c09ce8d8ae11e684f0ff363be9eda79cb4e09c` is based on older `dev` `4549a7dd9fa7297b0db66c47ba5eea0a2634654b`; current `dev` is `e5ed7598e9f86e4dc9aefdf27301b6937129680f`.
-- Actions run [45020997214](https://github.com/goodmorning-mx/marketing/actions/runs/45020997214) failed before exposing any steps. Connected diagnostics returned no checks, statuses, annotations, or log; **the exact cause is unknown**. Do not treat it as an executed test failure or claim a confirmed billing restriction.
-- The earlier local candidate suite reported 10 passed, including PostgreSQL tests. Neither clean application image build nor Nginx frontend smoke has executed. No accessible authorized image builder is available through current tools or the local host.
-- Refresh #122 onto current `dev`, obtain review and executed CI/image evidence, then carry out the required automatic DEV deployment and acceptance before proceeding.
+- Refreshed PR head: `ba12b275367912f79f441120a47bbab3b04514b9`, based on current `dev` `e5ed7598e9f86e4dc9aefdf27301b6937129680f`. It adds the existing gm-auth token/permission checks to historical adapter operations and ignores caller-supplied identity/tenant headers. Latest Actions run [45143367617](https://github.com/goodmorning-mx/marketing/actions/runs/45143367617) is for superseded head `dc7873b36dfde685762ebfc3637f0a6957df6533` and failed only during PostgreSQL fixture cleanup after 11 tests passed; the cleanup defect is fixed at `ba12b27` and its new run is pending.
+- Earlier run [45142663331](https://github.com/goodmorning-mx/marketing/actions/runs/45142663331) passed PostgreSQL migration/preservation tests, clean images and API/Nginx startup smoke at superseded pre-auth head `51bdfce67b68354fe27587f80f459461891785eb`. It does not validate the current authenticated candidate.
+- Do not merge or deploy until CI passes for `ba12b27` and the authenticated integration is reviewed. Deployment and DEV acceptance remain pending.
 
 ### B. Factory registration and runtime bindings
 
@@ -36,11 +36,11 @@ The new browser language-transition runs used a local synthetic request layer to
 
 ### C. Corrected account release, PR #119
 
-- Current candidate: `c9bb783d3c02819de96a77a8a4873eb6c68cc109`; PR remains open and unmerged.
-- Source candidate run [45138914112](https://github.com/goodmorning-mx/marketing/actions/runs/45138914112) failed before steps with no checks, statuses, annotations or log; its exact cause is unknown and it is not evidence of an executed test failure. The later audit-only PR head `d979562735d190e625b8f107032b84fef62d7d51` produced run [45139355557](https://github.com/goodmorning-mx/marketing/actions/runs/45139355557). That job had `steps: null` and no log; its GitHub check annotation says it was not started because of recent failed account payments or a spending limit. This is workflow annotation evidence, not an independent read of billing settings. **GitHub account billing owner:** inspect Billing & plans, resolve or confirm the payment/spending-limit state, then allow a fresh workflow execution. Do not manually rerun while the restriction is unchanged.
-- Latest read-only DEV health returns service `GoodMorning Marketing Adapters API`, status `ok`, environment `dev`; it does not identify an application revision. No Coolify access is available for API/frontend application identities, serving SHAs, runtime-key presence, or deployment status.
-- No evidence is available for the latest successful backup, tested recovery artifact or maintainer-owned containment/forward-fix, or the legacy integration callers and their scoped access. These remain required before release; a pre-account API is not a safe rollback after account data exists.
+- Current candidate is `555d14c3d6d52bc0c54758b2024b42e26a597cd3`; PR remains open and unmerged. Its latest executed Actions run [45142525706](https://github.com/goodmorning-mx/marketing/actions/runs/45142525706) passed all PostgreSQL 16 account/migration tests (28), nine focused recovery tests, both syntax checks, clean backend/frontend image builds and frontend startup smoke.
+- The earlier payment annotation is stale: current CI executes successfully. No current failed run or billing annotation blocks the candidate.
+- No authorized Coolify control/read tool or session is exposed in this task, so API/frontend deployed revisions, required runtime-key presence, deployment status, backup/recovery evidence and runtime readiness remain unverified. DEV health previously returned `ok` but did not identify an application revision.
+- The legacy integration callers and their scoped access remain to be checked against the authenticated PR #122 candidate and Factory registration. A pre-account API is not a safe rollback after account data exists.
 
 ## Data and release impact
 
-Migration 006 remains additive and preserves historical rows and relationships; no destructive migration, reset, production change, or customer-data write was performed. The language-rendering fix adds one small frontend module and changes the Brand Brief script cache key; it changes no backend configuration or migration. No DEV merge, deployment, or live customer acceptance is claimed.
+Migration 006 remains additive and preserves historical rows and relationships; no destructive migration, reset, production change, or customer-data write was performed. The language-rendering fix adds one small frontend module and changes the Brand Brief script cache key; it changes no runtime configuration or migration. No DEV merge, deployment, or live customer acceptance is claimed.

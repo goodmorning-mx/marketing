@@ -180,11 +180,11 @@ def test_postgres_adapters_and_demo_request_staff_flow(monkeypatch):
     schema_url = _url_for_schema(base_url, schema)
     engine = create_engine(schema_url)
     monkeypatch.setenv("AUTH_JWT_SECRET", "postgres-adapters-test-secret-is-long-enough")
-    auth = AuthService(engine, AuthSettings(jwt_secret="postgres-adapters-test-secret-is-long-enough", issuer="goodmarketing"))
-    auth.create_schema()
-    auth.create_organization(organization_id="adapter-org", slug="adapter-org", name="Adapter test")
-    auth.create_user(email="adapter-owner@example.test", name="Adapter Owner", password="disposable adapter password", organization_id="adapter-org", roles={"owner"}, permissions={"workspace:read", "marketing:write"})
-    token = auth.login(email="adapter-owner@example.test", password="disposable adapter password").access_token
+    auth_service = AuthService(engine, AuthSettings(jwt_secret="postgres-adapters-test-secret-is-long-enough", issuer="goodmarketing"))
+    auth_service.create_schema()
+    auth_service.create_organization(organization_id="adapter-org", slug="adapter-org", name="Adapter test")
+    auth_service.create_user(email="adapter-owner@example.test", name="Adapter Owner", password="disposable adapter password", organization_id="adapter-org", roles={"owner"}, permissions={"workspace:read", "marketing:write"})
+    token = auth_service.login(email="adapter-owner@example.test", password="disposable adapter password").access_token
     adapter_headers = {"Authorization": f"Bearer {token}"}
 
     def database_session():
@@ -199,7 +199,7 @@ def test_postgres_adapters_and_demo_request_staff_flow(monkeypatch):
     monkeypatch.setattr(main.settings, "meta_client_secret", "")
     monkeypatch.setattr(main.settings, "app_name", "GoodMorning Marketing Adapters API")
     monkeypatch.setattr(main.settings, "app_env", "dev")
-    monkeypatch.setattr(main, "auth_service", auth)
+    monkeypatch.setattr(main, "auth_service", auth_service)
     try:
         with TestClient(main.app) as client:
             assert client.get("/health").json() == {
@@ -243,6 +243,6 @@ def test_postgres_adapters_and_demo_request_staff_flow(monkeypatch):
             assert stored.json()[0]["id"] == request_id
             assert stored.json()[0]["admin_notes"] == "Disposable follow-up."
     finally:
-        auth.engine.dispose()
+        auth_service.engine.dispose()
         engine.dispose()
         _drop_schema(base_url, schema)

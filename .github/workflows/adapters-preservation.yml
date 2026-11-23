@@ -45,3 +45,28 @@ jobs:
         run: docker build --pull --no-cache --tag goodmarketing-backend:ci --file backend/Dockerfile backend
       - name: Build clean frontend image
         run: docker build --pull --no-cache --tag goodmarketing-frontend:ci --file frontend/Dockerfile frontend
+      - name: Smoke-test API and Nginx startup
+        run: |
+          set -euo pipefail
+          cleanup() {
+            docker rm --force goodmarketing-api-ci goodmarketing-frontend-ci >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker run --detach --name goodmarketing-api-ci --network host \
+            --env DATABASE_URL=postgresql+psycopg://postgres:postgres@127.0.0.1:5432/marketing_test \
+            --env APP_NAME='GoodMorning Marketing Adapters API' --env APP_ENV=dev \
+            --env CORS_ORIGINS=https://dev.marketing.goodmorning.mx \
+            goodmarketing-backend:ci
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8000/health >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8000/health | grep -q '"status":"ok"'
+          docker run --detach --name goodmarketing-frontend-ci --publish 127.0.0.1:8080:80 goodmarketing-frontend:ci
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8080/health >/dev/null; then break; fi
+            sleep 1
+          done
+          docker exec goodmarketing-frontend-ci nginx -t
+          curl --fail --silent http://127.0.0.1:8080/health | grep -q '^ok$'
+          curl --fail --silent http://127.0.0.1:8080/signup/ | grep -q 'demo-requests'

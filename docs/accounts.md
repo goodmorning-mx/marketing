@@ -20,10 +20,15 @@ a named email, workspace, role, and expiry. Staff deliver the link manually.
 The link token is only in its URL fragment, is hashed at rest, and is removed
 from the browser address bar before activation. No mail delivery is configured.
 
-Roles are `owner` and `viewer`. Both can read their own workspace profile;
-owners can update that workspace's display name. The API derives the
-organization from the authenticated gm-auth identity and checks its permissions
-for each operation.
+Roles are `owner` and `viewer`. Both can read their own workspace profile and
+organization-owned Adapters records. Owners can update the workspace display
+name and customer data; viewers are read-only. The API derives the organization
+from the verified gm-auth access token. Legacy `tenant_id` selectors and
+`X-GM-*` identity/permission headers are ignored for authority. Cookie-auth
+mutations also require an exact allowed `Origin`; trusted server integrations
+may use a verified bearer token. Historical Adapters paths and payload schemas
+remain compatible, with authentication and organization ownership now required.
+Historical `demo` rows are not reassigned to customers.
 
 ## Schema and migration
 
@@ -39,6 +44,8 @@ On API startup, the backend serializes additive setup and records each step in
 4. `003_demo_requests.sql` ensures the public demo-request table exists.
 5. `004_marketing_strategy_fields.sql` idempotently adds fields that may be
    absent from earlier Adapters schemas, including `audience`.
+6. `005_owner_marketing_permissions.sql` adds `marketing:write` to existing
+   owner memberships; viewer permissions are unchanged.
 
 These steps are safe to replay. The gm-auth migration uses the approved
 v0.1.5 package metadata, which matches the tables created by the historical
@@ -60,3 +67,21 @@ state. Roll back the Factory manifest registration separately only if the
 installation contract must be reverted. Verify `/health`, `/signup/`, and the
 previous DEV workspace behavior after rollback. Reapplying the account release
 uses the same versioned migration ledger and keeps existing rows.
+
+## Adapters authorization contract
+
+All `/api/brands`, `/api/campaigns`, `/api/content`, `/api/connections/*`,
+`/api/publish/*`, and `/api/tools/invoke` data paths require verified customer
+identity and `workspace:read`. Writes additionally require `marketing:write`.
+Brand selection uses the authenticated organization; campaign and content
+access is scoped through parent joins, including status and publish mutations.
+Tool context is built from the verified gm-auth identity and mapped permissions,
+never from request identity headers. `/api/tools` exposes metadata only but is
+also restricted to an authenticated workspace.
+
+The 14 historical HTTP operations and their payload/response schemas remain in
+place. Authorization is the intentional compatibility change: existing
+integrations must send a valid gm-auth bearer token for the target organization;
+there is no unauthenticated or header-trusting fallback. Historical integration
+callers must be issued workspace memberships and scoped credentials before the
+account release is enabled.

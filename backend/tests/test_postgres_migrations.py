@@ -33,6 +33,7 @@ def test_gm_auth_migrations_succeed_on_first_and_repeated_startup(monkeypatch):
             "workspace-accounts:1",
             "demo-requests:1",
             "marketing:strategy-fields:1",
+            "marketing:owner-write-permission:1",
         }
         assert {
             "gm_auth_users", "gm_auth_organizations", "gm_auth_memberships",
@@ -43,6 +44,38 @@ def test_gm_auth_migrations_succeed_on_first_and_repeated_startup(monkeypatch):
     finally:
         if main.auth_service is not None:
             main.auth_service.engine.dispose()
+
+
+@pytest.mark.skipif(not os.getenv("TEST_DATABASE_URL"), reason="requires the PostgreSQL 16 CI service")
+def test_owner_permission_upgrade_is_additive_and_replayable(monkeypatch):
+    database_url = os.environ["TEST_DATABASE_URL"]
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.setenv("AUTH_JWT_SECRET", "ci-only-signing-secret-that-is-long-enough")
+    monkeypatch.setattr(main, "auth_service", None)
+    monkeypatch.setattr(main, "_runtime_engine", None)
+    monkeypatch.setattr(main, "_runtime_engine_url", None)
+    user_id, organization_id = str(uuid4()), str(uuid4())
+    connection_url = database_url.replace("postgresql+psycopg://", "postgresql://", 1)
+    try:
+        main.startup_database()
+        with psycopg.connect(connection_url) as connection:
+            connection.execute(
+                "INSERT INTO gm_auth_memberships (user_id, organization_id, roles, permissions, created_at) VALUES (%s, %s, %s, %s, now())",
+                (user_id, organization_id, '["owner"]', '[]'),
+            )
+            connection.execute("DELETE FROM goodmarketing_schema_migrations WHERE version = 'marketing:owner-write-permission:1'")
+        main.startup_database()
+        with psycopg.connect(connection_url) as connection:
+            permissions = connection.execute(
+                "SELECT permissions::text FROM gm_auth_memberships WHERE user_id = %s AND organization_id = %s",
+                (user_id, organization_id),
+            ).fetchone()[0]
+            assert "marketing:write" in permissions
+    finally:
+        if main.auth_service is not None:
+            main.auth_service.engine.dispose()
+        with psycopg.connect(connection_url) as connection:
+            connection.execute("DELETE FROM gm_auth_memberships WHERE user_id = %s AND organization_id = %s", (user_id, organization_id))
 
 
 @pytest.mark.skipif(not os.getenv("TEST_DATABASE_URL"), reason="requires the PostgreSQL 16 CI service")
@@ -105,7 +138,7 @@ def test_migrations_replay_over_preexisting_adapters_schema_without_losing_data(
         assert brand == ("Existing brand", "", "")
         assert campaign == ("Existing campaign", "", "")
         assert content == ("Existing content",)
-        assert version_count == 5
+        assert version_count == 6
     finally:
         if main._runtime_engine is not None:
             main._runtime_engine.dispose()

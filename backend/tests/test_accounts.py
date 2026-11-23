@@ -59,6 +59,7 @@ def client(monkeypatch, tmp_path):
     monkeypatch.setenv("AUTH_COOKIE_DOMAIN", "dev.marketing.goodmorning.mx")
     monkeypatch.setenv("ADMIN_USERNAME", "staff")
     monkeypatch.setenv("ADMIN_PASSWORD", "staff-test-password")
+    monkeypatch.setattr(main.settings, "cors_origins", "https://dev.marketing.goodmorning.mx")
     with TestClient(main.app, base_url="https://dev.marketing.goodmorning.mx", raise_server_exceptions=False) as test_client:
         yield test_client, service, engine
     engine.dispose()
@@ -76,7 +77,7 @@ def invite(client, email, workspace, role, workspace_id=None, hours=72):
 
 
 def activate(client, email, token):
-    return client.post("/auth/activate", json={"email": email, "name": email.split("@")[0], "password": "a sufficiently long password", "token": token})
+    return client.post("/auth/activate", headers={"Origin": "https://dev.marketing.goodmorning.mx"}, json={"email": email, "name": email.split("@")[0], "password": "a sufficiently long password", "token": token})
 
 
 def test_activation_is_email_bound_single_use_and_token_is_hashed(client):
@@ -132,17 +133,17 @@ def test_login_logout_and_workspace_role_isolation(client):
     owner_activation = activate(test_client, "owner@example.test", owner_token)
     assert owner_activation.status_code == 200
     owner_id = owner_activation.json()["identity"]["organization_id"]
-    assert test_client.put("/workspace", json={"display_name": "North Studio"}).json()["display_name"] == "North Studio"
-    test_client.post("/auth/logout")
+    assert test_client.put("/workspace", headers={"Origin": "https://dev.marketing.goodmorning.mx"}, json={"display_name": "North Studio"}).json()["display_name"] == "North Studio"
+    test_client.post("/auth/logout", headers={"Origin": "https://dev.marketing.goodmorning.mx"})
     assert test_client.get("/auth/me").status_code == 401
-    assert test_client.post("/auth/login", json={"email": "owner@example.test", "password": "a sufficiently long password"}).status_code == 200
-    test_client.post("/auth/logout")
+    assert test_client.post("/auth/login", headers={"Origin": "https://dev.marketing.goodmorning.mx"}, json={"email": "owner@example.test", "password": "a sufficiently long password"}).status_code == 200
+    test_client.post("/auth/logout", headers={"Origin": "https://dev.marketing.goodmorning.mx"})
 
     viewer_invite, viewer_token = invite(test_client, "viewer@example.test", "North Studio", "viewer", workspace_id=owner_id)
     assert activate(test_client, "viewer@example.test", viewer_token).status_code == 200
     assert test_client.get("/workspace").json()["display_name"] == "North Studio"
-    assert test_client.put("/workspace", json={"display_name": "Forbidden"}).status_code == 403
-    test_client.post("/auth/logout")
+    assert test_client.put("/workspace", headers={"Origin": "https://dev.marketing.goodmorning.mx"}, json={"display_name": "Forbidden"}).status_code == 403
+    test_client.post("/auth/logout", headers={"Origin": "https://dev.marketing.goodmorning.mx"})
 
     _, other_token = invite(test_client, "other@example.test", "South", "owner")
     other_activation = activate(test_client, "other@example.test", other_token)
@@ -150,7 +151,7 @@ def test_login_logout_and_workspace_role_isolation(client):
     other_id = other_activation.json()["identity"]["organization_id"]
     assert other_id != owner_id
     assert test_client.get("/workspace").json()["display_name"] == "South"
-    assert test_client.put("/workspace", json={"display_name": "South Edit"}).status_code == 200
+    assert test_client.put("/workspace", headers={"Origin": "https://dev.marketing.goodmorning.mx"}, json={"display_name": "South Edit"}).status_code == 200
     owner = service.login(email="owner@example.test", password="a sufficiently long password")
     assert owner is not None and owner.identity.organization_id == owner_id
     assert test_client.get("/workspace", headers={"Authorization": f"Bearer {owner.access_token}"}).json()["display_name"] == "North Studio"

@@ -69,10 +69,18 @@ def account_service() -> AuthService:
     return auth_service
 
 
+def require_allowed_origin(request: Request) -> None:
+    origin = request.headers.get("Origin")
+    if not origin or origin not in settings.allowed_origins:
+        raise HTTPException(status_code=403, detail="Request origin is not permitted.")
+
+
 def current_customer(request: Request, credentials=Depends(bearer), service: AuthService = Depends(account_service)) -> AuthIdentity:
     token = credentials.credentials if credentials else request.cookies.get("gm_access")
     if not token:
         raise HTTPException(status_code=401, detail="Sign-in required.")
+    if credentials is None and request.method not in {"GET", "HEAD", "OPTIONS"}:
+        require_allowed_origin(request)
     try:
         return service.identity_from_access_token(token)
     except ValueError as exc:
@@ -140,6 +148,7 @@ def startup_database():
             ("workspace-accounts:1", "002_workspace_accounts.sql"),
             ("demo-requests:1", "003_demo_requests.sql"),
             ("marketing:strategy-fields:1", "004_marketing_strategy_fields.sql"),
+            ("marketing:owner-write-permission:1", "005_owner_marketing_permissions.sql"),
         )
         for version, migration in migrations:
             found = connection.execute("SELECT 1 FROM goodmarketing_schema_migrations WHERE version = %s", (version,)).fetchone()
@@ -225,7 +234,8 @@ def health() -> dict[str, str]:
 
 
 @app.post("/auth/login")
-def customer_login(payload: LoginInput, response: Response, service: AuthService = Depends(account_service)):
+def customer_login(payload: LoginInput, request: Request, response: Response, service: AuthService = Depends(account_service)):
+    require_allowed_origin(request)
     tokens = service.login(email=payload.email.strip().lower(), password=payload.password)
     if tokens is None:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
@@ -235,6 +245,7 @@ def customer_login(payload: LoginInput, response: Response, service: AuthService
 
 @app.post("/auth/logout", status_code=204)
 def customer_logout(request: Request, response: Response, service: AuthService = Depends(account_service)):
+    require_allowed_origin(request)
     refresh = request.cookies.get("gm_refresh")
     if refresh:
         service.logout(refresh)
@@ -243,6 +254,7 @@ def customer_logout(request: Request, response: Response, service: AuthService =
 
 @app.post("/auth/refresh")
 def customer_refresh(request: Request, response: Response, service: AuthService = Depends(account_service)):
+    require_allowed_origin(request)
     refresh = request.cookies.get("gm_refresh")
     tokens = service.refresh(refresh) if refresh else None
     if tokens is None:
@@ -258,7 +270,8 @@ def customer_me(identity: AuthIdentity = Depends(current_customer)):
 
 
 @app.post("/auth/activate")
-def activate_account(payload: ActivateInput, response: Response, service: AuthService = Depends(account_service)):
+def activate_account(payload: ActivateInput, request: Request, response: Response, service: AuthService = Depends(account_service)):
+    require_allowed_origin(request)
     token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
     email = payload.email.strip().lower()
     try:
@@ -309,7 +322,7 @@ def issue_invitation(payload: InvitationInput, _admin: str = Depends(require_sta
     token = secrets.token_urlsafe(32)
     now = datetime.now(timezone.utc)
     roles = [payload.role]
-    permissions = ["workspace:read", "workspace:name:update"] if payload.role == "owner" else ["workspace:read"]
+    permissions = ["workspace:read", "workspace:name:update", "marketing:write"] if payload.role == "owner" else ["workspace:read"]
     with database_connection() as connection:
         connection.execute("INSERT INTO goodmarketing_invitations (id, email, organization_id, roles, permissions, token_hash, expires_at, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
             (str(uuid.uuid4()), email, organization_id, psycopg.types.json.Jsonb(roles), psycopg.types.json.Jsonb(permissions), hashlib.sha256(token.encode()).hexdigest(), now + timedelta(hours=payload.expires_hours), now))

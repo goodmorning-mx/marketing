@@ -31,7 +31,7 @@ def test_concurrent_invitation_redemption_creates_one_account(monkeypatch):
         with TestClient(main.app, base_url="https://dev.marketing.goodmorning.mx", raise_server_exceptions=False) as client:
             return client.post("/auth/activate", json={
                 "token": token, "email": email, "name": "Disposable tester", "password": password,
-            }).status_code
+            }, headers={"Origin": "https://dev.marketing.goodmorning.mx"}).status_code
 
     try:
         with ThreadPoolExecutor(max_workers=2) as pool:

@@ -39,6 +39,10 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/marketing_test
         run: PYTHONPATH=. pytest -q tests
+      - name: Test Brand Brief save recovery and conflict handling
+        run: node --test frontend/tests/brand-brief-flow.test.cjs
+      - name: Check Brand Brief scripts
+        run: node --check frontend/workspace/brand-brief-flow.js && node --check frontend/workspace/workspace.js
       - name: Check backend syntax
         run: python -m compileall -q backend/app backend/tests
       - name: Build clean backend image

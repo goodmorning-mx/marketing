@@ -344,26 +344,30 @@ window.GMPostPreview = (() => {
   if (briefForm) {
     const feedback = document.querySelector("#brief-feedback");
     const fields = ["brand_name", "description", "audience", "voice_tone", "primary_goal"];
-    let etag = null, busy = false, confirmed = false;
-    const messages = { en: { load: "Could not load the brand brief.", save: "Save failed. Your draft is still here.", staleConflict: "This save was rejected because the server changed. Compare both versions before choosing what to do.", unknownConflict: "The save response was lost. Its outcome is unknown. Compare both versions before choosing what to do.", saved: "Saved and confirmed. Reloading…", reload: "Saved, but reload failed.", retry: "Check the server and reload", viewer: "You can view this brief but cannot edit it.", loadServer: "Load server version", keepDraft: "Keep draft and continue editing", replaceDraft: "Replace server version with this draft", retrySave: "Retry with the unchanged version", retryLoad: "Check the server again", outcomeCurrent: "The server currently has these values. The lost response means this client cannot confirm who saved them.", alreadyCurrent: "These values are already current on the server; this client did not make a confirmed save.", reconcileReady: "Both versions were compared. Your draft is ready to edit against the displayed server version.", serverVersion: "Server version", yourDraft: "Your draft", empty: "(empty)" }, es: { load: "No se pudo cargar el brief.", save: "No se pudo guardar. Tu borrador sigue aquí.", staleConflict: "El servidor cambió y rechazó este guardado. Compara ambas versiones antes de elegir qué hacer.", unknownConflict: "Se perdió la respuesta del guardado. El resultado es desconocido. Compara ambas versiones antes de elegir qué hacer.", saved: "Guardado y confirmado. Recargando…", reload: "Se guardó, pero no se pudo recargar.", retry: "Consultar el servidor y recargar", viewer: "Puedes ver este brief, pero no editarlo.", loadServer: "Cargar versión del servidor", keepDraft: "Conservar el borrador y seguir editando", replaceDraft: "Reemplazar la versión del servidor con este borrador", retrySave: "Reintentar con la versión sin cambios", retryLoad: "Consultar el servidor de nuevo", outcomeCurrent: "El servidor tiene estos valores. Al perderse la respuesta, este cliente no puede confirmar quién los guardó.", alreadyCurrent: "Estos valores ya están en el servidor; este cliente no confirmó el guardado.", reconcileReady: "Se compararon ambas versiones. Puedes editar el borrador usando la versión del servidor mostrada.", serverVersion: "Versión del servidor", yourDraft: "Tu borrador", empty: "(vacío)" } };
+    const messages = { en: { load: "Could not load the brand brief.", save: "Save failed. Your draft is still here.", staleConflict: "This save was rejected because the server changed. Compare both versions before choosing what to do.", unknownConflict: "The save response was lost. Its outcome is unknown. Compare both versions before choosing what to do.", saved: "Saved and confirmed. Reloading…", savedNoMarker: "Saved and confirmed. Session storage is unavailable; reloading…", reload: "Saved, but reload failed.", viewer: "You can view this brief but cannot edit it.", loadServer: "Load server version", keepDraft: "Keep draft and continue editing", replaceDraft: "Replace server version with this draft", retrySave: "Retry with the unchanged version", retryLoad: "Check the server again", outcomeCurrent: "The server currently has these values. The lost response means this client cannot confirm who saved them.", alreadyCurrent: "These values are already current on the server; this client did not make a confirmed save.", reconcileReady: "Both versions were compared. Your draft is ready to edit against the displayed server version.", serverVersion: "Server version", yourDraft: "Your draft", empty: "(empty)" }, es: { load: "No se pudo cargar el brief.", save: "No se pudo guardar. Tu borrador sigue aquí.", staleConflict: "El servidor cambió y rechazó este guardado. Compara ambas versiones antes de elegir qué hacer.", unknownConflict: "Se perdió la respuesta del guardado. El resultado es desconocido. Compara ambas versiones antes de elegir qué hacer.", saved: "Guardado y confirmado. Recargando…", savedNoMarker: "Guardado y confirmado. El almacenamiento de sesión no está disponible; recargando…", reload: "Se guardó, pero no se pudo recargar.", viewer: "Puedes ver este brief, pero no editarlo.", loadServer: "Cargar versión del servidor", keepDraft: "Conservar el borrador y seguir editando", replaceDraft: "Reemplazar la versión del servidor con este borrador", retrySave: "Reintentar con la versión sin cambios", retryLoad: "Consultar el servidor de nuevo", outcomeCurrent: "El servidor tiene estos valores. Al perderse la respuesta, este cliente no puede confirmar quién los guardó.", alreadyCurrent: "Estos valores ya están en el servidor; este cliente no confirmó el guardado.", reconcileReady: "Se compararon ambas versiones. Puedes editar el borrador usando la versión del servidor mostrada.", serverVersion: "Versión del servidor", yourDraft: "Tu borrador", empty: "(vacío)" } };
     const msg = (key) => messages[language() === "es" ? "es" : "en"][key];
-    const say = (key) => { feedback.dataset.status = key; feedback.textContent = msg(key); };
     const navigationKey = "gm-brief-navigation-status";
     const readNavigationStatus = () => { try { return JSON.parse(sessionStorage.getItem(navigationKey) || "null"); } catch { return null; } };
     const pendingNavigationStatus = (identity) => { const state = readNavigationStatus(); return Boolean(identity?.organization_id && state?.workspace === identity.organization_id && state?.path === location.pathname); };
     const clearNavigationStatusAfterLoad = () => { try { const state = readNavigationStatus(); if (state?.path === location.pathname) sessionStorage.removeItem(navigationKey); } catch {} };
-    const setBusy = (value) => { busy = value; const owner = window.GMAuth?.identity?.roles?.includes("owner"); fields.forEach((name) => { const input = briefForm.elements.namedItem(name); input.disabled = value || !owner; }); const submit = briefForm.querySelector("button[type=submit]"); submit.disabled = value || !owner; submit.hidden = !owner; };
+    const saveNavigationStatus = () => { try { sessionStorage.setItem(navigationKey, JSON.stringify({ workspace: window.GMAuth.identity.organization_id, path: location.pathname })); return true; } catch { return false; } };
+    const say = (key) => { feedback.dataset.status = key; feedback.textContent = key ? msg(key) : ""; };
     const readForm = () => Object.fromEntries(fields.map((name) => [name, briefForm.elements.namedItem(name).value]));
     const fill = (brief) => fields.forEach((name) => { briefForm.elements.namedItem(name).value = brief ? brief[name] : ""; });
-    const sameFields = (serverBrief, draft) => Boolean(serverBrief && fields.every((key) => serverBrief[key] === draft[key]));
-    const addAction = (key, action) => { const button = document.createElement("button"); button.type = "button"; button.dataset.status = key; button.textContent = msg(key); button.addEventListener("click", action); feedback.append(" ", button); };
-    const showComparison = (serverBrief, draft) => {
+    const owner = () => window.GMAuth?.identity?.roles?.includes("owner") === true;
+    const setEditable = (enabled) => {
+      fields.forEach((name) => { briefForm.elements.namedItem(name).disabled = !enabled || !owner(); });
+      const submit = briefForm.querySelector("button[type=submit]");
+      submit.disabled = !enabled || !owner(); submit.hidden = !owner();
+    };
+    const addAction = (key, action) => { const button = document.createElement("button"); button.type = "button"; button.dataset.status = key; button.textContent = msg(key); button.addEventListener("click", action); feedback.append(" ", button); return button; };
+    const showComparison = (context) => {
       const comparison = document.createElement("div"); comparison.className = "brief-conflict-comparison";
       fields.forEach((key) => {
         const item = document.createElement("section"); item.className = "brief-conflict-field";
         const label = briefForm.elements.namedItem(key).closest("label").querySelector("span").textContent;
         const heading = document.createElement("strong"); heading.textContent = label; item.append(heading);
-        [["serverVersion", serverBrief?.[key] ?? ""], ["yourDraft", draft[key]]].forEach(([title, value]) => {
+        [["serverVersion", context.serverBrief?.[key] ?? ""], ["yourDraft", context.draft[key]]].forEach(([title, value]) => {
           const version = document.createElement("div"); const name = document.createElement("b"); name.textContent = msg(title);
           const text = document.createElement("pre"); text.textContent = value || msg("empty"); version.append(name, text); item.append(version);
         });
@@ -371,85 +375,53 @@ window.GMPostPreview = (() => {
       });
       feedback.append(comparison);
     };
-    const showConflict = (serverBrief, serverTag, originalTag, draft, cause) => {
-      say(cause === "unknown" ? "unknownConflict" : "staleConflict"); showComparison(serverBrief, draft);
-      if (serverTag === originalTag) addAction("retrySave", () => submitDraft(draft, originalTag));
-      else {
-        addAction("loadServer", () => { etag = serverTag; fill(serverBrief); feedback.textContent = ""; delete feedback.dataset.status; });
-        addAction("keepDraft", () => { etag = serverTag; fill(draft); say("reconcileReady"); });
-        addAction("replaceDraft", () => submitDraft(draft, serverTag));
-      }
-    };
-    const currentBrief = async () => {
-      const result = await window.GMAuth.request("/workspace/brand-brief");
-      if (!result.ok) throw new Error("read");
-      return { data: await result.json(), tag: result.headers.get("ETag") };
-    };
-    const addCheckAgain = (action) => addAction("retryLoad", action);
-    async function resolveUnknown(draft, originalTag) {
-      let current;
-      try { current = await currentBrief(); }
-      catch { say("unknownConflict"); addCheckAgain(() => resolveUnknown(draft, originalTag)); return; }
-      if (sameFields(current.data.brief, draft)) { etag = current.tag; fill(current.data.brief); say("outcomeCurrent"); return; }
-      showConflict(current.data.brief, current.tag, originalTag, draft, "unknown");
-    }
-    async function resolveStale(draft, originalTag) {
-      let current;
-      try { current = await currentBrief(); }
-      catch { say("staleConflict"); addCheckAgain(() => resolveStale(draft, originalTag)); return; }
-      if (sameFields(current.data.brief, draft)) { etag = current.tag; fill(current.data.brief); say("alreadyCurrent"); return; }
-      showConflict(current.data.brief, current.tag, originalTag, draft, "stale");
-    }
-    const saveNavigationStatus = () => {
-      try { sessionStorage.setItem(navigationKey, JSON.stringify({ workspace: window.GMAuth.identity.organization_id, path: location.pathname })); } catch {}
-    };
-    async function confirmAndReload(draft) {
-      setBusy(true);
-      try {
-        const current = await currentBrief();
-        etag = current.tag; fill(current.data.brief); confirmed = true;
-        saveNavigationStatus(); say("saved"); location.reload();
-      } catch {
-        fill(draft); say("reload"); addCheckAgain(() => confirmAndReload(draft));
-      } finally { setBusy(false); }
-    };
-    async function loadBrief() {
-      if (!window.GMAuth?.identity) return;
-      setBusy(true);
-      try {
-        const current = await currentBrief();
-        etag = current.tag; fill(current.data.brief); confirmed = true; clearNavigationStatusAfterLoad();
+    let flow;
+    const retryButton = () => addAction("retryLoad", () => flow.retryRecovery());
+    flow = window.GMBrandBriefFlow.createBrandBriefFlow({
+      fields,
+      request: (path, options) => window.GMAuth.request(path, options),
+      readDraft: readForm,
+      applyBrief: fill,
+      setEditable,
+      onStatus: (status) => {
+        if (status === null) { feedback.textContent = ""; delete feedback.dataset.status; return; }
+        if (status === "load-error") { briefForm.hidden = false; const saved = pendingNavigationStatus(window.GMAuth?.identity); say(saved ? "reload" : "load"); addAction("retryLoad", () => flow.load()); return; }
+        if (status === "confirm-pending") { say("reload"); retryButton(); return; }
+        if (status === "unknown-pending") { say("unknownConflict"); retryButton(); return; }
+        if (status === "stale-pending") { say("staleConflict"); retryButton(); return; }
+        const labels = { "save-error": "save", "outcome-current": "outcomeCurrent", "already-current": "alreadyCurrent", "reconcile-ready": "reconcileReady", saved: "saved", "saved-no-marker": "savedNoMarker" };
+        say(labels[status] || null);
+      },
+      onLoaded: () => {
+        clearNavigationStatusAfterLoad();
         feedback.textContent = ""; delete feedback.dataset.status; briefForm.hidden = false;
-      } catch {
-        const wasSaved = pendingNavigationStatus(window.GMAuth.identity); say(wasSaved ? "reload" : "load");
-        const retry = document.createElement("button"); retry.type = "button"; retry.dataset.status = "retryLoad"; retry.textContent = msg("retryLoad"); retry.addEventListener("click", loadBrief, { once: true }); feedback.append(" ", retry);
-      }
-      finally { setBusy(false); }
-    }
-    document.addEventListener("goodmarketing:account-ready", (event) => {
-      const owner = event.detail.identity.roles.includes("owner");
-      if (!owner) { say("viewer"); document.querySelector(".brand-assets")?.setAttribute("hidden", ""); }
-      loadBrief();
-    }, { once: true });
-    async function submitDraft(draft, originalTag) {
-      if (busy || !originalTag) return;
-      setBusy(true); feedback.textContent = "";
-      let result;
-      try { result = await window.GMAuth.request("/workspace/brand-brief", { method: "PUT", headers: { "If-Match": originalTag }, body: JSON.stringify(draft) }); }
-      catch {
-        await resolveUnknown(draft, originalTag);
-        setBusy(false); return;
-      }
-      if (!result.ok) { if (result.status === 412) await resolveStale(draft, originalTag); else say("save"); setBusy(false); return; }
-      await confirmAndReload(draft);
-      setBusy(false);
-    }
-    briefForm.addEventListener("submit", (event) => { event.preventDefault(); if (!busy && etag) submitDraft(readForm(), etag); });
-    document.addEventListener("goodmarketing:language-change", () => {
-      if (feedback.dataset.status && feedback.firstChild?.nodeType === Node.TEXT_NODE) feedback.firstChild.nodeValue = msg(feedback.dataset.status);
-      feedback.querySelectorAll("button[data-status]").forEach((button) => { const key = button.dataset.status; button.textContent = msg(key); });
+        if (!owner()) { say("viewer"); document.querySelector(".brand-assets")?.setAttribute("hidden", ""); }
+      },
+      beforeReload: saveNavigationStatus,
+      onConfirmed: () => location.reload(),
+      onConflict: (context) => {
+        say(context.cause === "unknown" ? "unknownConflict" : "staleConflict");
+        showComparison(context);
+        if (context.allowRetryOriginal) addAction("retrySave", () => flow.chooseConflict(context.id, "retry-original"));
+        else {
+          addAction("loadServer", () => flow.chooseConflict(context.id, "load-server"));
+          addAction("keepDraft", () => flow.chooseConflict(context.id, "keep-draft"));
+          addAction("replaceDraft", () => flow.chooseConflict(context.id, "replace-draft"));
+        }
+      },
     });
-    if (window.GMAuth?.identity) loadBrief();
+    let initialLoadStarted = false;
+    const startInitialLoad = () => { if (!initialLoadStarted) { initialLoadStarted = true; flow.load(); } };
+    document.addEventListener("goodmarketing:account-ready", (event) => {
+      if (!event.detail.identity.roles.includes("owner")) document.querySelector(".brand-assets")?.setAttribute("hidden", "");
+      startInitialLoad();
+    }, { once: true });
+    briefForm.addEventListener("submit", (event) => { event.preventDefault(); flow.save(readForm()); });
+    document.addEventListener("goodmarketing:language-change", () => {
+      if (feedback.dataset.status) feedback.textContent = msg(feedback.dataset.status);
+      feedback.querySelectorAll("button[data-status]").forEach((button) => { button.textContent = msg(button.dataset.status); });
+    });
+    if (window.GMAuth?.identity) startInitialLoad();
   }
   const directMessagePreference = document.querySelector("#direct-message-responses");
   const directMessageSaved = document.querySelector("#direct-message-settings-saved");

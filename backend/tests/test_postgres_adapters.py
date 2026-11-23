@@ -53,8 +53,8 @@ def test_new_database_migrations_apply_once_without_auth_secret(monkeypatch):
         with psycopg.connect(connection_url) as connection:
             versions = {row[0] for row in connection.execute("SELECT version FROM goodmarketing_schema_migrations")}
             tables = {row[0] for row in connection.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = %s", (schema,))}
-        assert versions == {"marketing:adapters-models:189869c", "demo-requests:1", "marketing:strategy-fields:1"}
-        assert {"brands", "campaigns", "content_items", "platform_connections", "publish_jobs", "demo_requests"} <= tables
+        assert versions == {"gm-auth:0.1.5", "marketing:adapters-models:189869c", "demo-requests:1", "marketing:strategy-fields:1"}
+        assert {"gm_auth_users", "gm_auth_organizations", "brands", "campaigns", "content_items", "platform_connections", "publish_jobs", "demo_requests"} <= tables
     finally:
         _drop_schema(base_url, schema)
 
@@ -71,11 +71,12 @@ def _legacy_rows(connection):
 
 
 def _foreign_keys(connection):
-    return connection.execute("""
+    rows = connection.execute("""
         SELECT conrelid::regclass::text, pg_get_constraintdef(oid)
         FROM pg_constraint WHERE contype = 'f' AND connamespace = current_schema()::regnamespace
         ORDER BY conrelid::regclass::text, conname
     """).fetchall()
+    return [row for row in rows if row[0].split(".")[-1].strip('"') in LEGACY_TABLES]
 
 
 def test_existing_adapters_schema_keeps_rows_and_gains_missing_fields(monkeypatch):

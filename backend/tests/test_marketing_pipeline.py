@@ -67,6 +67,10 @@ def test_brand_campaign_content_and_approval_flow_is_organization_scoped(account
     brand_id = brand.json()["id"]
     assert brand.json()["tenant_id"] == "org-north"
 
+    invalid = client.patch(f"/api/brands/{brand_id}", headers=auth(accounts["owner"]), json={"name": ""})
+    assert invalid.status_code == 422
+    assert client.get("/api/brands", headers=auth(accounts["owner"])).json()[0]["name"] == "Atlas Studio"
+
     campaign = client.post("/api/campaigns", headers=auth(accounts["owner"]), json={"brand_id": brand_id, "name": "Launch foundation", "objective": "Introduce the brand", "platforms": ["facebook", "instagram"]})
     assert campaign.status_code == 200
     campaign_id = campaign.json()["id"]

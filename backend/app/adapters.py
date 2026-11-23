@@ -47,7 +47,7 @@ class BrandPatchIn(BaseModel):
     # Partial updates preserve omitted values; the historical BrandIn contract
     # remains unchanged for create and non-primary clients.
     tenant_id: str | None = None
-    name: str | None = Field(default=None, max_length=160)
+    name: str | None = Field(default=None, min_length=1, max_length=160)
     website: str | None = None
     industry: str | None = None
     summary: str | None = None

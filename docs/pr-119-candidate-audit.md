@@ -1,10 +1,10 @@
 # PR #119 candidate audit
 
 Candidate branch: `codex/gm-auth-account-flow`
-Current candidate SHA: `c9bb783d3c02819de96a77a8a4873eb6c68cc109`
+Current source candidate SHA: `c9bb783d3c02819de96a77a8a4873eb6c68cc109`
 Integrated latest `dev`: `e5ed7598e9f86e4dc9aefdf27301b6937129680f` (video-only; no account or Brand Brief changes).
 PR: [#119](https://github.com/goodmorning-mx/marketing/pull/119), open and mergeable as of the latest refresh; not merged or deployed.
-The untracked `handoff/` Factory patch remains preserved.
+The current source candidate code is at `c9bb783d3c02819de96a77a8a4873eb6c68cc109`; subsequent pushed commits only refresh this audit document. The untracked `handoff/` Factory patch remains preserved.
 
 ## Candidate changes and validation
 
@@ -37,7 +37,7 @@ The new browser language-transition runs used a local synthetic request layer to
 ### C. Corrected account release, PR #119
 
 - Current candidate: `c9bb783d3c02819de96a77a8a4873eb6c68cc109`; PR remains open and unmerged.
-- Actions run [45138914112](https://github.com/goodmorning-mx/marketing/actions/runs/45138914112) failed with zero exposed steps; diagnostics have no checks, statuses, annotations, or log. **Cause is unconfirmed.** This does not establish that tests ran or failed.
+- Source candidate run [45138914112](https://github.com/goodmorning-mx/marketing/actions/runs/45138914112) failed before steps with no checks, statuses, annotations or log; its exact cause is unknown and it is not evidence of an executed test failure. The later audit-only PR head `d979562735d190e625b8f107032b84fef62d7d51` produced run [45139355557](https://github.com/goodmorning-mx/marketing/actions/runs/45139355557). That job had `steps: null` and no log; its GitHub check annotation says it was not started because of recent failed account payments or a spending limit. This is workflow annotation evidence, not an independent read of billing settings. **GitHub account billing owner:** inspect Billing & plans, resolve or confirm the payment/spending-limit state, then allow a fresh workflow execution. Do not manually rerun while the restriction is unchanged.
 - Latest read-only DEV health returns service `GoodMorning Marketing Adapters API`, status `ok`, environment `dev`; it does not identify an application revision. No Coolify access is available for API/frontend application identities, serving SHAs, runtime-key presence, or deployment status.
 - No evidence is available for the latest successful backup, tested recovery artifact or maintainer-owned containment/forward-fix, or the legacy integration callers and their scoped access. These remain required before release; a pre-account API is not a safe rollback after account data exists.
 

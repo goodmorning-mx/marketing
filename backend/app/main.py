@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import re
 import secrets
@@ -28,7 +29,8 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["*", "If-Match"],
+    expose_headers=["ETag"],
 )
 app.include_router(adapters_router)
 
@@ -108,7 +110,7 @@ class ActivateInput(LoginInput):
 
 class InvitationInput(BaseModel):
     email: str = Field(min_length=5, max_length=320)
-    workspace_name: str = Field(min_length=2, max_length=255)
+    workspace_name: str = Field(min_length=2, max_length=120)
     workspace_id: str | None = Field(default=None, max_length=128)
     role: Literal["owner", "viewer"]
     expires_hours: int = Field(default=72, ge=1, le=720)
@@ -149,6 +151,7 @@ def startup_database():
             ("demo-requests:1", "003_demo_requests.sql"),
             ("marketing:strategy-fields:1", "004_marketing_strategy_fields.sql"),
             ("marketing:owner-write-permission:1", "005_owner_marketing_permissions.sql"),
+            ("marketing:primary-brand-brief:1", "006_primary_brand_brief.sql"),
         )
         for version, migration in migrations:
             found = connection.execute("SELECT 1 FROM goodmarketing_schema_migrations WHERE version = %s", (version,)).fetchone()
@@ -282,21 +285,38 @@ def activate_account(payload: ActivateInput, request: Request, response: Respons
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
             if invitation is None or invitation["used_at"] is not None or expires_at <= datetime.now(timezone.utc) or invitation["email"] != email:
                 raise HTTPException(status_code=400, detail="Invitation is invalid, expired, or already used.")
-            tokens = service.login(email=email, password=payload.password, organization_id=invitation["organization_id"])
+            organization_id = invitation["organization_id"]
+            role = "owner" if "owner" in invitation["roles"] else "viewer"
+            permissions = {"workspace:read"}
+            if role == "owner":
+                permissions.update({"workspace:name:update", "marketing:write"})
+            # First authenticate against any existing membership. A wrong password
+            # must never create an identity or change membership.
+            existing_tokens = service.login(email=email, password=payload.password)
+            if existing_tokens is None:
+                with service.engine.connect() as auth_connection:
+                    existing_user = auth_connection.execute(text("SELECT id FROM gm_auth_users WHERE email = :email"), {"email": email}).first()
+                if existing_user:
+                    raise HTTPException(status_code=401, detail="Invalid email or password.")
+                service.create_user(email=email, name=payload.name.strip(), password=payload.password,
+                    organization_id=organization_id, roles={role}, permissions=permissions)
+            else:
+                # Keep a pre-existing target membership exactly as it is. Only add
+                # a new membership after password proof for the intended identity.
+                with service.engine.connect() as auth_connection:
+                    membership = auth_connection.execute(text("SELECT 1 FROM gm_auth_memberships WHERE user_id = :uid AND organization_id = :org"), {"uid": existing_tokens.identity.user_id, "org": organization_id}).first()
+                if membership is None:
+                    service.set_membership(user_id=existing_tokens.identity.user_id, organization_id=organization_id, roles={role}, permissions=permissions)
+            tokens = service.login(email=email, password=payload.password, organization_id=organization_id)
             if tokens is None:
-                identity = service.create_user(email=email, name=payload.name.strip(), password=payload.password,
-                    organization_id=invitation["organization_id"], roles=set(invitation["roles"]), permissions=set(invitation["permissions"]))
+                raise HTTPException(status_code=500, detail="Account activation could not be completed.")
             connection.execute("UPDATE goodmarketing_invitations SET used_at = %s WHERE id = %s", (datetime.now(timezone.utc), invitation["id"]))
-        if tokens is None:
-            tokens = service.login(email=email, password=payload.password, organization_id=identity.organization_id)
     except HTTPException:
         raise
     except Exception as exc:
         if "unique" in str(exc).lower() or "duplicate" in str(exc).lower():
             raise HTTPException(status_code=400, detail="An account already exists for this email.") from exc
         raise
-    if tokens is None:
-        raise HTTPException(status_code=500, detail="Account activation could not be completed.")
     set_session(response, tokens)
     return {"identity": tokens.identity.as_dict()}
 
@@ -304,21 +324,34 @@ def activate_account(payload: ActivateInput, request: Request, response: Respons
 @app.post("/admin/invitations")
 def issue_invitation(payload: InvitationInput, _admin: str = Depends(require_staff)):
     email = payload.email.strip().lower()
+    workspace_name = payload.workspace_name.strip()
     if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
         raise HTTPException(status_code=422, detail="Enter a valid email.")
     service = account_service()
     service.create_schema()
-    organization_id = payload.workspace_id or str(uuid.uuid4())
-    with service.engine.begin() as connection:
-        workspace = connection.execute(text("SELECT id FROM gm_auth_organizations WHERE id = :id"), {"id": organization_id}).first()
+    if payload.workspace_id:
+        organization_id = payload.workspace_id
+        with service.engine.connect() as connection:
+            workspace = connection.execute(text("SELECT id FROM gm_auth_organizations WHERE id = :id"), {"id": organization_id}).first()
         if workspace is None:
-            slug = re.sub(r"[^a-z0-9]+", "-", payload.workspace_name.lower()).strip("-")[:110] or str(uuid.uuid4())[:8]
-            connection.execute(text("INSERT INTO gm_auth_organizations (id, slug, name, created_at) VALUES (:id, :slug, :name, :now)"), {"id": organization_id, "slug": f"{slug}-{organization_id[:8]}", "name": payload.workspace_name.strip(), "now": datetime.now(timezone.utc)})
-            connection.execute(text("INSERT INTO goodmarketing_workspace_profiles (organization_id, display_name) VALUES (:id, :name)"), {"id": organization_id, "name": payload.workspace_name.strip()})
-        else:
-            profile = connection.execute(text("SELECT organization_id FROM goodmarketing_workspace_profiles WHERE organization_id = :id"), {"id": organization_id}).first()
-            if profile is None:
-                connection.execute(text("INSERT INTO goodmarketing_workspace_profiles (organization_id, display_name) VALUES (:id, :name)"), {"id": organization_id, "name": payload.workspace_name.strip()})
+            raise HTTPException(status_code=404, detail="Workspace not found.")
+    else:
+        # Stable operation identity makes a retry recover the same organization
+        # after gm-auth's internally committed create_organization call.
+        operation = hashlib.sha256(f"{email}\0{workspace_name.casefold()}".encode()).hexdigest()
+        organization_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"goodmarketing-invitation:{operation}"))
+        slug = re.sub(r"[^a-z0-9]+", "-", workspace_name.lower()).strip("-")[:90] or "workspace"
+        try:
+            service.create_organization(organization_id=organization_id, slug=f"{slug}-{organization_id[:8]}", name=workspace_name)
+        except Exception as exc:
+            if "unique" not in str(exc).lower() and "duplicate" not in str(exc).lower():
+                raise
+            with service.engine.connect() as connection:
+                exists = connection.execute(text("SELECT 1 FROM gm_auth_organizations WHERE id = :id"), {"id": organization_id}).first()
+            if exists is None:
+                raise
+    with service.engine.begin() as connection:
+        connection.execute(text("INSERT INTO goodmarketing_workspace_profiles (organization_id, display_name) VALUES (:id, :name) ON CONFLICT (organization_id) DO NOTHING"), {"id": organization_id, "name": workspace_name})
     token = secrets.token_urlsafe(32)
     now = datetime.now(timezone.utc)
     roles = [payload.role]
@@ -349,6 +382,70 @@ def workspace_update(payload: WorkspaceNameInput, identity: AuthIdentity = Depen
     if row is None:
         raise HTTPException(status_code=404, detail="Workspace not found.")
     return {"display_name": row[0], "organization_id": identity.organization_id}
+
+
+class BrandBriefInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    brand_name: str = Field(min_length=1, max_length=160)
+    description: str
+    audience: str
+    voice_tone: str = Field(max_length=240)
+    primary_goal: str
+
+
+def _brief_etag(organization_id: str, brief: dict | None) -> str:
+    payload = json.dumps([organization_id, brief], ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return '"bb-' + hashlib.sha256(payload.encode()).hexdigest() + '"'
+
+
+def _brief_dict(row):
+    if row is None:
+        return None
+    return {"id": row["id"], "brand_name": row["name"], "description": row["summary"], "audience": row["audience"], "voice_tone": row["tone"], "primary_goal": row["goal"], "revision": row["revision"]}
+
+
+@app.get("/workspace/brand-brief")
+def read_brand_brief(response: Response, identity: AuthIdentity = Depends(current_customer)):
+    if "workspace:read" not in identity.permissions:
+        raise HTTPException(status_code=403, detail="Workspace access is not permitted.")
+    with database_connection() as connection:
+        row = connection.execute("SELECT id, name, summary, audience, tone, goal, revision FROM brands WHERE tenant_id = %s AND is_primary = true", (identity.organization_id,)).fetchone()
+    brief = _brief_dict(row)
+    response.headers["ETag"] = _brief_etag(identity.organization_id, brief)
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"brief": brief}
+
+
+@app.put("/workspace/brand-brief")
+def write_brand_brief(payload: BrandBriefInput, request: Request, response: Response, identity: AuthIdentity = Depends(current_customer)):
+    if "owner" not in identity.roles or "marketing:write" not in identity.permissions:
+        raise HTTPException(status_code=403, detail="Marketing updates are not permitted.")
+    validator = request.headers.get("If-Match")
+    if validator is None:
+        raise HTTPException(status_code=428, detail="If-Match is required.")
+    if validator.startswith("W/") or validator == "*" or not re.fullmatch(r'"bb-[0-9a-f]{64}"', validator):
+        raise HTTPException(status_code=400, detail="Unsupported If-Match validator.")
+    if not payload.brand_name.strip():
+        raise HTTPException(status_code=422, detail="Brand name is required.")
+    with database_connection() as connection:
+        row = connection.execute("SELECT id, name, summary, audience, tone, goal, revision FROM brands WHERE tenant_id = %s AND is_primary = true FOR UPDATE", (identity.organization_id,)).fetchone()
+        current = _brief_dict(row)
+        if _brief_etag(identity.organization_id, current) != validator:
+            raise HTTPException(status_code=412, detail="The brand brief changed. Reload before saving.")
+        values = (payload.brand_name, payload.description, payload.audience, payload.voice_tone, payload.primary_goal)
+        if row is None:
+            new_row = connection.execute("INSERT INTO brands (tenant_id, name, website, industry, summary, goal, audience, positioning, offers, tone, message, metrics, target_date, growth_timeline, platforms, is_primary, revision) VALUES (%s, %s, '', '', %s, %s, %s, '', '', %s, '', '', '', '', '[]', true, 1) ON CONFLICT DO NOTHING RETURNING id, name, summary, audience, tone, goal, revision", (identity.organization_id, *values)).fetchone()
+            if new_row is None:
+                raise HTTPException(status_code=412, detail="The brand brief changed. Reload before saving.")
+            saved = _brief_dict(new_row)
+        else:
+            saved_row = connection.execute("UPDATE brands SET name = %s, summary = %s, audience = %s, tone = %s, goal = %s, revision = revision + 1 WHERE tenant_id = %s AND id = %s AND is_primary = true AND revision = %s RETURNING id, name, summary, audience, tone, goal, revision", (*values, identity.organization_id, row["id"], row["revision"])).fetchone()
+            if saved_row is None:
+                raise HTTPException(status_code=412, detail="The brand brief changed. Reload before saving.")
+            saved = _brief_dict(saved_row)
+    response.headers["ETag"] = _brief_etag(identity.organization_id, saved)
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"brief": saved}
 
 
 @app.post("/demo-requests", status_code=status.HTTP_201_CREATED)

@@ -34,6 +34,7 @@ def test_gm_auth_migrations_succeed_on_first_and_repeated_startup(monkeypatch):
             "demo-requests:1",
             "marketing:strategy-fields:1",
             "marketing:owner-write-permission:1",
+            "marketing:primary-brand-brief:1",
         }
         assert {
             "gm_auth_users", "gm_auth_organizations", "gm_auth_memberships",
@@ -134,11 +135,20 @@ def test_migrations_replay_over_preexisting_adapters_schema_without_losing_data(
             brand = connection.execute("SELECT name, audience, positioning FROM brands WHERE id = 71").fetchone()
             campaign = connection.execute("SELECT name, key_message, success_metrics FROM campaigns WHERE id = 72").fetchone()
             content = connection.execute("SELECT title FROM content_items WHERE id = 73").fetchone()
+            flags = connection.execute("SELECT is_primary, revision FROM brands WHERE id = 71").fetchone()
+            connection.execute("INSERT INTO brands (tenant_id, name, platforms) VALUES ('legacy-workspace', 'Old writer insert', '[]')")
+            old_writer_defaults = connection.execute("SELECT is_primary, revision FROM brands WHERE name = 'Old writer insert'").fetchone()
+            partial_unique = connection.execute("SELECT indexdef FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'brands' AND indexname = 'uq_brands_primary_tenant'").fetchone()[0]
+            fk_count = connection.execute("SELECT count(*) FROM pg_constraint WHERE conrelid = 'campaigns'::regclass AND contype = 'f'").fetchone()[0]
             version_count = connection.execute("SELECT count(*) FROM goodmarketing_schema_migrations").fetchone()[0]
         assert brand == ("Existing brand", "", "")
         assert campaign == ("Existing campaign", "", "")
         assert content == ("Existing content",)
-        assert version_count == 6
+        assert flags == (False, 1)
+        assert old_writer_defaults == (False, 1)
+        assert "WHERE is_primary" in partial_unique
+        assert fk_count == 1
+        assert version_count == 7
     finally:
         if main._runtime_engine is not None:
             main._runtime_engine.dispose()

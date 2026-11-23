@@ -46,6 +46,9 @@ On API startup, the backend serializes additive setup and records each step in
    absent from earlier Adapters schemas, including `audience`.
 6. `005_owner_marketing_permissions.sql` adds `marketing:write` to existing
    owner memberships; viewer permissions are unchanged.
+7. `006_primary_brand_brief.sql` adds the non-primary SQL default and revision
+   fields plus the per-organization primary Brand index. Existing rows remain
+   non-primary and old inserts keep their established behavior.
 
 These steps are safe to replay. The gm-auth migration uses the approved
 v0.1.5 package metadata, which matches the tables created by the historical
@@ -60,13 +63,15 @@ generated secret, but account endpoints stay unavailable until Factory provides
 
 ## Rollback
 
-Roll back the API and frontend applications to the prior known-good Coolify
-revisions. Leave the additive auth tables and records in PostgreSQL; the earlier
-application does not use them, and deleting them would destroy customer account
-state. Roll back the Factory manifest registration separately only if the
-installation contract must be reverted. Verify `/health`, `/signup/`, and the
-previous DEV workspace behavior after rollback. Reapplying the account release
-uses the same versioned migration ledger and keeps existing rows.
+Before any release, verify both deployment orders with the release maintainer.
+API-first is compatible with the prior frontend. Frontend-first must remain
+protected and cannot save until the compatible API is serving. Once customer
+account or Brand Brief records exist, rolling back to a pre-account API is not a
+safe recovery because it removes the account and brief routes. The maintainer
+must contain traffic or forward-fix while retaining PostgreSQL and additive
+records. Verify any proposed rollback artifact against migrated synthetic data
+for two organizations before release. No production rollback is authorized by
+this candidate.
 
 ## Adapters authorization contract
 

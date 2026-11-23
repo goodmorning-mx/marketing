@@ -183,3 +183,124 @@ def test_public_demo_request_flow_and_staff_follow_up(client):
     })
     assert updated.status_code == 200
     assert updated.json()["qualification_status"] == "contacted"
+
+
+def test_brand_brief_empty_conditional_save_and_stale_rejection(client):
+    test_client, service, engine = client
+    main.Base.metadata.create_all(engine)
+    _, token = invite(test_client, "brief@example.test", "Brief", "owner")
+    assert activate(test_client, "brief@example.test", token).status_code == 200
+    empty = test_client.get("/workspace/brand-brief")
+    assert empty.status_code == 200 and empty.json() == {"brief": None}
+    assert empty.headers["Cache-Control"] == "private, no-store"
+    tag = empty.headers["ETag"]
+    payload = {"brand_name": "  North Studio  ", "description": "A useful description", "audience": "Local customers", "voice_tone": "Warm", "primary_goal": "Support a launch"}
+    assert test_client.put("/workspace/brand-brief", headers={"Origin": "https://dev.marketing.goodmorning.mx"}, json=payload).status_code == 428
+    saved = test_client.put("/workspace/brand-brief", headers={"Origin": "https://dev.marketing.goodmorning.mx", "If-Match": tag}, json=payload)
+    assert saved.status_code == 200
+    assert saved.json()["brief"]["brand_name"] == payload["brand_name"]
+    assert saved.headers["ETag"] != tag
+    assert test_client.put("/workspace/brand-brief", headers={"Origin": "https://dev.marketing.goodmorning.mx", "If-Match": tag}, json=payload).status_code == 412
+    current = test_client.get("/workspace/brand-brief")
+    assert current.json()["brief"]["description"] == payload["description"]
+    assert current.json()["brief"]["revision"] == 1
+
+
+def test_existing_identity_can_join_invited_workspace_without_changing_existing_role(client):
+    test_client, service, engine = client
+    _, original_token = invite(test_client, "member@example.test", "Original", "viewer")
+    assert activate(test_client, "member@example.test", original_token).status_code == 200
+    original_identity = service.login(email="member@example.test", password="a sufficiently long password").identity
+    test_client.post("/auth/logout", headers={"Origin": "https://dev.marketing.goodmorning.mx"})
+    _, next_token = invite(test_client, "member@example.test", "Next", "owner")
+    joined = activate(test_client, "member@example.test", next_token)
+    assert joined.status_code == 200
+    assert joined.json()["identity"]["organization_id"] != original_identity.organization_id
+    with service.engine.connect() as connection:
+        existing = connection.execute(text("SELECT roles FROM gm_auth_memberships WHERE user_id = :uid AND organization_id = :org"), {"uid": original_identity.user_id, "org": original_identity.organization_id}).first()
+        assert existing is not None and json.loads(existing.roles) == ["viewer"]
+    test_client.post("/auth/logout", headers={"Origin": "https://dev.marketing.goodmorning.mx"})
+    _, wrong_token = invite(test_client, "member@example.test", "Third", "viewer")
+    wrong = test_client.post("/auth/activate", headers={"Origin": "https://dev.marketing.goodmorning.mx"}, json={"email": "member@example.test", "name": "Member", "password": "wrong password here", "token": wrong_token})
+    assert wrong.status_code == 401
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT used_at FROM goodmarketing_invitations WHERE token_hash = :hash"), {"hash": hashlib.sha256(wrong_token.encode()).hexdigest()}).scalar_one() is None
+
+
+def test_brief_viewer_second_org_and_validator_validation(client):
+    test_client, service, engine = client
+    main.Base.metadata.create_all(engine)
+    _, owner_token = invite(test_client, "brief-owner@example.test", "North Brief", "owner")
+    owner_activation = activate(test_client, "brief-owner@example.test", owner_token)
+    organization_id = owner_activation.json()["identity"]["organization_id"]
+    empty = test_client.get("/workspace/brand-brief", headers={"Origin": "https://dev.marketing.goodmorning.mx"})
+    assert "ETag" in empty.headers and "etag" in empty.headers["access-control-expose-headers"].lower()
+    assert test_client.put("/workspace/brand-brief", headers={"Origin": "https://dev.marketing.goodmorning.mx", "If-Match": "*"}, json={"brand_name": "Brand", "description": "", "audience": "", "voice_tone": "", "primary_goal": ""}).status_code == 400
+    assert test_client.put("/workspace/brand-brief", headers={"Origin": "https://dev.marketing.goodmorning.mx", "If-Match": empty.headers["ETag"]}, json={"brand_name": "  ", "description": "", "audience": "", "voice_tone": "", "primary_goal": ""}).status_code == 422
+    _, viewer_token = invite(test_client, "brief-viewer@example.test", "North Brief", "viewer", workspace_id=organization_id)
+    test_client.post("/auth/logout", headers={"Origin": "https://dev.marketing.goodmorning.mx"})
+    assert activate(test_client, "brief-viewer@example.test", viewer_token).status_code == 200
+    assert test_client.get("/workspace/brand-brief").json() == {"brief": None}
+    assert test_client.put("/workspace/brand-brief", headers={"Origin": "https://dev.marketing.goodmorning.mx", "If-Match": empty.headers["ETag"]}, json={"brand_name": "Brand", "description": "", "audience": "", "voice_tone": "", "primary_goal": ""}).status_code == 403
+    test_client.post("/auth/logout", headers={"Origin": "https://dev.marketing.goodmorning.mx"})
+    _, second_token = invite(test_client, "brief-other@example.test", "South Brief", "owner")
+    assert activate(test_client, "brief-other@example.test", second_token).status_code == 200
+    assert test_client.get("/workspace/brand-brief").json() == {"brief": None}
+
+
+def test_invitation_rejects_unknown_supplied_workspace_id(client):
+    test_client, _, _ = client
+    response = test_client.post("/admin/invitations", auth=("staff", "staff-test-password"), json={"email": "collaborator@example.test", "workspace_name": "Unknown", "workspace_id": "not-a-workspace", "role": "viewer"})
+    assert response.status_code == 404
+
+
+def test_old_pending_owner_permission_snapshot_is_ignored(client):
+    test_client, service, engine = client
+    _, token = invite(test_client, "legacy-owner@example.test", "Old Invite", "owner")
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE goodmarketing_invitations SET permissions = '[]'"))
+    activation = activate(test_client, "legacy-owner@example.test", token)
+    assert activation.status_code == 200
+    assert set(activation.json()["identity"]["permissions"]) >= {"workspace:read", "workspace:name:update", "marketing:write"}
+
+
+def test_retried_new_customer_invitation_reuses_stable_organization(client):
+    test_client, service, engine = client
+    first, _ = invite(test_client, "retry-company@example.test", "Stable Company", "owner")
+    second, _ = invite(test_client, "retry-company@example.test", "Stable Company", "owner")
+    assert first["workspace_id"] == second["workspace_id"]
+    with service.engine.connect() as connection:
+        rows = connection.execute(text("SELECT count(*) FROM gm_auth_organizations WHERE id = :id"), {"id": first["workspace_id"]}).scalar_one()
+    assert rows == 1
+
+
+def test_brief_updates_can_clear_fields_and_enforce_tone_limit(client):
+    test_client, service, engine = client
+    main.Base.metadata.create_all(engine)
+    _, token = invite(test_client, "clear-brief@example.test", "Clear Brief", "owner")
+    assert activate(test_client, "clear-brief@example.test", token).status_code == 200
+    empty = test_client.get("/workspace/brand-brief")
+    headers = {"Origin": "https://dev.marketing.goodmorning.mx", "If-Match": empty.headers["ETag"]}
+    initial = {"brand_name": "Clearable", "description": "Text", "audience": "People", "voice_tone": "Warm", "primary_goal": "Grow"}
+    created = test_client.put("/workspace/brand-brief", headers=headers, json=initial)
+    assert created.status_code == 200
+    cleared = test_client.put("/workspace/brand-brief", headers={"Origin": "https://dev.marketing.goodmorning.mx", "If-Match": created.headers["ETag"]}, json={**initial, "description": "", "audience": "", "voice_tone": "", "primary_goal": ""})
+    assert cleared.status_code == 200
+    assert {cleared.json()["brief"][key] for key in ("description", "audience", "voice_tone", "primary_goal")} == {""}
+    assert test_client.put("/workspace/brand-brief", headers={"Origin": "https://dev.marketing.goodmorning.mx", "If-Match": cleared.headers["ETag"]}, json={**initial, "voice_tone": "t" * 241}).status_code == 422
+
+
+def test_refresh_rotates_refresh_session_and_logout_revokes_access(client):
+    test_client, service, _ = client
+    _, token = invite(test_client, "refresh@example.test", "Refresh Workspace", "owner")
+    activation = activate(test_client, "refresh@example.test", token)
+    assert activation.status_code == 200
+    old_refresh = test_client.cookies.get("gm_refresh")
+    rotated = test_client.post("/auth/refresh", headers={"Origin": "https://dev.marketing.goodmorning.mx"})
+    assert rotated.status_code == 200
+    assert rotated.json()["identity"]["email"] == "refresh@example.test"
+    assert test_client.cookies.get("gm_refresh") != old_refresh
+    stale_refresh = test_client.post("/auth/refresh", headers={"Origin": "https://dev.marketing.goodmorning.mx"}, cookies={"gm_refresh": old_refresh})
+    assert stale_refresh.status_code == 401
+    test_client.post("/auth/logout", headers={"Origin": "https://dev.marketing.goodmorning.mx"})
+    assert test_client.get("/auth/me").status_code == 401

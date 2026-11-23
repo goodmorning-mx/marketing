@@ -5,9 +5,11 @@ tenant and X-GM headers remain accepted as input for wire compatibility, but
 never establish authority.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+import re
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from gm_auth import AuthIdentity
 from gm_mcp import PermissionDenied, RequestContext
@@ -176,12 +178,33 @@ def create_brand(payload: BrandIn, identity: AuthIdentity = Depends(require_mark
 
 
 @router.patch("/api/brands/{brand_id}")
-def update_brand(brand_id: int, payload: BrandIn, identity: AuthIdentity = Depends(require_marketing_write), db: Session = Depends(get_db)) -> dict:
+def update_brand(brand_id: int, payload: BrandIn, request: Request, response: Response, identity: AuthIdentity = Depends(require_marketing_write), db: Session = Depends(get_db)) -> dict:
     brand = _owned_brand(db, identity.organization_id, brand_id)
-    for key, value in payload.model_dump(exclude={"tenant_id"}).items():
-        setattr(brand, key, value)
-    db.commit()
-    db.refresh(brand)
+    changes = payload.model_dump(exclude={"tenant_id"}, exclude_unset=True)
+    if any(value is None for value in changes.values()):
+        raise HTTPException(status_code=422, detail="Brand fields cannot be null.")
+    brief_fields = {"name", "summary", "audience", "tone", "goal"}
+    if brand.is_primary and brief_fields.intersection(changes):
+        from app.main import _brief_dict, _brief_etag
+        expected = request.headers.get("If-Match")
+        if expected is None:
+            raise HTTPException(status_code=428, detail="If-Match is required.")
+        if expected.startswith("W/") or expected == "*" or not re.fullmatch(r'"bb-[0-9a-f]{64}"', expected):
+            raise HTTPException(status_code=400, detail="Unsupported If-Match validator.")
+        current = _brief_dict({"id": brand.id, "name": brand.name, "summary": brand.summary, "audience": brand.audience, "tone": brand.tone, "goal": brand.goal, "revision": brand.revision})
+        if _brief_etag(identity.organization_id, current) != expected:
+            raise HTTPException(status_code=412, detail="The brand brief changed. Reload before saving.")
+        updated = db.execute(update(Brand).where(Brand.id == brand.id, Brand.tenant_id == identity.organization_id, Brand.is_primary.is_(True), Brand.revision == brand.revision).values(**changes, revision=Brand.revision + 1))
+        if updated.rowcount != 1:
+            raise HTTPException(status_code=412, detail="The brand brief changed. Reload before saving.")
+        db.commit()
+        db.refresh(brand)
+        response.headers["ETag"] = _brief_etag(identity.organization_id, _brief_dict({"id": brand.id, "name": brand.name, "summary": brand.summary, "audience": brand.audience, "tone": brand.tone, "goal": brand.goal, "revision": brand.revision}))
+    else:
+        for key, value in changes.items():
+            setattr(brand, key, value)
+        db.commit()
+        db.refresh(brand)
     return _brand_data(brand)
 
 

@@ -1,53 +1,60 @@
-# Brand Brief API contract (proposal)
+# Brand Brief persistence contract
 
-This is the next persistence slice; this account PR does not implement it.
+The workspace Brand Brief is stored in the existing `brands` table. `Brand.name`,
+`summary`, `audience`, `tone`, and `goal` hold the five customer-authored text
+fields. `goodmarketing_workspace_profiles.display_name` remains the separate
+workspace label. Existing Brand IDs, relationships, ownership, and unrelated
+columns are preserved. Migration 006 adds `is_primary BOOLEAN NOT NULL DEFAULT
+false`, `revision INTEGER NOT NULL DEFAULT 1`, and a partial unique index on
+`(tenant_id) WHERE is_primary`. Historical/demo Brands are never assigned to a
+customer workspace. Old inserts inherit the SQL defaults and remain non-primary.
 
-## Ownership and storage
+## Read and write
 
-- Use the existing `brands` row as the brief. Resolve it only through
-  `Brand.tenant_id = verified_identity.organization_id`.
-- Keep `goodmarketing_workspace_profiles.display_name` as the workspace label.
-  `Brand.name` is the customer's brand name; neither field is copied into the
-  other automatically.
-- Add `brands.is_primary BOOLEAN NOT NULL DEFAULT false` and a partial unique
-  index on `brands(tenant_id) WHERE is_primary`. Existing `demo` and historical
-  rows remain untouched and are never assigned to a new workspace.
-- A workspace with no primary row has a true empty state. Do not fill it with
-  sample text or a demo Brand.
+`GET /workspace/brand-brief` requires verified `workspace:read` access and
+returns `{ "brief": null }` or the saved brief. The strong quoted ETag is a
+SHA-256 digest of the workspace-scoped representation and contains no customer
+text. Responses use `Cache-Control: private, no-store`. Credentialed CORS exposes
+`ETag` and permits `If-Match`.
 
-## Endpoints and permissions
+`PUT /workspace/brand-brief` requires the verified organization, `owner`, and
+`marketing:write`. It accepts only `brand_name`, `description`, `audience`,
+`voice_tone`, and `primary_goal`; name must be nonblank and at most 160
+characters, tone at most 240, and the remaining fields can be cleared. Submitted
+wording is retained. It requires the exact strong ETag from GET: missing returns
+428, unsupported validators return 400, and stale representations return 412.
+An empty-state insert uses the partial unique index and cannot turn a losing
+concurrent insert into an update. Existing rows update by organization, primary
+row, and revision in one transaction and advance revision atomically.
 
-- `GET /workspace/brand-brief` requires `workspace:read` and returns the
-  primary row, or `{ "brief": null }` for the empty state.
-- `PUT /workspace/brand-brief` requires `marketing:write`. The organization is
-  derived from the verified identity; request tenant IDs are not accepted as
-  authority. Map `brand_name -> Brand.name`, `description -> summary`,
-  `audience -> audience`, `voice_tone -> tone`, and `primary_goal -> goal`.
-- Do not widen permissions for existing viewer memberships. Owners receive
-  `marketing:write` from the account role contract; viewers can read only.
+`PATCH /api/brands/{id}` retains the historical request schema and requires its legacy `name` field; fields omitted from the JSON body are preserved. Primary brief-affecting edits
+require the same `If-Match`, update the same five fields atomically, and advance
+the revision. Authenticated integrations obtain the correct validator and primary Brand ID from `GET /workspace/brand-brief`, then use that validator on `PATCH /api/brands/{id}`. Historical Adapters response bodies remain unchanged.
+Non-primary Brand PATCH behavior remains compatible. All Brand reads/writes use
+the verified organization; caller tenant selectors and identity headers are not
+authoritative. Tool access remains organization-scoped and owner-gated for writes.
 
-## Save, reload, and stale edits
+## Browser
 
-- Add a monotonic `version` integer to Brand and return it as an `ETag` from
-  reads. Save requires `If-Match`; update atomically matches the current version
-  and increments it. A missing/stale version returns `412 Precondition Failed`
-  with the current version, so one tab cannot silently replace newer edits.
-- Create the primary Brand under the unique partial index in a transaction.
-  Repeated saves update the same row; handle a concurrent first-save uniqueness
-  race by re-reading the workspace's primary row and applying the version check.
-- A successful PUT means PostgreSQL committed. The page then immediately GETs
-  the endpoint and replaces the form with the confirmed API representation,
-  without a manual refresh.
-- A failed PUT keeps all entered text and shows a save error. If PUT succeeds
-  but the follow-up GET fails, say that the save succeeded but reload failed;
-  keep the entered values visible and offer a reload retry. Do not report this
-  state as an unsaved change.
-- Save only the five text fields above. Logo, color, font, and template assets
-  need a separate asset-storage slice and must not be represented as persisted.
+The account bootstrap must finish before loading the form. Empty state stays
+empty; viewers can read but receive no edit controls. On successful save the
+browser GETs the committed representation and then reloads the full page. A
+failed PUT retains the draft. A lost response causes a read before any retry; a
+changed server version with different text requires reconciliation. If the
+confirmation GET fails, the browser keeps the draft and offers a GET-only retry.
+A workspace-scoped session navigation status can report that save succeeded if
+the following bootstrap fails; it contains no customer text and clears after a
+confirmed load. Logo, colors, fonts, and templates are previews, not persisted
+assets. Language switches change labels only.
 
-## Focused follow-up
+## Release and recovery
 
-Implement the additive primary-Brand fields/index and the two authenticated
-endpoints with PostgreSQL 16 tests for empty state, repeated save, owner/viewer
-permissions, cross-organization access, and stale `If-Match`; then connect the
-Brand Brief form to save followed by automatic API reload.
+Frontend-first deployment with the old API cannot complete brief reads or saves;
+keep the account page gated until the compatible API is available. API-first is
+backward-compatible with the old frontend because routes and columns are
+additive. After customer briefs exist, rolling back to a pre-account API is not
+a safe recovery because it removes account and brief routes. The maintainer must
+use a forward fix or contain traffic while retaining PostgreSQL and its additive
+records. Rollback must be verified against migrated synthetic data for two
+organizations before release; no such production rollback has been performed by
+this candidate.

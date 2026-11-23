@@ -341,7 +341,79 @@ window.GMPostPreview = (() => {
   }
 
   const briefForm = document.querySelector("#brief-form");
-  if (briefForm) briefForm.addEventListener("submit", (event) => event.preventDefault());
+  if (briefForm) {
+    const feedback = document.querySelector("#brief-feedback");
+    const fields = ["brand_name", "description", "audience", "voice_tone", "primary_goal"];
+    let etag = null, busy = false, confirmed = false;
+    const messages = { en: { load: "Could not load the brand brief.", save: "Save failed. Your draft is still here.", conflict: "The brief changed elsewhere. Your draft is preserved; reload and reconcile before saving.", saved: "Saved and confirmed. Reloading…", reload: "Saved, but reload failed.", retry: "Retry loading", viewer: "You can view this brief but cannot edit it.", keep: "Keep draft, reconcile with server", adopt: "Load server version", retrySave: "Retry this save", retryLoad: "Retry loading" }, es: { load: "No se pudo cargar el brief.", save: "No se pudo guardar. Tu borrador sigue aquí.", conflict: "El brief cambió en otro lugar. Tu borrador se conserva; vuelve a cargar y concilia antes de guardar.", saved: "Guardado y confirmado. Recargando…", reload: "Guardado, pero no se pudo recargar.", retry: "Intentar cargar", viewer: "Puedes ver este brief, pero no editarlo.", keep: "Conservar borrador y conciliar", adopt: "Cargar versión del servidor", retrySave: "Reintentar este guardado", retryLoad: "Intentar cargar" } };
+    const msg = (key) => messages[language() === "es" ? "es" : "en"][key];
+    const say = (key) => { feedback.dataset.status = key; feedback.textContent = msg(key); };
+    const pendingNavigationStatus = () => { try { const state = JSON.parse(sessionStorage.getItem("gm-brief-navigation-status") || "null"); return state?.path === location.pathname; } catch { return false; } };
+    const setBusy = (value) => { busy = value; fields.forEach((name) => { const input = briefForm.elements.namedItem(name); input.disabled = value || !window.GMAuth?.identity?.roles?.includes("owner"); }); briefForm.querySelector("button[type=submit]").disabled = value || !window.GMAuth?.identity?.roles?.includes("owner"); };
+    const readForm = () => Object.fromEntries(fields.map((name) => [name, briefForm.elements.namedItem(name).value]));
+    const fill = (brief) => fields.forEach((name) => { briefForm.elements.namedItem(name).value = brief ? brief[name] : ""; });
+    const showConflict = (serverBrief, serverTag, originalTag, draft) => {
+      say("conflict");
+      const keep = document.createElement("button"); keep.type = "button"; keep.dataset.status = "keep"; keep.textContent = msg("keep");
+      keep.addEventListener("click", () => { etag = serverTag; fill(draft); feedback.textContent = ""; delete feedback.dataset.status; });
+      const adopt = document.createElement("button"); adopt.type = "button"; adopt.dataset.status = "adopt"; adopt.textContent = msg("adopt");
+      adopt.addEventListener("click", () => { etag = serverTag; fill(serverBrief); feedback.textContent = ""; delete feedback.dataset.status; });
+      feedback.append(" ", keep, " ", adopt);
+      if (serverTag === originalTag) { const retry = document.createElement("button"); retry.type = "button"; retry.dataset.status = "retrySave"; retry.textContent = msg("retrySave"); retry.addEventListener("click", () => { etag = originalTag; feedback.textContent = ""; delete feedback.dataset.status; briefForm.requestSubmit(); }); feedback.append(" ", retry); }
+    };
+    async function loadBrief() {
+      if (!window.GMAuth?.identity) return;
+      setBusy(true);
+      try {
+        const result = await window.GMAuth.request("/workspace/brand-brief");
+        if (!result.ok) throw new Error("load");
+        const data = await result.json();
+        etag = result.headers.get("ETag"); fill(data.brief); confirmed = true;
+        try { const state = JSON.parse(sessionStorage.getItem("gm-brief-navigation-status") || "null"); if (state?.path === location.pathname) sessionStorage.removeItem("gm-brief-navigation-status"); } catch {}
+        feedback.textContent = ""; delete feedback.dataset.status; briefForm.hidden = false;
+      } catch {
+        const wasSaved = pendingNavigationStatus(); say(wasSaved ? "reload" : "load");
+        if (wasSaved) { const retry = document.createElement("button"); retry.type = "button"; retry.dataset.status = "retryLoad"; retry.textContent = msg("retryLoad"); retry.addEventListener("click", loadBrief, { once: true }); feedback.append(" ", retry); }
+      }
+      finally { setBusy(false); }
+    }
+    document.addEventListener("goodmarketing:account-ready", (event) => {
+      const owner = event.detail.identity.roles.includes("owner");
+      if (!owner) { say("viewer"); }
+      loadBrief();
+    }, { once: true });
+    briefForm.addEventListener("submit", async (event) => {
+      event.preventDefault(); if (busy || !etag) return;
+      const draft = readForm(), originalTag = etag; setBusy(true); feedback.textContent = "";
+      let result;
+      try { result = await window.GMAuth.request("/workspace/brand-brief", { method: "PUT", headers: { "If-Match": originalTag }, body: JSON.stringify(draft) }); }
+      catch {
+        say("conflict");
+        try {
+          const current = await window.GMAuth.request("/workspace/brand-brief");
+          if (current.ok) { const server = await current.json(), serverTag = current.headers.get("ETag"); if (JSON.stringify(server.brief && fields.map((key) => server.brief[key])) === JSON.stringify(fields.map((key) => draft[key]))) { fill(server.brief); etag = serverTag; feedback.textContent = ""; delete feedback.dataset.status; } else { showConflict(server.brief, serverTag, originalTag, draft); } }
+        } catch {}
+        setBusy(false); return;
+      }
+      if (!result.ok) { say("save"); if (result.status === 412) { try { const current = await window.GMAuth.request("/workspace/brand-brief"); if (current.ok) { const server = await current.json(); showConflict(server.brief, current.headers.get("ETag"), originalTag, draft); } else say("conflict"); } catch { say("conflict"); } } setBusy(false); return; }
+      try {
+        const confirmedResponse = await window.GMAuth.request("/workspace/brand-brief");
+        if (!confirmedResponse.ok) throw new Error();
+        const data = await confirmedResponse.json(); etag = confirmedResponse.headers.get("ETag"); fill(data.brief); confirmed = true;
+        try { sessionStorage.setItem("gm-brief-navigation-status", JSON.stringify({ workspace: window.GMAuth.identity.organization_id, path: location.pathname })); } catch {}
+        say("saved"); location.reload();
+      } catch {
+        say("reload");
+        const retry = document.createElement("button"); retry.type = "button"; retry.dataset.status = "retryLoad"; retry.textContent = msg("retry"); retry.addEventListener("click", loadBrief, { once: true }); feedback.append(" ", retry);
+      }
+      setBusy(false);
+    });
+    document.addEventListener("goodmarketing:language-change", () => {
+      if (feedback.dataset.status && feedback.firstChild?.nodeType === Node.TEXT_NODE) feedback.firstChild.nodeValue = msg(feedback.dataset.status);
+      feedback.querySelectorAll("button[data-status]").forEach((button) => { const key = button.dataset.status; button.textContent = msg(key); });
+    });
+    if (window.GMAuth?.identity) loadBrief();
+  }
   const directMessagePreference = document.querySelector("#direct-message-responses");
   const directMessageSaved = document.querySelector("#direct-message-settings-saved");
   if (directMessagePreference) {

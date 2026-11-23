@@ -141,3 +141,21 @@ def test_tool_registry_confirmation_gates_remain_enabled(accounts) -> None:
     assert {"marketing.list_brands", "marketing.approve_content", "marketing.queue_publish"} <= names
     response = client.post("/api/tools/invoke", headers=auth(accounts["owner"]), json={"name": "marketing.queue_publish", "arguments": {"content_id": 1, "platform": "instagram"}})
     assert response.status_code == 200 and response.json()["requires_confirmation"] is True
+
+
+def test_primary_brand_adapter_patch_is_partial_and_revision_conditional(accounts):
+    from sqlalchemy import update
+    from app.models import Brand
+    created = client.post("/api/brands", headers=auth(accounts["owner"]), json={"name": "Primary", "website": "https://example.test", "summary": "Old"}).json()
+    with TestingSession() as session:
+        session.execute(update(Brand).where(Brand.id == created["id"]).values(is_primary=True, revision=1))
+        session.commit()
+    from app.main import _brief_etag
+    etag = _brief_etag("org-north", {"id": created["id"], "brand_name": "Primary", "description": "Old", "audience": "", "voice_tone": "", "primary_goal": "", "revision": 1})
+    missing = client.patch(f"/api/brands/{created['id']}", headers=auth(accounts["owner"]), json={"name": "Primary", "summary": "Updated"})
+    assert missing.status_code == 428
+    updated = client.patch(f"/api/brands/{created['id']}", headers={**auth(accounts["owner"]), "If-Match": etag}, json={"name": "Primary", "summary": "Updated"})
+    assert updated.status_code == 200
+    assert updated.json()["website"] == "https://example.test"
+    assert client.patch(f"/api/brands/{created['id']}", headers={**auth(accounts["owner"]), "If-Match": etag}, json={"name": "Primary", "summary": "Stale"}).status_code == 412
+    assert client.patch(f"/api/brands/{created['id']}", headers={**auth(accounts["viewer"]), "If-Match": etag}, json={"name": "Primary", "summary": "Forbidden"}).status_code == 403

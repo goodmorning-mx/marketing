@@ -1,8 +1,8 @@
 # PR #119 candidate audit
 
 Candidate branch: `codex/gm-auth-account-flow`  
-Current candidate: `d1d0caf20e338ccbaf2562185c02ebfbee5a5c5b`  
-PR: [#119](https://github.com/goodmorning-mx/marketing/pull/119), open against `dev`. GitHub reports it mergeable; that is metadata, not release acceptance.  
+Implementation and test candidate: `d1d0caf20e338ccbaf2562185c02ebfbee5a5c5b`  
+PR: [#119](https://github.com/goodmorning-mx/marketing/pull/119), open against `dev`.  
 Integrated `dev` base: `3774945579b4c88e8268963bea85525054d4a596` (merged PR #122).  
 The untracked `handoff/` Factory patch is preserved.
 
@@ -12,7 +12,7 @@ The untracked `handoff/` Factory patch is preserved.
 - [x] Brand Brief recovery keeps fields locked in confirmation, unknown-outcome and stale-write states. Retries are GET-only; stale comparisons show both versions and require an explicit choice with the displayed server validator.
 - [x] EN/ES rendering updates existing message/action/comparison labels in place. It preserves customer text, flow state, validators, displayed comparisons and Retry/choice node identity.
 - [x] Focused recovery suite: 9 passed. Language changes are exercised during failed confirmation, unknown save outcome and stale conflict; tests cover usable controls, GET-only retry, no duplicate writes and draft preservation.
-- [x] Current candidate Actions runs [45145836268](https://github.com/goodmorning-mx/marketing/actions/runs/45145836268) and [45145836280](https://github.com/goodmorning-mx/marketing/actions/runs/45145836280) completed successfully. They cover PostgreSQL account/migration and adapter preservation suites, focused Node recovery tests, syntax, clean backend/frontend image builds, API health and Nginx/frontend startup smoke.
+- [x] Implementation/test candidate Actions runs [45145836268](https://github.com/goodmorning-mx/marketing/actions/runs/45145836268) and [45145836280](https://github.com/goodmorning-mx/marketing/actions/runs/45145836280) passed. The later audit-only PR head `46a6287107fef1ddc9cd6555c611c67c6efcfa63` also passed fresh runs [45146465914](https://github.com/goodmorning-mx/marketing/actions/runs/45146465914) and [45146465868](https://github.com/goodmorning-mx/marketing/actions/runs/45146465868). They cover PostgreSQL account/migration and adapter preservation suites, focused Node recovery tests, syntax, clean backend/frontend image builds, API health and Nginx/frontend startup smoke.
 - [x] Actual ChatGPT in-app browser checks used a local synthetic request harness for deterministic failed-confirmation, unknown-outcome and stale-conflict responses. Retry and explicit-choice controls remained usable; retries were GET-only; no duplicate write or draft loss occurred; stale resolution used the displayed validator and completed confirmation/reload.
 - [x] Responsive browser checks at 320px and 390px, plus desktop, found no horizontal overflow and confirmed controls/content remained reachable.
 - [x] The language-transition fault tests and layout checks did not write to DEV or customer storage. They are not deployed-API acceptance.
@@ -35,7 +35,7 @@ The untracked `handoff/` Factory patch is preserved.
 ### C. Account release, PR #119
 
 - Candidate `d1d0caf20e338ccbaf2562185c02ebfbee5a5c5b` is refreshed on merged #122 base `3774945579b4c88e8268963bea85525054d4a596`.
-- Both candidate Actions runs listed above passed their account/migration, adapter-preservation, clean-image and startup checks. No current payment/billing assertion is part of the release evidence.
+- Account CI passed for the implementation/test candidate and the later audit-only candidate. No code changed after the implementation/test candidate.
 - #119 is not merged. Merge and deployment must wait for the prerequisite #122 API revision and DEV acceptance, then Factory registration/reconciliation, followed by exact-SHA API and frontend deployment verification.
 
 ## Data and release impact

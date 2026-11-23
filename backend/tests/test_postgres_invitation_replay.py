@@ -11,6 +11,7 @@ from app import main
 
 @pytest.mark.skipif(not os.getenv("TEST_DATABASE_URL"), reason="requires the PostgreSQL 16 CI service")
 def test_concurrent_invitation_redemption_creates_one_account(monkeypatch):
+    monkeypatch.setattr(main.settings, "cors_origins", "https://dev.marketing.goodmorning.mx")
     monkeypatch.setenv("DATABASE_URL", os.environ["TEST_DATABASE_URL"])
     monkeypatch.setenv("AUTH_JWT_SECRET", "ci-only-signing-secret-that-is-long-enough")
     monkeypatch.setenv("AUTH_COOKIE_DOMAIN", "dev.marketing.goodmorning.mx")

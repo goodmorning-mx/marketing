@@ -15,6 +15,7 @@ from app import main
 
 @pytest.mark.skipif(not os.getenv("TEST_DATABASE_URL"), reason="requires the PostgreSQL 16 validation database")
 def test_primary_brief_concurrent_first_save_and_tenant_isolation(monkeypatch):
+    monkeypatch.setattr(main.settings, "cors_origins", "https://dev.marketing.goodmorning.mx")
     database_url = os.environ["TEST_DATABASE_URL"]
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("AUTH_JWT_SECRET", "candidate-only-signing-secret-with-32-bytes")

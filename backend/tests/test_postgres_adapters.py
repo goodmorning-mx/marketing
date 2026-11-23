@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app import main
 from app.database import get_db
+from gm_auth import AuthService, AuthSettings
 
 
 pytestmark = pytest.mark.skipif(not os.getenv("TEST_DATABASE_URL"), reason="requires PostgreSQL 16")
@@ -178,13 +179,19 @@ def test_postgres_adapters_and_demo_request_staff_flow(monkeypatch):
     _create_schema(base_url, schema)
     schema_url = _url_for_schema(base_url, schema)
     engine = create_engine(schema_url)
+    monkeypatch.setenv("AUTH_JWT_SECRET", "postgres-adapters-test-secret-is-long-enough")
+    auth = AuthService(engine, AuthSettings(jwt_secret="postgres-adapters-test-secret-is-long-enough", issuer="goodmarketing"))
+    auth.create_schema()
+    auth.create_organization(organization_id="adapter-org", slug="adapter-org", name="Adapter test")
+    auth.create_user(email="adapter-owner@example.test", name="Adapter Owner", password="disposable adapter password", organization_id="adapter-org", roles={"owner"}, permissions={"workspace:read", "marketing:write"})
+    token = auth.login(email="adapter-owner@example.test", password="disposable adapter password").access_token
+    adapter_headers = {"Authorization": f"Bearer {token}"}
 
     def database_session():
         with Session(engine) as session:
             yield session
 
     monkeypatch.setenv("DATABASE_URL", schema_url.render_as_string(hide_password=False))
-    monkeypatch.delenv("AUTH_JWT_SECRET", raising=False)
     monkeypatch.setenv("ADMIN_USERNAME", "staff")
     monkeypatch.setenv("ADMIN_PASSWORD", "disposable-test-password")
     monkeypatch.setitem(main.app.dependency_overrides, get_db, database_session)
@@ -192,22 +199,24 @@ def test_postgres_adapters_and_demo_request_staff_flow(monkeypatch):
     monkeypatch.setattr(main.settings, "meta_client_secret", "")
     monkeypatch.setattr(main.settings, "app_name", "GoodMorning Marketing Adapters API")
     monkeypatch.setattr(main.settings, "app_env", "dev")
+    monkeypatch.setattr(main, "auth_service", auth)
     try:
         with TestClient(main.app) as client:
             assert client.get("/health").json() == {
                 "service": "GoodMorning Marketing Adapters API", "status": "ok", "environment": "dev",
             }
-            brand = client.post("/api/brands", json={"name": "Disposable PG brand", "platforms": ["instagram"]})
+            assert client.get("/api/brands").status_code == 401
+            brand = client.post("/api/brands", headers=adapter_headers, json={"name": "Disposable PG brand", "platforms": ["instagram"]})
             assert brand.status_code == 200
-            campaign = client.post("/api/campaigns", json={"brand_id": brand.json()["id"], "name": "Disposable campaign"})
+            campaign = client.post("/api/campaigns", headers=adapter_headers, json={"brand_id": brand.json()["id"], "name": "Disposable campaign"})
             assert campaign.status_code == 200
-            content = client.post("/api/content", json={"campaign_id": campaign.json()["id"], "title": "Disposable content"})
+            content = client.post("/api/content", headers=adapter_headers, json={"campaign_id": campaign.json()["id"], "title": "Disposable content"})
             assert content.status_code == 200
             content_id = content.json()["id"]
-            approved = client.patch(f"/api/content/{content_id}/status", json={"status": "approved"})
+            approved = client.patch(f"/api/content/{content_id}/status", headers=adapter_headers, json={"status": "approved"})
             assert approved.status_code == 200
             assert approved.json()["status"] == "approved"
-            published = client.post(f"/api/publish/jobs?content_id={content_id}&platform=instagram")
+            published = client.post(f"/api/publish/jobs?content_id={content_id}&platform=instagram", headers=adapter_headers)
             assert published.status_code == 202
             assert published.json()["status"] == "blocked"
             assert published.json()["error_code"] == "PROVIDER_NOT_CONFIGURED"
@@ -234,5 +243,6 @@ def test_postgres_adapters_and_demo_request_staff_flow(monkeypatch):
             assert stored.json()[0]["id"] == request_id
             assert stored.json()[0]["admin_notes"] == "Disposable follow-up."
     finally:
+        auth.engine.dispose()
         engine.dispose()
         _drop_schema(base_url, schema)

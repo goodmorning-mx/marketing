@@ -16,6 +16,9 @@ from app.adapters import router as adapters_router
 from app.config import get_settings
 from app.database import engine
 from app.models import Base
+from sqlalchemy.engine import Engine
+from gm_auth import AuthService, AuthSettings
+from gm_auth.models import metadata as gm_auth_metadata
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name, version="0.1.0")
@@ -23,13 +26,45 @@ origins = settings.allowed_origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
 app.include_router(adapters_router)
 basic_auth = HTTPBasic(auto_error=False)
 statuses = ("new", "qualified", "not_qualified", "contacted", "invited", "closed")
+auth_service: AuthService | None = None
+_runtime_engine: Engine | None = None
+_runtime_engine_url: str | None = None
+
+
+def runtime_database_engine() -> Engine:
+    global _runtime_engine, _runtime_engine_url
+    database_url = os.getenv("DATABASE_URL", "")
+    if not database_url:
+        raise HTTPException(status_code=503, detail="Account storage is not configured.")
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    if _runtime_engine is None or _runtime_engine_url != database_url:
+        if _runtime_engine is not None:
+            _runtime_engine.dispose()
+        _runtime_engine = create_engine(database_url, pool_pre_ping=True)
+        _runtime_engine_url = database_url
+    return _runtime_engine
+
+
+def configure_auth() -> AuthService:
+    secret = os.getenv("AUTH_JWT_SECRET", "")
+    if not secret or len(secret) < 32:
+        raise HTTPException(status_code=503, detail="Account access is not configured.")
+    return AuthService(runtime_database_engine(), AuthSettings(jwt_secret=secret, issuer="goodmarketing"))
+
+
+def account_service() -> AuthService:
+    global auth_service
+    if auth_service is None:
+        auth_service = configure_auth()
+    return auth_service
 
 
 class DemoRequest(BaseModel):
@@ -95,11 +130,13 @@ def startup_database():
             connection.execute("CREATE TABLE IF NOT EXISTS goodmarketing_schema_migrations (version VARCHAR(80) PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())")
             connection.commit()
             connection.execute("SELECT pg_advisory_xact_lock(hashtext('goodmarketing-auth-migrations')::bigint)")
-            migrations = (
+            migrations = [
                 ("marketing:adapters-models:189869c", lambda: Base.metadata.create_all(schema_engine)),
                 ("demo-requests:1", "003_demo_requests.sql"),
                 ("marketing:strategy-fields:1", "004_marketing_strategy_fields.sql"),
-            )
+            ]
+            if os.getenv("AUTH_JWT_SECRET"):
+                migrations.insert(0, ("gm-auth:0.1.5", lambda: gm_auth_metadata.create_all(schema_engine)))
             for version, migration in migrations:
                 found = connection.execute("SELECT 1 FROM goodmarketing_schema_migrations WHERE version = %s", (version,)).fetchone()
                 if found:

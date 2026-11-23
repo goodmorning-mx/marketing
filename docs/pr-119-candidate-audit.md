@@ -139,3 +139,12 @@ The host-only cookie mode is opt-in with an empty `AUTH_COOKIE_DOMAIN`; default 
 - PR review and thread queries returned no submitted reviews or unresolved threads. Sol's source review is recorded here; no GitHub approval is fabricated.
 - Fresh Factory latest-run read still shows V3 run `44168176676` as newest, with no new Marketing evidence. Fresh TLS-verified DEV `/api/brands` still returns anonymous 200 `[]`. The previously recorded single Factory evidence dependency remains open for both API and frontend. Do not merge #119 until ordered release prerequisites pass.
 - No schema/migration/secret/runtime configuration changes. Recovery for Sol's integration is to revert the integration/fix through a reviewed PR if needed; database rollback is unnecessary. Existing untracked handoff files are preserved. The locally restarted isolated PG16 server is stopped after validation, and its files retained.
+
+### Sol corrected-head CI result
+
+Reviewed implementation/test candidate `31df8cae39e2aec8c6aea34395eb341b28b439aa` passed both automatically triggered required workflows:
+
+- [Account flow checks 45154149093](https://github.com/goodmorning-mx/marketing/actions/runs/45154149093), job `137622712892`: success, PostgreSQL suite/recovery tests/syntax/clean backend and frontend builds/account-page startup smoke.
+- [Marketing Adapters preservation 45154149255](https://github.com/goodmorning-mx/marketing/actions/runs/45154149255), job `137622712221`: success, PostgreSQL preservation suite/syntax/clean builds/API and Nginx startup smoke.
+
+GitHub now reports the PR mergeable. Resolving the real conflict restored automatic PR CI; no manual or duplicate workflow dispatch was needed. The final audit-only commit records these results and does not reopen implementation review. Release remains held at the previously specified Factory deployment-history/runtime/backup evidence prerequisite; all independent candidate implementation, integration, review and CI work is complete. No new Luna assignment is required. Operator contact still requires the user's explicit authorization; this entry does not contact an operator or request personal Coolify access.

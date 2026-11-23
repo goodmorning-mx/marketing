@@ -124,6 +124,11 @@
       }
       if (!isCurrent(token, "saving")) return false;
       if (!response.ok) {
+        if (response.status === 502 || response.status === 504) {
+          pending.outcome = "unknown";
+          transition("unknown-pending");
+          return readAfterUncertainWrite("unknown");
+        }
         if (response.status === 412) {
           pending.outcome = "stale";
           transition("stale-pending");

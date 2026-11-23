@@ -115,6 +115,43 @@ test("lost PUT plus failed recovery GET keeps the draft locked and retries only 
   assert.equal(h.inputs.description, draft.description);
 });
 
+test("gateway timeout reconciles a committed save and keeps newer server edits as a conflict", async () => {
+  const draft = { brand_name: "Brand", description: "Submitted copy", audience: "Small shops", voice_tone: "Warm", primary_goal: "Launch" };
+  const newer = { ...brief(), description: "A later edit", revision: 3 };
+  const h = setup(async (_path, _options, index) => {
+    if (index === 1) return response(200, { brief: brief() }, "etag-one");
+    if (index === 2) return response(504, {}, null);
+    if (index === 3) return response(200, { brief: newer }, "etag-three");
+    throw new Error("unexpected request");
+  });
+  await h.flow.load(); Object.assign(h.inputs, draft);
+  await h.flow.save();
+  assert.equal(h.flow.getState().phase, "conflict");
+  assert.equal(h.conflicts[0].cause, "unknown");
+  assert.equal(h.conflicts[0].draft.description, draft.description);
+  assert.equal(h.calls.filter((call) => call.options.method === "PUT").length, 1);
+});
+
+test("uncommitted gateway timeout and failed GET recover without repeating PUT or losing draft", async () => {
+  const draft = { brand_name: "Brand", description: "Retained draft", audience: "Small shops", voice_tone: "Warm", primary_goal: "Launch" };
+  const h = setup(async (_path, _options, index) => {
+    if (index === 1) return response(200, { brief: brief() }, "etag-one");
+    if (index === 2) return response(502, {}, null);
+    if (index === 3) throw new Error("read unavailable");
+    if (index === 4) return response(200, { brief: brief() }, "etag-one");
+    throw new Error("unexpected request");
+  });
+  await h.flow.load(); Object.assign(h.inputs, draft);
+  await h.flow.save();
+  assert.equal(h.flow.getState().phase, "unknown-pending");
+  typeWhenEnabled(h, "description", "must stay locked");
+  assert.equal(h.inputs.description, draft.description);
+  await h.flow.retryRecovery();
+  assert.deepEqual(h.calls.map((call) => call.options.method || "GET"), ["GET", "PUT", "GET", "GET"]);
+  assert.equal(h.flow.getState().phase, "conflict");
+  assert.equal(h.conflicts[0].draft.description, draft.description);
+});
+
 test("delayed recovery rejects overlapping retries and cannot issue duplicate writes", async () => {
   const saved = brief({ description: "Saved", revision: 2 });
   let resolveRetry;

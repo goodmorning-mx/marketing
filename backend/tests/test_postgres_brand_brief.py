@@ -169,6 +169,21 @@ def test_primary_brief_preserves_exact_fields_on_create_update_and_later_login(m
             assert_fields(updated.json()["brief"], second)
             second_read = owner.get("/workspace/brand-brief")
             assert_fields(second_read.json()["brief"], second)
+
+            patch_headers = {"Authorization": f"Bearer {owner.cookies.get('gm_access')}", "If-Match": second_read.headers["ETag"]}
+            brief_id = second_read.json()["brief"]["id"]
+            for invalid in ({"name": "   "}, {"tone": "t" * 241}):
+                rejected = owner.patch(f"/api/brands/{brief_id}", headers=patch_headers, json=invalid)
+                assert rejected.status_code == 422
+                unchanged = owner.get("/workspace/brand-brief")
+                assert unchanged.headers["ETag"] == second_read.headers["ETag"]
+                assert_fields(unchanged.json()["brief"], second)
+            partial = owner.patch(f"/api/brands/{brief_id}", headers=patch_headers, json={"summary": "PATCH description"})
+            assert partial.status_code == 200, partial.text
+            latest = owner.get("/workspace/brand-brief")
+            assert latest.json()["brief"]["description"] == "PATCH description"
+            assert latest.json()["brief"]["audience"] == second["audience"]
+            assert latest.headers["ETag"] != second_read.headers["ETag"]
             with pg_engine.connect() as connection:
                 unrelated = connection.execute(text("SELECT website, industry, positioning, offers, message, metrics, target_date, growth_timeline, platforms FROM brands WHERE id = :id"), {"id": brief_id}).mappings().one()
             assert dict(unrelated) == {
@@ -183,7 +198,7 @@ def test_primary_brief_preserves_exact_fields_on_create_update_and_later_login(m
             assert login.status_code == 200, login.text
             later = later_login.get("/workspace/brand-brief")
             assert later.status_code == 200
-            assert_fields(later.json()["brief"], second)
+            assert_fields(later.json()["brief"], {**second, "description": "PATCH description"})
     finally:
         if main.auth_service is not None:
             main.auth_service.engine.dispose()

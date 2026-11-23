@@ -43,6 +43,26 @@ class BrandIn(BaseModel):
     platforms: list[str] = []
 
 
+class BrandPatchIn(BaseModel):
+    # Partial updates preserve omitted values; the historical BrandIn contract
+    # remains unchanged for create and non-primary clients.
+    tenant_id: str | None = None
+    name: str | None = Field(default=None, max_length=160)
+    website: str | None = None
+    industry: str | None = None
+    summary: str | None = None
+    goal: str | None = None
+    audience: str | None = None
+    positioning: str | None = None
+    offers: str | None = None
+    tone: str | None = None
+    message: str | None = None
+    metrics: str | None = None
+    target_date: str | None = None
+    growth_timeline: str | None = None
+    platforms: list[str] | None = None
+
+
 class CampaignIn(BaseModel):
     brand_id: int
     name: str = Field(min_length=1, max_length=180)
@@ -177,15 +197,16 @@ def create_brand(payload: BrandIn, identity: AuthIdentity = Depends(require_mark
     return _brand_data(brand)
 
 
-@router.patch("/api/brands/{brand_id}")
-def update_brand(brand_id: int, payload: BrandIn, request: Request, response: Response, identity: AuthIdentity = Depends(require_marketing_write), db: Session = Depends(get_db)) -> dict:
+@router.patch("/api/brands/{brand_id}", openapi_extra={"requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/BrandIn"}}}}})
+def update_brand(brand_id: int, payload: BrandPatchIn, request: Request, response: Response, identity: AuthIdentity = Depends(require_marketing_write), db: Session = Depends(get_db)) -> dict:
     brand = _owned_brand(db, identity.organization_id, brand_id)
     changes = payload.model_dump(exclude={"tenant_id"}, exclude_unset=True)
     if any(value is None for value in changes.values()):
         raise HTTPException(status_code=422, detail="Brand fields cannot be null.")
     brief_fields = {"name", "summary", "audience", "tone", "goal"}
     if brand.is_primary and brief_fields.intersection(changes):
-        from app.main import _brief_dict, _brief_etag
+        from app.main import _brief_dict, _brief_etag, validate_primary_brand_fields
+        validate_primary_brand_fields(name=changes.get("name", brand.name), tone=changes.get("tone", brand.tone))
         expected = request.headers.get("If-Match")
         if expected is None:
             raise HTTPException(status_code=428, detail="If-Match is required.")

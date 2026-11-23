@@ -304,3 +304,47 @@ def test_refresh_rotates_refresh_session_and_logout_revokes_access(client):
     assert stale_refresh.status_code == 401
     test_client.post("/auth/logout", headers={"Origin": "https://dev.marketing.goodmorning.mx"})
     assert test_client.get("/auth/me").status_code == 401
+
+
+def test_multi_workspace_login_lists_verified_memberships_and_rejects_arbitrary_selection(client):
+    test_client, service, engine = client
+    main.Base.metadata.create_all(engine)
+    headers = {"Origin": "https://dev.marketing.goodmorning.mx"}
+    credentials = {"email": "multi@example.test", "password": "a sufficiently long password"}
+    _, first_token = invite(test_client, credentials["email"], "First Space", "viewer")
+    first = activate(test_client, credentials["email"], first_token).json()["identity"]
+    test_client.post("/auth/logout", headers=headers)
+    _, second_token = invite(test_client, credentials["email"], "Second Space", "owner")
+    second = activate(test_client, credentials["email"], second_token).json()["identity"]
+    from app.models import Brand
+    from sqlalchemy.orm import Session
+    with Session(engine) as session:
+        session.add(Brand(tenant_id=first["organization_id"], name="Brief Alpha", summary="Brief Alpha description", audience="First audience", tone="First voice", goal="First goal", is_primary=True, revision=1))
+        session.commit()
+    test_client.post("/auth/logout", headers=headers)
+    listed = test_client.post("/auth/workspaces", headers=headers, json=credentials)
+    assert listed.status_code == 200
+    assert {row["organization_id"] for row in listed.json()["workspaces"]} == {first["organization_id"], second["organization_id"]}
+    assert {row["name"] for row in listed.json()["workspaces"]} == {"First Space", "Second Space"}
+    # Seed a distinctive primary brief in each authorized organization.
+    for identity, brand_name in ((first, "Brief Alpha"), (second, "Brief Beta")):
+        login = test_client.post("/auth/login", headers=headers, json={**credentials, "organization_id": identity["organization_id"]})
+        assert login.status_code == 200
+        if "owner" in login.json()["identity"]["roles"]:
+            current = test_client.get("/workspace/brand-brief")
+            saved = test_client.put("/workspace/brand-brief", headers={**headers, "If-Match": current.headers["ETag"]}, json={"brand_name": brand_name, "description": brand_name + " description", "audience": "Local readers", "voice_tone": "Clear", "primary_goal": "Grow carefully"})
+            assert saved.status_code == 200
+        test_client.post("/auth/logout", headers=headers)
+    denied = test_client.post("/auth/login", headers=headers, json={**credentials, "organization_id": "not-a-membership"})
+    assert denied.status_code == 401
+    selected = test_client.post("/auth/login", headers=headers, json={**credentials, "organization_id": first["organization_id"]})
+    assert selected.status_code == 200
+    assert selected.json()["identity"]["organization_id"] == first["organization_id"]
+    assert selected.json()["identity"]["roles"] == ["viewer"]
+    assert test_client.get("/workspace").json()["display_name"] == "First Space"
+    assert test_client.get("/workspace/brand-brief").json()["brief"]["brand_name"] == "Brief Alpha"
+    test_client.post("/auth/logout", headers=headers)
+    selected_second = test_client.post("/auth/login", headers=headers, json={**credentials, "organization_id": second["organization_id"]})
+    assert selected_second.json()["identity"]["roles"] == ["owner"]
+    assert test_client.get("/workspace").json()["display_name"] == "Second Space"
+    assert test_client.get("/workspace/brand-brief").json()["brief"]["brand_name"] == "Brief Beta"

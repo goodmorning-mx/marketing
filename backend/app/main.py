@@ -103,6 +103,10 @@ class LoginInput(BaseModel):
     password: str = Field(min_length=8, max_length=256)
 
 
+class WorkspaceLoginInput(LoginInput):
+    organization_id: str | None = Field(default=None, min_length=1, max_length=128)
+
+
 class ActivateInput(LoginInput):
     name: str = Field(min_length=2, max_length=255)
     token: str = Field(min_length=32, max_length=256)
@@ -237,13 +241,28 @@ def health() -> dict[str, str]:
 
 
 @app.post("/auth/login")
-def customer_login(payload: LoginInput, request: Request, response: Response, service: AuthService = Depends(account_service)):
+def customer_login(payload: WorkspaceLoginInput, request: Request, response: Response, service: AuthService = Depends(account_service)):
     require_allowed_origin(request)
-    tokens = service.login(email=payload.email.strip().lower(), password=payload.password)
+    tokens = service.login(email=payload.email.strip().lower(), password=payload.password, organization_id=payload.organization_id)
     if tokens is None:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     set_session(response, tokens)
     return {"identity": tokens.identity.as_dict()}
+
+
+@app.post("/auth/workspaces")
+def customer_workspaces(payload: LoginInput, request: Request, service: AuthService = Depends(account_service)):
+    """List only memberships belonging to an identity whose password was verified."""
+    require_allowed_origin(request)
+    tokens = service.login(email=payload.email.strip().lower(), password=payload.password)
+    if tokens is None:
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+    with service.engine.connect() as connection:
+        rows = connection.execute(text("""SELECT o.id, COALESCE(p.display_name, o.name) FROM gm_auth_memberships m
+            JOIN gm_auth_organizations o ON o.id = m.organization_id
+            LEFT JOIN goodmarketing_workspace_profiles p ON p.organization_id = o.id
+            WHERE m.user_id = :user_id ORDER BY o.name, o.id"""), {"user_id": tokens.identity.user_id}).all()
+    return {"workspaces": [{"organization_id": row[0], "name": row[1]} for row in rows]}
 
 
 @app.post("/auth/logout", status_code=204)
@@ -393,6 +412,14 @@ class BrandBriefInput(BaseModel):
     primary_goal: str
 
 
+def validate_primary_brand_fields(*, name: str, tone: str) -> None:
+    """Shared product contract for writes to the primary Brand row."""
+    if not name.strip():
+        raise HTTPException(status_code=422, detail="Brand name is required.")
+    if len(tone) > 240:
+        raise HTTPException(status_code=422, detail="Voice/tone must be 240 characters or fewer.")
+
+
 def _brief_etag(organization_id: str, brief: dict | None) -> str:
     payload = json.dumps([organization_id, brief], ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return '"bb-' + hashlib.sha256(payload.encode()).hexdigest() + '"'
@@ -425,8 +452,7 @@ def write_brand_brief(payload: BrandBriefInput, request: Request, response: Resp
         raise HTTPException(status_code=428, detail="If-Match is required.")
     if validator.startswith("W/") or validator == "*" or not re.fullmatch(r'"bb-[0-9a-f]{64}"', validator):
         raise HTTPException(status_code=400, detail="Unsupported If-Match validator.")
-    if not payload.brand_name.strip():
-        raise HTTPException(status_code=422, detail="Brand name is required.")
+    validate_primary_brand_fields(name=payload.brand_name, tone=payload.voice_tone)
     with database_connection() as connection:
         row = connection.execute("SELECT id, name, summary, audience, tone, goal, revision FROM brands WHERE tenant_id = %s AND is_primary = true FOR UPDATE", (identity.organization_id,)).fetchone()
         current = _brief_dict(row)

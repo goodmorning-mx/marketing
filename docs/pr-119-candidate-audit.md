@@ -1,34 +1,46 @@
 # PR #119 candidate audit
 
 Candidate branch: `codex/gm-auth-account-flow`
-Reviewed account baseline: `35bbeab28704b903a9d6bd085020e895e486e0e4`
-Latest fetched `dev` integrated: `4d7bb8abca9d9600f5902a56e37bcdea116b0ba7`
-Prior reviewed candidate: `bdf91a87e6672d86b2ff80d0f995bc569ce55720`
-Status: corrections committed on the PR branch; push/review pending. Not merged, deployed, registered, or live accepted.
+Current candidate SHA: `c9bb783d3c02819de96a77a8a4873eb6c68cc109`
+Integrated latest `dev`: `e5ed7598e9f86e4dc9aefdf27301b6937129680f` (video-only; no account or Brand Brief changes).
+PR: [#119](https://github.com/goodmorning-mx/marketing/pull/119), open and mergeable as of the latest refresh; not merged or deployed.
+The untracked `handoff/` Factory patch remains preserved.
 
-## Completed checks
+## Candidate changes and validation
 
-- [x] Preserved the untracked `handoff/` Factory registration patch and kept its gm-auth v0.1.5 SHA unchanged.
-- [x] Account invite, activation, refresh-session rotation, and logout tests, including cross-organization identity join, wrong-password rejection, stale owner permission snapshots, duplicate-company retry identity, and activation retry after a partial failure.
-- [x] Brand Brief contract, migration, ETag/If-Match rules, viewer/organization access checks, omitted-field preservation, and primary Brand adapter conflicts.
-- [x] Local Python 3.12 suite: `python -m pytest -q tests` from `backend/` — 22 passed, 6 PostgreSQL-only skipped.
-- [x] Full PostgreSQL 16.11 synthetic suite: `TEST_DATABASE_URL='postgresql+psycopg://postgres@127.0.0.1:55449/gm119_synthetic' CORS_ORIGINS='https://dev.marketing.goodmorning.mx' PYTHONPATH=. python -m pytest -q tests` from `backend/` — 28 passed, including migration replay, legacy schema/data/FK/default preservation, concurrent invitation redemption, two empty-brief writers, two existing-brief writers sharing one ETag (one 200, one 412), stale browser preconditions after an Adapters edit, and exact five-field create/update/reread/later-login checks with goals longer than 240 characters.
-- [x] Corrected SQL first-save mapping; PostgreSQL regression compares all five customer fields in PUT, independent GET, update, and later authenticated login and verifies unrelated Brand columns stay intact.
-- [x] In-app browser on a local candidate copy and fresh synthetic PostgreSQL database: owner login, empty brief, distinct five-field save with a >240-character goal, then an injected lost PUT response after commit. The page reread showed the committed values and explicitly reported that the client could not confirm who saved them.
-- [x] Adapter compatibility workflow against current live DEV: 14 historical operations and health response match the approved baseline; candidate has 27 operations including account/demo routes.
-- [x] `git diff --check`, `node --check frontend/auth.js`, `node --check frontend/workspace/workspace.js`, Python `compileall`, and `pip check` all passed. High-confidence token/private-key patterns were absent in changed runtime and migration files.
+- [x] Fixed the original first-save SQL mapping. Exact five-field create/update/independent-read/later-login coverage preserves a `primary_goal` longer than 240 characters and unrelated Brand fields.
+- [x] Brand Brief recovery uses one state machine. Fields remain locked during confirmation, unknown-outcome, and stale-write recovery; retries are GET-only; stale comparisons require explicit choices and use the displayed server validator.
+- [x] Fixed language rendering: EN/ES updates now change existing message, action, and comparison-label nodes. They do not replace feedback content, remove retry/choice buttons, replace comparison text, alter customer values, or mutate the flow's validators/state. Added a cache-busted script URL.
+- [x] Focused Node suite: **9 passed, 0 failed**. Includes EN/ES changes during failed confirmation, lost-write recovery, and stale comparison; checks action-node identity, draft preservation, GET-only retries, one write until an explicit choice, and conditional conflict resolution.
+- [x] Full PostgreSQL 16.11 synthetic backend suite: **28 passed** on isolated `gm119_synthetic`, previously run on `b702bec`. The backend, SQL mapping, migrations and tests have not changed since that run; current `dev` integration and this fix changed frontend landing/Brand Brief files only.
+- [x] Actual ChatGPT in-app browser, local candidate page and synthetic request harness: failed confirmation GET retained distinct customer values and disabled fields; EN switch preserved the Retry control; retry made GET only, completed a full page reload, and loaded the saved five values. Unknown PUT response plus failed recovery GET retained the draft; ES switch preserved Retry; retry made GET only and showed the comparison without a second PUT. A stale 412 showed both server and draft fields; EN switch retained comparison content and all three explicit choices; keep-draft followed by save used the displayed `etag-server-2` validator and completed a confirmation/reload.
+- [x] Responsive in-app browser checks at **320px** and **390px**: document/body scroll width matched each viewport (no horizontal page overflow); controls and brief content remained reachable. Default desktop width also had no horizontal overflow.
+- [x] JavaScript syntax checks and `git diff --check` passed. Previous backend checks include `pip check`, Python compileall and a high-confidence secret-pattern scan; the added renderer contains no credentials or runtime secrets.
 
-## Holds and unavailable evidence
+The new browser language-transition runs used a local synthetic request layer to deterministically induce failure and conflict responses; they did not write to DEV or customer storage. Prior DB-backed browser acceptance against an isolated PostgreSQL fixture remains applicable to unchanged backend behavior.
 
-- [ ] In-app browser did not complete normal successful-save/full-reload, failed confirmation GET/retry, failed bootstrap after navigation, viewer controls, or a stale-tab reconciliation. A stale-tab attempt loaded the current validator and therefore did not conflict; subsequent tab creation timed out in the browser control. The lost-response branch was exercised successfully. API viewer denials and concurrent conflict behavior are covered by the passing suite. Browser refresh is API-tested, not forced through an expired UI cookie.
-- [ ] Clean frontend/backend application images and Nginx startup smoke: Docker and Nginx are not installed; no authorized builder/preview target was accessible.
-- [ ] Corrected #119 head GitHub CI and Coolify deployment identity/status: #122 is still open and currently reports `mergeable: false`; its recorded Actions run was blocked before job steps by the billing/spending restriction. Do not merge #119 until #122 is reviewed, made mergeable, merged, deployed, and DEV-accepted. No deployment was triggered.
-- [ ] Factory registration and runtime binding: no reviewed registration PR was found. The Factory handoff patch is preserved in `handoff/`; Factory maintainer must open/review/merge its registration after #122 is released and serving identity is verified.
-- [ ] Coolify maintainer evidence: read-only API application UUID, repository/branch/serving SHA, frontend serving SHA, runtime key presence by name, latest backup status/time, and safe recovery identity are not available through current tools. Do not reconcile/deploy to discover them.
-- [ ] Integration callers and scoped workspace access: integration maintainer must identify legacy callers and issue scoped access before release.
-- [ ] Hosted execution availability: billing owner must resolve the repository spending restriction before GitHub Actions can run; do not repeatedly retry the unchanged restriction.
-- [ ] Rollback of a pre-account API after account/brief data exists is unsafe. Maintainer owns containment/forward-fix gate while retaining PostgreSQL and additive records; no rollback artifact has been run against synthetic two-organization data.
+## Ordered release gates
 
-## Release impact
+### A. Preservation release, PR #122
 
-Migration 006 is additive: historical/demo rows remain non-primary, the SQL defaults preserve old Brand inserts, and existing IDs, relations, ownership, and unrelated fields stay intact. API-first supports the previous frontend. Frontend-first remains gated until the compatible API serves. Retain the database and additive account/brief records on recovery. See [brand brief contract](brand-brief-contract.md) and [account workflow](accounts.md).
+- Current PR state is **open, mergeable, no submitted reviews**. Candidate head `e4c09ce8d8ae11e684f0ff363be9eda79cb4e09c` is based on older `dev` `4549a7dd9fa7297b0db66c47ba5eea0a2634654b`; current `dev` is `e5ed7598e9f86e4dc9aefdf27301b6937129680f`.
+- Actions run [45020997214](https://github.com/goodmorning-mx/marketing/actions/runs/45020997214) failed before exposing any steps. Connected diagnostics returned no checks, statuses, annotations, or log; **the exact cause is unknown**. Do not treat it as an executed test failure or claim a confirmed billing restriction.
+- The earlier local candidate suite reported 10 passed, including PostgreSQL tests. Neither clean application image build nor Nginx frontend smoke has executed. No accessible authorized image builder is available through current tools or the local host.
+- Refresh #122 onto current `dev`, obtain review and executed CI/image evidence, then carry out the required automatic DEV deployment and acceptance before proceeding.
+
+### B. Factory registration and runtime bindings
+
+- Preserved patch pins gm-auth 0.1.5 SHA `138d66cb44a94781e0d38d8afd1be2dbf718c294`; manifest binds generated `AUTH_JWT_SECRET` and DEV-only `AUTH_COOKIE_DOMAIN` without exposing values.
+- Refreshed Factory `dev` remains `6c0d1b0bccce146b40db84aaae92ae8aa8cf75ee`. At that snapshot, **18 module contract tests passed** and the Resources V3 validator accepted the manifest/bindings. Existing local manifest/test edits are preserved.
+- No reviewed registration PR is present, and connected Factory GitHub access is read-only. The Factory maintainer must open/review the registration and reconcile runtime bindings after #122's DEV release.
+
+### C. Corrected account release, PR #119
+
+- Current candidate: `c9bb783d3c02819de96a77a8a4873eb6c68cc109`; PR remains open and unmerged.
+- Actions run [45138914112](https://github.com/goodmorning-mx/marketing/actions/runs/45138914112) failed with zero exposed steps; diagnostics have no checks, statuses, annotations, or log. **Cause is unconfirmed.** This does not establish that tests ran or failed.
+- Latest read-only DEV health returns service `GoodMorning Marketing Adapters API`, status `ok`, environment `dev`; it does not identify an application revision. No Coolify access is available for API/frontend application identities, serving SHAs, runtime-key presence, or deployment status.
+- No evidence is available for the latest successful backup, tested recovery artifact or maintainer-owned containment/forward-fix, or the legacy integration callers and their scoped access. These remain required before release; a pre-account API is not a safe rollback after account data exists.
+
+## Data and release impact
+
+Migration 006 remains additive and preserves historical rows and relationships; no destructive migration, reset, production change, or customer-data write was performed. The language-rendering fix adds one small frontend module and changes the Brand Brief script cache key; it changes no backend configuration or migration. No DEV merge, deployment, or live customer acceptance is claimed.

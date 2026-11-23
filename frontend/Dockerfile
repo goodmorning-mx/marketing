@@ -7,6 +7,7 @@ COPY orbit.js /usr/share/nginx/html/orbit.js
 COPY workflow.js /usr/share/nginx/html/workflow.js
 COPY research-dial.js /usr/share/nginx/html/research-dial.js
 COPY review.css /usr/share/nginx/html/review.css
+COPY logo-animation.css /usr/share/nginx/html/logo-animation.css
 COPY assets /usr/share/nginx/html/assets
 COPY signup /usr/share/nginx/html/signup
 COPY learn-more /usr/share/nginx/html/learn-more

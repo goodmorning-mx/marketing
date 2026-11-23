@@ -42,6 +42,59 @@ The untracked `handoff/` Factory patch is preserved.
 
 Migrations are additive and retain PostgreSQL records and relationships. No destructive migration, reset, production change, or live customer-data write was performed. Approved social platform artwork and GoodMarketing-owned branding were preserved. No #119 merge, deployment, or deployed customer acceptance is claimed.
 
-## Minimum external action to resume the ordered release
+## Sol intake ledger — 2026-11-23 03:46 America/Mexico_City
 
-The release owner with Coolify/DEV access must inspect the automated deployment for `3774945579b4c88e8268963bea85525054d4a596`, ensure the existing automatic deployment has applied that exact revision to API and frontend, and provide read access to API/frontend revision and runtime readiness, runtime-key presence by key name, and latest backup/recovery evidence. If deployment is not running that SHA, use the established automatic deployment recovery/forward-fix process while preserving PostgreSQL. Then perform the authorized synthetic DEV acceptance before Factory registration and #119 merge.
+This ledger supersedes the earlier access recommendation. Use only the existing GitHub/Factory Coolify integration; never request personal Coolify access. No operator has been contacted.
+
+| Gate | Refreshed evidence | State / next owner |
+| --- | --- | --- |
+| Marketing candidate | PR #119 remains open; remote/local head `8adc4933fa62a65aeb8156c746e6e960950f4bb2`, base `3774945579b4c88e8268963bea85525054d4a596`. Only audit changes follow implementation/test commit `d1d0caf20e338ccbaf2562185c02ebfbee5a5c5b`. | Four open findings assigned to Luna in `handoff/luna-open-findings.md`; Sol reviews return. |
+| Exact-head CI | Re-read successful job records: [Account 45146976725](https://github.com/goodmorning-mx/marketing/actions/runs/45146976725), [Adapters 45146976640](https://github.com/goodmorning-mx/marketing/actions/runs/45146976640). | Carry forward; new candidate head must pass required CI. No rerun dispatched. |
+| Preservation merge | PR #122 merged as `3774945579b4c88e8268963bea85525054d4a596`; [post-merge CI 45144220462](https://github.com/goodmorning-mx/marketing/actions/runs/45144220462) still successful. | Implementation/CI closed; deployed acceptance open. |
+| Live public contract | Fresh TLS-verified curl: `/health` 200/ok; anonymous `/api/brands` 200 `[]`; OpenAPI lacks demo-request routes. Python urllib initially failed local CA verification; curl succeeded with normal verification. | Mismatch persists. Do not submit demo data or claim authenticated acceptance against this API. |
+| Factory source | `dev` remains `6c0d1b0bccce146b40db84aaae92ae8aa8cf75ee`; Marketing manifest blob `d5c440fc8da63ed01aafd6d474aa20311df96e95` has separate API/frontend and private PG16 but no gm-auth registration. Open Factory PR listing contains no Marketing/auth PR. | Binding is not registered in source. Runtime binding unknown. |
+| Existing reconciliation | Latest V3 [44168176676](https://github.com/goodmorning-mx/goodmorning-factory/actions/runs/44168176676), job `134339762300`, succeeded November 17; actual apply/backup output concerns ArcoEnergy. Latest 100 Factory runs contain no post-#122 V3 reconciliation. Native product deployments need not create Factory runs. | Does not prove Marketing revision, configuration or backups. |
+| API deployment identity | Expected repo `goodmorning-mx/marketing`, branch `dev`, domain `https://api.dev.marketing.goodmorning.mx`, source `/backend`. | Serving SHA, latest successful deployment and later rollout/rollback unknown. |
+| Frontend deployment identity | Expected same repo/branch, domain `https://dev.marketing.goodmorning.mx`, source `/frontend`. | Serving SHA, latest successful deployment and later rollout/rollback unknown. |
+| Factory patch | Existing untracked patch preserved; `git apply --check` passes on clean Factory `6c0d1b0`. Previous 18 passing contract tests/composition evidence retained because patch/source unchanged. Registry still approves embedded gm-auth 0.1.5 at `138d66cb44a94781e0d38d8afd1be2dbf718c294`. | Apply through reviewed Factory PR once deployment identity/independent preservation prerequisites pass; may precede authenticated smoke if required. |
+| Access | No workflow-dispatch tool exposed; `gh` absent. Connector permission lookup returns 403 (does not establish collaborator role). In-app GitHub workflow page visibly signed out, no Run workflow control. | Fresh Factory observation/repair cannot be dispatched with current interfaces. No credentials requested. |
+
+### Single Factory evidence dependency
+
+A Factory operator with existing authorized runner access can supply one sanitized Marketing-only report. This is a checklist, not an instruction to contact anyone without user authorization:
+
+1. Run **Product development operations**, Factory branch `dev`, product `marketing`, operation `plan`, blank confirmation, established server/GitHub App `goodmorning-mx-coolify`, and confirmed DEV destination. Historical V3 logs show destination `g61slcctgnbvhhc8si0h9tf0`; confirm it is the established Marketing destination before dispatch. Report exact API/frontend resource matches and configuration. Plan is structural and GET-only.
+2. For each matched application independently, use existing Factory runner credentials with `GET /api/v1/deployments/applications/{app_uuid}?skip=0&take=10` and relevant `GET /api/v1/deployments/{deployment_uuid}`. Report repository, branch, domain, app UUID, latest successful deployment time, Marketing source SHA if supplied, all subsequent deployment/rollback events, and whether that identifies the currently serving revision. Record SHA unknown if omitted; a Factory workflow SHA is not product evidence.
+3. Report runtime key presence by name only, private database identity and latest verified backup/recovery target/status. Never include secret values. Preserve existing PostgreSQL. If evidence warrants repair, Sol's existing authorization covers the documented Marketing-only DEV repair through normal gates; observation alone must not dispatch Resources V3 apply/deploy.
+
+After evidence arrives, Sol diagnoses the preservation mismatch, completes synthetic demo submission/staff queue and authenticated Adapters acceptance (with scoped historical caller access), applies the reviewed Factory binding once if needed, then reviews/merges corrected #119 after its checks and verifies both deployments plus live customer acceptance. No release gate is waived by this ledger.
+
+### Verification scope and impact
+
+Intake used GitHub connector records, refreshed Git refs, source inspection and TLS-verified HTTP reads. Browser use checked GitHub workflow access only; it did not exercise customer acceptance. Existing mock/fault/mobile evidence remains classified as simulated. No new test run was needed for this documentation-only intake. No application code, schema, configuration, secrets or deployed resources changed; no merge or dispatch occurred. Recovery remains the last independently verified deployment/backup once Factory supplies it. Documentation can be reverted independently.
+
+## Luna implementation evidence — 2026-11-23
+
+Implementation/test commit: `b94f64f2e572b2b8c270cc7c3fde3783d6bb6f0d` (parent candidate `8adc4933fa62a65aeb8156c746e6e960950f4bb2`). The remote `dev` tip advanced to `b58665e` for social-logo work; the PR branch stayed at the stated candidate before this change. No social marks were changed.
+
+| Finding | Implementation and evidence | State |
+| --- | --- | --- |
+| Multi-workspace return | Login now offers a workspace choice after password verification. `/auth/workspaces` lists only gm-auth membership rows for the verified user and uses the separate GoodMarketing display name. Login accepts an optional organization selector which gm-auth verifies; an arbitrary/non-member selector fails. Regression covers one identity selecting two organizations after logout, their separate display names, viewer/owner role and distinct brief, plus rejected arbitrary selection. | Implemented and HTTP/API tested. Browser-integrated acceptance remains open below. |
+| Primary Brand write contract | Shared validation rejects whitespace-only primary names and tone over 240 through both Brand Brief PUT and Adapters PATCH before mutation. PATCH now accepts omitted fields while preserving historical BrandIn OpenAPI and non-primary contracts. PostgreSQL test verifies invalid writes retain fields/revision ETag, partial PATCH preserves omitted fields, successful cross-route update invalidates the previous ETag, and existing concurrent write test remains passing. | Implemented and PostgreSQL tested. |
+| Ambiguous gateways | Received HTTP 502/504 follows the locked unknown-outcome read-back state. Tests cover committed response with newer conflicting server data, uncommitted timeout, failed recovery read, GET-only retry, preserved draft and no duplicate PUT. Existing explicit conflict choices and definitive failure handling tests remain passing. | Implemented and tested. |
+| Integrated acceptance | No browser-integrated customer acceptance was run. The candidate is not deployed, and the public DEV API is the previously recorded preservation-contract failure. The available isolated PG16 DB can support HTTP-client tests, but there is no configured candidate frontend/API origin pair with trusted TLS for the required in-app cross-origin cookie/ETag flow. No synthetic response harness was presented as integrated evidence, and no DEV resource was changed. | Open; requires a reviewable corrected candidate served at browser-accessible frontend and API origins backed by isolated PG16, then owner A/viewer A/owner B plus multi-workspace browser exercise. |
+
+### Verification on implementation commit
+
+- `node --test frontend/tests/brand-brief-flow.test.cjs`: 11 passed, 0 failed, 0 skipped.
+- `node --check frontend/login.js`: passed.
+- Backend full suite with only `TEST_DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:5432/gm119_candidate_final` supplied to the suite: 35 passed, 0 failed, 0 skipped on PostgreSQL 16.11. SQLite-backed tests retained their fixture-local `DATABASE_URL` behavior.
+- Initial full diagnostic run had three failures: two historical OpenAPI contract assertions and one later-login expectation after a successful PATCH. The PATCH runtime schema was separated from its historical OpenAPI contract and the persisted description expectation was corrected; the final full run above passed.
+- `git diff --check`: passed.
+- Existing integration service is disposable local PG16 under `/Users/Personal/.codex/tmp/gm119-validation-35bbeab/pgdata`; this run used newly created database `gm119_candidate_final`. No shared or deployed database was reset.
+
+### Impact and recovery
+
+No migration or persistent schema/configuration change. New runtime behavior is limited to authenticated workspace selection, primary Brand validation on PATCH, and gateway timeout reconciliation. The login page remains simple for one-workspace identities. If a workspace is not in the gm-auth membership list, login rejects it. If a gateway outcome cannot be read, the draft remains locked and the existing GET-only recovery action can be retried; a divergent server revision presents explicit conflict choices. Reverting commit `b94f64f` restores the prior code behavior without data migration. Existing audit-only intake and the untracked Factory patch were preserved.
+
+The implementation is pushed to the existing PR branch for review and required CI. No CI result or deployed acceptance is claimed by this ledger entry; record the exact PR-head Actions result after it completes. Sol retains review, merge, Factory, DEV release and deployed acceptance ownership.

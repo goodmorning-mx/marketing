@@ -22,7 +22,7 @@
       return;
     }
     let identity, workspace, profile;
-    try { identity = await response.json(); workspace = await request('/workspace'); if (!workspace.ok) return showWorkspaceError(workspace.status >= 500); profile = await workspace.json(); } catch { return showWorkspaceError(true); }
+    try { identity = await response.json(); workspace = await request('/workspace'); if (!workspace.ok) return showWorkspaceError(workspace.status >= 500, identity); profile = await workspace.json(); } catch { return showWorkspaceError(true, identity); }
     window.GMAuth = {
       identity,
       api,
@@ -38,13 +38,13 @@
     if (title) title.value = profile.display_name;
     document.dispatchEvent(new CustomEvent('goodmarketing:account-ready', { detail: { identity, workspace: profile } }));
   }
-  function showWorkspaceError(recoverable = false) {
+  function showWorkspaceError(recoverable = false, identity = null) {
     const section = document.createElement('main');
     section.setAttribute('role', 'alert');
     section.style.cssText = 'max-width:42rem;margin:12vh auto;padding:2rem;color:#f5f7ff;font:16px/1.5 system-ui,sans-serif';
     const message = document.createElement('p');
     let saved = false;
-    try { const state = JSON.parse(sessionStorage.getItem('gm-brief-navigation-status') || 'null'); saved = state?.path === location.pathname; } catch {}
+    try { const state = JSON.parse(sessionStorage.getItem('gm-brief-navigation-status') || 'null'); saved = Boolean(identity?.organization_id && state?.workspace === identity.organization_id && state?.path === location.pathname); } catch {}
     message.textContent = saved ? copy[lang()].savedReload : (recoverable ? copy[lang()].boot : copy[lang()].load);
     const retry = document.createElement('button');
     retry.type = 'button';

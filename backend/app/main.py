@@ -434,7 +434,7 @@ def write_brand_brief(payload: BrandBriefInput, request: Request, response: Resp
             raise HTTPException(status_code=412, detail="The brand brief changed. Reload before saving.")
         values = (payload.brand_name, payload.description, payload.audience, payload.voice_tone, payload.primary_goal)
         if row is None:
-            new_row = connection.execute("INSERT INTO brands (tenant_id, name, website, industry, summary, goal, audience, positioning, offers, tone, message, metrics, target_date, growth_timeline, platforms, is_primary, revision) VALUES (%s, %s, '', '', %s, %s, %s, '', '', %s, '', '', '', '', '[]', true, 1) ON CONFLICT DO NOTHING RETURNING id, name, summary, audience, tone, goal, revision", (identity.organization_id, *values)).fetchone()
+            new_row = connection.execute("INSERT INTO brands (tenant_id, name, website, industry, summary, audience, tone, goal, positioning, offers, message, metrics, target_date, growth_timeline, platforms, is_primary, revision) VALUES (%s, %s, '', '', %s, %s, %s, %s, '', '', '', '', '', '', '[]', true, 1) ON CONFLICT DO NOTHING RETURNING id, name, summary, audience, tone, goal, revision", (identity.organization_id, *values)).fetchone()
             if new_row is None:
                 raise HTTPException(status_code=412, detail="The brand brief changed. Reload before saving.")
             saved = _brief_dict(new_row)

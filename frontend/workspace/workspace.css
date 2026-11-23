@@ -488,3 +488,4 @@ footer{border-color:var(--surface-hairline);color:#a1a1aa}
 .workspace-name-form button{min-height:40px;padding:0 14px;border:0;border-radius:999px;background:#222fee;color:#fff;font:inherit;font-weight:700;cursor:pointer}
 .workspace-name-form [role=status]{flex-basis:100%;min-height:1.2em;color:#b9c7ff;font-size:.82rem}
 @media(max-width:700px){.account-chip{gap:7px;margin:0;padding:5px 6px 5px 9px}.account-chip span{max-width:115px}.account-chip button{padding:0 8px}.top-actions{flex-wrap:wrap;justify-content:flex-end}}
+.brief-conflict-comparison{display:grid;gap:12px;width:min(100%,48rem);margin:16px 0}.brief-conflict-field{display:grid;gap:8px;padding:12px;border:1px solid #39435b;border-radius:8px;background:#0b1120}.brief-conflict-field>div{display:grid;gap:4px}.brief-conflict-field b{color:#aeb9ce;font-size:.75rem}.brief-conflict-field pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;color:#f5f7ff;font:inherit;font-size:.82rem}

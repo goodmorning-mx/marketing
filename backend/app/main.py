@@ -125,13 +125,13 @@ class WorkspaceNameInput(BaseModel):
 
 
 def set_session(response: Response, tokens):
-    domain = os.getenv("AUTH_COOKIE_DOMAIN", "dev.marketing.goodmorning.mx")
+    domain = os.getenv("AUTH_COOKIE_DOMAIN", "dev.marketing.goodmorning.mx") or None
     response.set_cookie("gm_access", tokens.access_token, httponly=True, secure=True, samesite="lax", max_age=tokens.expires_in, path="/", domain=domain)
     response.set_cookie("gm_refresh", tokens.refresh_token, httponly=True, secure=True, samesite="lax", max_age=30 * 86400, path="/auth", domain=domain)
 
 
 def clear_session(response: Response):
-    domain = os.getenv("AUTH_COOKIE_DOMAIN", "dev.marketing.goodmorning.mx")
+    domain = os.getenv("AUTH_COOKIE_DOMAIN", "dev.marketing.goodmorning.mx") or None
     response.delete_cookie("gm_access", path="/", domain=domain)
     response.delete_cookie("gm_refresh", path="/auth", domain=domain)
 

@@ -1,5 +1,5 @@
 (() => {
-  const api = `https://api.${location.host}`;
+  const api = window.GM_API_URL || `https://api.${location.host}`;
   const form = document.querySelector('#login-form');
   const notice = document.querySelector('#notice');
   const workspaceChoice = document.querySelector('#workspace-choice');

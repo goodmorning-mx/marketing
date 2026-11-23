@@ -98,3 +98,34 @@ Implementation/test commit: `b94f64f2e572b2b8c270cc7c3fde3783d6bb6f0d` (parent c
 No migration or persistent schema/configuration change. New runtime behavior is limited to authenticated workspace selection, primary Brand validation on PATCH, and gateway timeout reconciliation. The login page remains simple for one-workspace identities. If a workspace is not in the gm-auth membership list, login rejects it. If a gateway outcome cannot be read, the draft remains locked and the existing GET-only recovery action can be retried; a divergent server revision presents explicit conflict choices. Reverting commit `b94f64f` restores the prior code behavior without data migration. Existing audit-only intake and the untracked Factory patch were preserved.
 
 The implementation is pushed to the existing PR branch for review and required CI. No CI result or deployed acceptance is claimed by this ledger entry; record the exact PR-head Actions result after it completes. Sol retains review, merge, Factory, DEV release and deployed acceptance ownership.
+
+## Updated candidate acceptance — implementation SHA `6e3429c9568b5e4695081e4f5af3dd6baa463fdf`
+
+This entry supersedes the earlier statement that browser acceptance was not run. The code commit followed the initial implementation commit `b94f64f2e572b2b8c270cc7c3fde3783d6bb6f0d` with a local-only API-base override and optional host-only cookie configuration, needed to serve the actual candidate from two local browser origins without weakening the default DEV cookie configuration. The PR branch was pushed through `6e3429c`; no merge, deploy, or Factory operation occurred.
+
+### Browser-integrated acceptance
+
+ChatGPT in-app browser used the actual candidate frontend and API on separate origins: `http://127.0.0.1:8081` and `http://127.0.0.1:8000`. Backend storage was the newly created isolated PostgreSQL 16.11 database `gm119_browser_acceptance`. A local static server injected only `GM_API_URL` into the candidate frontend; the API was not intercepted or mocked. Browser login and successful conditional save/reload exercised the real credential flow, real API responses, browser-readable CORS-exposed ETag, confirmation GET, page reload, and later sign-in.
+
+- Owner A logged into Alpha, saved all five distinctive fields (`Alpha Fieldwork Studio`; `Distinctive owner A description for browser acceptance`; `Independent neighborhood grocers`; `Warm, practical, bilingual`; `Grow repeat orders in Q1`), and saw the same values after the successful save reload and another logout/login.
+- Viewer A logged into Alpha and saw those exact five fields with all five editing controls disabled and the view-only notice. The PostgreSQL/HTTP regression separately confirms viewer write refusal (403).
+- Owner B logged into Beta, saved a separate distinctive five-field brief (`Beta Orchard Cooperative`; `Owner B browser-only strategy text`; `Regional fruit growers`; `Direct, optimistic, grounded`; `Increase seasonal subscriptions`).
+- Owner A has verified memberships in Alpha as owner and Beta as viewer. After logout, the login page listed both membership-verified workspace names. Selecting Beta returned Owner A to Beta with viewer controls and Owner B’s Beta brief; a later login selecting Alpha returned Owner A with owner controls and Owner A’s original Alpha brief. The backend regression rejects a non-member organization selector with 401.
+- API access logs show real `/auth/workspaces`, `/auth/login`, `/auth/me`, `/workspace`, `/workspace/brand-brief` and save traffic. No live DEV API, synthetic response interception, or shared database was used.
+
+### Exact-SHA regression
+
+Against implementation source `6e3429c9568b5e4695081e4f5af3dd6baa463fdf`:
+
+- Backend full suite on a new PG16 database `gm119_candidate_sha`: **35 passed, 0 failed, 0 skipped** (61.15 seconds; 77 deprecation warnings).
+- Frontend recovery suite: **11 passed, 0 failed, 0 skipped**.
+- `node --check frontend/login.js`, `node --check frontend/workspace/brand-brief-flow.js`, and `git diff --check`: passed.
+- No tests were run against a shared or deployed database.
+
+### CI and remaining handoff
+
+The push to PR #119 head `6e3429c9568b5e4695081e4f5af3dd6baa463fdf` completed. GitHub PR check diagnostics and the connected commit-workflow query both returned no checks or workflow runs on two reads after the push; PR metadata confirmed the exact head SHA. No duplicate workflow was dispatched. Required CI remains unreported and should be checked again before merge. CI is not a local code failure; keep the branch unchanged unless diagnostics identify a code issue.
+
+All four implementation findings are addressed and locally proven. Remaining release gates belong to Sol: verify exact-head CI when GitHub reports it; review this candidate; complete Factory registration/release gates and DEV deployment checks through the authorized integration; then perform the deployment acceptance as prescribed. The browser run was against actual candidate services on isolated local origins, not the deployed DEV domains.
+
+The host-only cookie mode is opt-in with an empty `AUTH_COOKIE_DOMAIN`; default `dev.marketing.goodmorning.mx` behavior is unchanged. The frontend API-base override is opt-in through `window.GM_API_URL`; normal deployed fallback remains `https://api.${location.host}`. No migration or persistent schema changes were added. Local API/frontend services were stopped after the run; the isolated PG16 data directory was retained without reset for recovery/audit.

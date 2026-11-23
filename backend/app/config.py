@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    app_name: str = Field(default="GoodMorning MVP Template API", alias="APP_NAME")
+    app_name: str = Field(default="GoodMorning Marketing Adapters API", alias="APP_NAME")
     app_env: str = Field(default="local", alias="APP_ENV")
     cors_origins: str = Field(default="http://localhost:5173", alias="CORS_ORIGINS")
     database_url: str = Field(

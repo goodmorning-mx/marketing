@@ -1,0 +1,3 @@
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS is_primary BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 1;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_brands_primary_tenant ON brands (tenant_id) WHERE is_primary;

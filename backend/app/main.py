@@ -342,7 +342,7 @@ def workspace_read(identity: AuthIdentity = Depends(current_customer), service: 
 
 @app.put("/workspace")
 def workspace_update(payload: WorkspaceNameInput, identity: AuthIdentity = Depends(current_customer), service: AuthService = Depends(account_service)):
-    if "workspace:name:update" not in identity.permissions:
+    if "owner" not in identity.roles or "workspace:name:update" not in identity.permissions:
         raise HTTPException(status_code=403, detail="Workspace update is not permitted.")
     with service.engine.begin() as connection:
         row = connection.execute(text("UPDATE goodmarketing_workspace_profiles SET display_name = :name, updated_at = :now WHERE organization_id = :id RETURNING display_name"), {"name": payload.display_name.strip(), "now": datetime.now(timezone.utc), "id": identity.organization_id}).first()

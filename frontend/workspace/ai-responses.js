@@ -6,16 +6,24 @@
     en: {
       instagram: "Instagram", facebook: "Facebook", question: "Question", suggested: "AI response",
       approve: "Approve", edit: "Edit", save: "Save changes", cancel: "Cancel", approved: "Approved",
-      emptyPending: "You’re all caught up. No responses need approval.", emptyLog: "Approved responses will appear here.",
+      emptyPending: "No example responses need approval.", emptyLog: "Approved example responses will appear here.",
       responseLabel: "Edit AI response", editQuestion: "Edit response for this question", approvalLabel: "Approve this response",
-      required: "Enter a response before saving."
+      required: "Enter a response before saving.", storageReadError: "Saved responses couldn’t be read. Showing examples for this visit; the saved queue is unchanged.",
+      readOnlyNotice: "This change applies to these examples for this visit only. The saved queue was not read or changed.",
+      storageWriteError: "Couldn’t save this change. It will last only until you leave this page.",
+      approvedNotice: (count) => count ? `Example response approved. ${count} still need approval.` : "Example response approved. The demo queue is empty.",
+      savedNotice: "Example response saved in this browser.", canceledNotice: "Unsaved edits discarded."
     },
     es: {
       instagram: "Instagram", facebook: "Facebook", question: "Pregunta", suggested: "Respuesta de IA",
       approve: "Aprobar", edit: "Editar", save: "Guardar cambios", cancel: "Cancelar", approved: "Aprobada",
-      emptyPending: "Todo está al día. No hay respuestas que necesiten aprobación.", emptyLog: "Las respuestas aprobadas aparecerán aquí.",
+      emptyPending: "No hay respuestas de ejemplo que necesiten aprobación.", emptyLog: "Las respuestas de ejemplo aprobadas aparecerán aquí.",
       responseLabel: "Editar respuesta de IA", editQuestion: "Editar respuesta para esta pregunta", approvalLabel: "Aprobar esta respuesta",
-      required: "Escribe una respuesta antes de guardar."
+      required: "Escribe una respuesta antes de guardar.", storageReadError: "No se pudieron leer las respuestas guardadas. Se mostrarán ejemplos durante esta visita; la cola guardada no se modificó.",
+      readOnlyNotice: "Este cambio solo se aplica a estos ejemplos durante esta visita. La cola guardada no se leyó ni se modificó.",
+      storageWriteError: "No se pudo guardar el cambio. Solo estará disponible hasta que salgas de esta página.",
+      approvedNotice: (count) => count ? `Respuesta de ejemplo aprobada. Quedan ${count} por aprobar.` : "Respuesta de ejemplo aprobada. La cola de demostración está vacía.",
+      savedNotice: "Respuesta de ejemplo guardada en este navegador.", canceledNotice: "Se descartaron los cambios sin guardar."
     }
   };
   const seed = {
@@ -34,17 +42,28 @@
     approved: []
   };
   let state;
+  let storageError = "";
   try {
     const stored = JSON.parse(localStorage.getItem(storageKey));
     state = stored && Array.isArray(stored.pending) && Array.isArray(stored.approved) ? stored : structuredClone(seed);
   } catch {
     state = structuredClone(seed);
+    storageError = "read";
   }
+  let queueNotice = storageError === "read" ? "storageReadError" : "";
   const editing = new Set();
   const drafts = new Map();
   const draftKey = (id, lang) => `${id}:${lang}`;
   const persist = () => {
-    try { localStorage.setItem(storageKey, JSON.stringify(state)); } catch { /* Keep edits in memory for this page. */ }
+    if (storageError === "read") return false;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(state));
+      storageError = "";
+      return true;
+    } catch {
+      storageError = "write";
+      return false;
+    }
   };
   const element = (tag, className, text) => {
     const node = document.createElement(tag);
@@ -103,6 +122,14 @@
     const list = document.querySelector("#response-review-list");
     if (!list) return;
     list.replaceChildren();
+    const status = document.querySelector("#response-review-status");
+    if (status) {
+      const currentCopy = copy[locale()];
+      status.textContent = typeof queueNotice === "string" && queueNotice
+        ? currentCopy[queueNotice]
+        : queueNotice ? currentCopy[queueNotice.key](queueNotice.count)
+          : storageError === "read" ? currentCopy.storageReadError : storageError === "write" ? currentCopy.storageWriteError : "";
+    }
     const count = document.querySelector("#response-pending-count");
     if (count) count.textContent = String(state.pending.length).padStart(2, "0");
     if (!state.pending.length) {
@@ -133,6 +160,7 @@
     const id = card.dataset.responseId;
     const action = control.dataset.responseAction;
     const lang = locale();
+    queueNotice = "";
     if (action === "edit") editing.add(id);
     if (action === "cancel") {
       editing.delete(id);
@@ -150,7 +178,7 @@
       if (item && textarea) {
         item.response[lang] = textarea.value.trim();
         drafts.delete(draftKey(id, lang));
-        persist();
+        queueNotice = persist() ? "savedNotice" : storageError === "read" ? "readOnlyNotice" : "storageWriteError";
       }
       editing.delete(id);
     }
@@ -159,12 +187,19 @@
       if (index >= 0) {
         const [item] = state.pending.splice(index, 1);
         state.approved.unshift({ ...item, approvedAt: new Date().toISOString() });
-        persist();
+        queueNotice = persist()
+          ? { key: "approvedNotice", count: state.pending.length }
+          : storageError === "read" ? "readOnlyNotice" : "storageWriteError";
       }
       editing.delete(id);
     }
+    if (action === "cancel") queueNotice = "canceledNotice";
     renderReview();
     renderLog();
+    if (action === "approve") {
+      const nextApproval = document.querySelector('#response-review-list [data-response-action="approve"]');
+      (nextApproval || document.querySelector("#response-review-status"))?.focus();
+    }
     if (action === "edit") document.querySelector(`[data-response-id="${CSS.escape(id)}"] textarea`)?.focus();
     if (action === "cancel" || action === "save") document.querySelector(`[data-response-id="${CSS.escape(id)}"] [data-response-action="edit"]`)?.focus();
   }

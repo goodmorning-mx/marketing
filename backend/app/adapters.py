@@ -103,7 +103,7 @@ def require_marketing_read(identity: AuthIdentity = Depends(customer_identity)) 
 
 
 def require_marketing_write(identity: AuthIdentity = Depends(require_marketing_read)) -> AuthIdentity:
-    if "marketing:write" not in identity.permissions:
+    if "owner" not in identity.roles or "marketing:write" not in identity.permissions:
         raise HTTPException(status_code=403, detail="Marketing updates are not permitted.")
     return identity
 
@@ -143,7 +143,7 @@ def _tool_context(identity: AuthIdentity, request: Request) -> RequestContext:
     permissions = set()
     if "workspace:read" in identity.permissions:
         permissions.add("read")
-    if "marketing:write" in identity.permissions:
+    if "owner" in identity.roles and "marketing:write" in identity.permissions:
         permissions.add("write")
     return RequestContext(user_id=identity.user_id, organization_id=identity.organization_id, product_id="marketing", permissions=frozenset(permissions), request_id=request.headers.get("X-Request-ID"))
 

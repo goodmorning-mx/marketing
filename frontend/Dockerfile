@@ -4,6 +4,7 @@ ENV NGINX_ENVSUBST_FILTER=VITE_API_URL
 ENV VITE_API_URL=https://api.dev.marketing.goodmorning.mx
 
 COPY index.html /usr/share/nginx/html/index.html
+COPY site.css /usr/share/nginx/html/site.css
 COPY language.js /usr/share/nginx/html/language.js
 COPY auth.js /usr/share/nginx/html/auth.js
 COPY login.js /usr/share/nginx/html/login.js
@@ -15,6 +16,9 @@ COPY research-dial.js /usr/share/nginx/html/research-dial.js
 COPY review.css /usr/share/nginx/html/review.css
 COPY assets /usr/share/nginx/html/assets
 COPY signup /usr/share/nginx/html/signup
+COPY learn-more /usr/share/nginx/html/learn-more
+COPY pricing /usr/share/nginx/html/pricing
+COPY coming-soon /usr/share/nginx/html/coming-soon
 COPY admin /usr/share/nginx/html/admin
 COPY login /usr/share/nginx/html/login
 COPY activate /usr/share/nginx/html/activate

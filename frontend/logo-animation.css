@@ -4,15 +4,25 @@
   isolation: isolate;
 }
 
-.campaign-core .campaign-core-animation {
+.campaign-core .campaign-core-video-crop {
   position: absolute;
   z-index: 1;
   top: 50%;
   left: 50%;
-  display: block;
-  width: 85%;
-  height: 85%;
+  width: 97.75%;
+  height: 97.75%;
+  overflow: hidden;
   border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.campaign-core .campaign-core-animation {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: 86.956522%;
+  height: 86.956522%;
   object-fit: cover;
   object-position: center;
   opacity: 1;

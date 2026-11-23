@@ -311,7 +311,7 @@ textarea:focus-visible,
     gap: 8px;
   }
 
-  .brand-mark {
+  .brand-logo {
     width: 34px;
     height: 34px;
   }
@@ -548,6 +548,19 @@ main::before {
   box-shadow: var(--glass-edge), 0 12px 44px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(24px) saturate(135%);
   -webkit-backdrop-filter: blur(24px) saturate(135%);
+}
+
+.brand-logo {
+  display: block;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.footer-inner .brand-logo {
+  width: 33px;
+  height: 33px;
 }
 
 .brand-mark,

@@ -11,19 +11,39 @@
     <link rel="stylesheet" href="/site.css?v=multi-page-navigation-2" />
     <link rel="stylesheet" href="/review.css?v=goodmarketing-logo-1" />
     <style>
-      .static-page-main{display:grid;gap:28px;min-height:calc(100svh - 158px);padding-block:clamp(28px,5vh,64px)}
-      .static-page-heading{padding:clamp(25px,4vw,48px);border:1px solid #718ed155;border-radius:24px;background:radial-gradient(ellipse at 82% 15%,#00055565,transparent 48%),linear-gradient(145deg,#ffffff0a,#ffffff02)}
-      .static-page-heading h1{max-width:850px;margin:18px 0 0;font-family:"Arial Narrow",Impact,Inter,ui-sans-serif,sans-serif;font-size:clamp(2.8rem,6vw,5.3rem);line-height:.94;letter-spacing:-.04em}
+      .static-page-main{position:relative;display:grid;gap:clamp(26px,4vw,48px);min-height:calc(100svh - 158px);padding-top:clamp(64px,9vh,112px);padding-bottom:clamp(52px,8vh,96px)}
+      .static-page-heading{position:relative;isolation:isolate;overflow:hidden;padding:clamp(30px,5vw,68px);border:1px solid rgba(255,255,255,.09);border-radius:24px;background:radial-gradient(ellipse at 82% 8%,rgba(37,126,220,.14),transparent 46%),linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012) 58%),#08090c;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 28px 80px rgba(0,0,0,.3)}
+      .static-page-heading:after{position:absolute;z-index:-1;right:-3%;bottom:-72%;width:42%;aspect-ratio:1;border:1px solid rgba(117,183,255,.13);border-radius:50%;box-shadow:0 0 0 28px rgba(117,183,255,.025),0 0 0 62px rgba(117,183,255,.018);content:""}
+      .static-page-heading .eyebrow{font-family:var(--technical);color:#8fc5ff}
+      .static-page-heading h1{max-width:850px;margin:20px 0 0;font-family:var(--display);font-size:clamp(3.4rem,8vw,7.2rem);font-weight:680;line-height:.9;letter-spacing:-.055em;background:linear-gradient(180deg,#fff 0%,#dedfe4 82%);-webkit-background-clip:text;background-clip:text;color:transparent}
       .static-page-main .stack-stage{height:auto;margin:0;padding:0}
-      .static-page-main .stack-card{position:relative;top:auto;width:100%;height:auto;min-height:0;margin:0 auto;overflow:visible}
-      .static-page-main #publishing{padding-block:clamp(28px,4vw,54px)}
-      .static-page-main #publishing .publishing-panel{padding-block:0}
-      .static-page-main #research{padding:clamp(28px,4vw,48px)}
-      .static-page-main .stack-card > .wrap{width:100%}
-      .static-page-main .intro-band{min-height:0}
-      .static-page-main .intro-inner{padding-block:clamp(28px,4vw,48px)}
-      .static-page-main .coming-soon-section{padding-block:clamp(28px,4vw,48px)}
-      @media(max-width:620px){.static-page-main{gap:18px}.static-page-heading{padding:24px 20px;border-radius:16px}.static-page-main #publishing{padding-block:28px}.static-page-main #publishing .publishing-panel{padding-block:0}.static-page-main #research{padding:28px 22px}.static-page-main .intro-inner{padding-block:30px}.static-page-main .coming-soon-section{padding-block:28px}}
+      .static-page-main .stack-card{position:relative;top:auto;width:100%;height:auto;min-height:0;margin:0 auto;overflow:hidden;border:1px solid rgba(255,255,255,.09);border-radius:24px;background:radial-gradient(ellipse at 10% 0%,rgba(36,135,255,.075),transparent 46%),linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.016) 50%,rgba(255,255,255,.028));box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 30px 100px rgba(0,0,0,.42);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+      .static-page-main .stack-card>.wrap{width:100%;max-width:none}
+      .static-page-main .coming-soon-section{position:relative;padding:clamp(30px,5vw,68px)}
+      .static-page-main .coming-soon-section:before{position:absolute;top:-50%;right:-6%;width:min(52vw,720px);aspect-ratio:1;border:1px solid rgba(255,255,255,.045);border-radius:50%;box-shadow:0 0 0 42px rgba(255,255,255,.012),0 0 0 92px rgba(255,255,255,.008);content:"";pointer-events:none}
+      .coming-soon-panel{position:relative;z-index:1;display:grid;gap:clamp(28px,5vw,58px)}
+      .coming-title{margin:0;padding-bottom:22px;border-bottom:1px solid rgba(255,255,255,.09);color:#f4f4f5;font-family:var(--display);font-size:clamp(2rem,4vw,3.3rem);font-weight:620;letter-spacing:-.045em;line-height:1}
+      .coming-soon-grid{display:grid;grid-template-columns:minmax(250px,.76fr) minmax(0,1.24fr);gap:clamp(28px,6vw,92px);align-items:stretch}
+      .coming-soon-features{position:relative;display:flex;flex-direction:column;justify-content:space-between;min-height:310px;padding:clamp(24px,3.5vw,42px);border:1px solid rgba(255,255,255,.08);border-radius:20px;background:linear-gradient(150deg,rgba(255,255,255,.055),rgba(255,255,255,.018));box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 22px 54px rgba(0,0,0,.23);overflow:hidden;isolation:isolate}
+      .coming-soon-features:after{position:absolute;z-index:-1;right:-72px;top:-78px;width:220px;aspect-ratio:1;border:1px solid rgba(117,183,255,.16);border-radius:50%;box-shadow:0 0 0 18px rgba(117,183,255,.025),0 0 70px rgba(23,111,206,.1);content:""}
+      .coming-soon-feature-list{display:grid;gap:0}
+      .static-page-main .coming-soon-feature-list li{padding:17px 0;border-bottom:1px solid rgba(255,255,255,.08);color:#e4e4e7;font-family:var(--display);font-size:clamp(1.05rem,1.6vw,1.3rem);font-weight:560;letter-spacing:-.02em;line-height:1.2;text-transform:none}
+      .coming-soon-feature-list li:first-child{padding-top:0}
+      .coming-soon-feature-list li:before{flex-basis:18px;width:18px;height:1px;margin-top:.62em;background:#75b7ff;box-shadow:0 0 14px rgba(117,183,255,.45)}
+      .coming-soon-note{margin:24px 0 0;color:#a1a1aa;font-family:var(--technical);font-size:.74rem;letter-spacing:.015em}
+      .coming-soon-platform-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-content:center}
+      .coming-soon-platform-list li{position:relative;display:flex;align-items:center;gap:18px;min-height:112px;padding:22px clamp(18px,2.6vw,32px);border:1px solid rgba(255,255,255,.08);border-radius:17px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018));box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 14px 32px rgba(0,0,0,.2);transition:transform 300ms cubic-bezier(.22,1,.36,1),border-color 300ms ease,background 300ms ease,box-shadow 300ms ease}
+      .coming-soon-platform-list li:after{position:absolute;right:18px;top:17px;width:5px;height:5px;border-radius:50%;background:#75b7ff;box-shadow:0 0 12px rgba(117,183,255,.55);content:"";opacity:.48}
+      .coming-soon-platform-list li:hover{transform:translateY(-3px);border-color:rgba(117,183,255,.24);background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025));box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 22px 44px rgba(0,0,0,.3)}
+      .coming-soon-platform-list .platform-icon{flex:0 0 42px;width:42px;height:42px;object-fit:contain}
+      .coming-soon-platform-list .linkedin-logo{padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+      .coming-soon-platform-list .tiktok-logo,.coming-soon-platform-list .youtube-logo,.coming-soon-platform-list .x-logo{width:38px;height:38px}
+      .coming-soon-platform-list span{color:#f4f4f5;font-family:var(--display);font-size:1.04rem;font-weight:570;letter-spacing:-.015em}
+      @media(hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){.coming-soon-features,.coming-soon-platform-list li{isolation:isolate;overflow:hidden}.coming-soon-features:before,.coming-soon-platform-list li:before{position:absolute;z-index:-1;inset:0;background:radial-gradient(360px circle at var(--mouse-x,50%) var(--mouse-y,50%),rgba(111,181,248,.1),transparent 62%);content:"";opacity:0;transition:opacity 260ms ease;pointer-events:none}.coming-soon-features:hover:before,.coming-soon-platform-list li:hover:before{opacity:1}}
+      @media(max-width:900px){.coming-soon-platform-list li{min-height:112px;flex-direction:column;justify-content:center;gap:9px;padding:18px 10px}.coming-soon-platform-list .platform-icon{flex-basis:34px;width:34px;height:34px}.coming-soon-platform-list .tiktok-logo,.coming-soon-platform-list .youtube-logo,.coming-soon-platform-list .x-logo{width:32px;height:32px}}
+      @media(max-width:760px){.coming-soon-grid{grid-template-columns:1fr}.coming-soon-features{min-height:0}.coming-soon-platform-list li{min-height:96px}}
+      @media(max-width:620px){.static-page-main{gap:20px;padding-top:clamp(46px,8vh,76px);padding-bottom:52px}.static-page-heading{padding:30px 24px;border-radius:19px}.static-page-heading h1{font-size:clamp(3.2rem,14vw,4.7rem)}.static-page-main .stack-card{border-radius:19px}.static-page-main .coming-soon-section{padding:26px 20px}.coming-title{padding-bottom:18px;font-size:1.8rem}.coming-soon-grid{gap:16px}.coming-soon-features{padding:24px 20px}.static-page-main .coming-soon-feature-list li{padding:14px 0;font-size:1.05rem}.coming-soon-note{margin-top:20px}.coming-soon-platform-list{gap:8px}.coming-soon-platform-list li{min-height:84px;gap:8px;padding:12px 8px;border-radius:14px}.coming-soon-platform-list li:after{top:12px;right:12px}.coming-soon-platform-list .platform-icon{flex-basis:30px;width:30px;height:30px}.coming-soon-platform-list .tiktok-logo,.coming-soon-platform-list .youtube-logo,.coming-soon-platform-list .x-logo{width:28px;height:28px}.coming-soon-platform-list span{font-size:.9rem}}
+      @media(prefers-reduced-motion:reduce){.coming-soon-platform-list li{transition:none}}
     </style>
   </head>
   <body>
@@ -71,5 +91,16 @@
     </main>
     <footer><div class="wrap footer-inner"><a class="brand" href="/" aria-label="GoodMarketing home" data-aria-en="GoodMarketing home" data-aria-es="Inicio de GoodMarketing"><img class="brand-logo" src="/assets/brand/goodmarketing-logo.png?v=goodmarketing-logo-2" alt="GoodMarketing"/><span class="brand-copy"><span class="brand-byline">GoodMorning.MX</span></span></a><span class="footer-note" data-i18n data-en="The platform is in development. More to come." data-es="La plataforma está en desarrollo. Pronto habrá más novedades.">The platform is in development. More to come.</span></div></footer>
     <script src="/language.js" defer></script>
+    <script>
+      if (matchMedia('(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)').matches) {
+        document.querySelectorAll('.coming-soon-features, .coming-soon-platform-list li').forEach((surface) => {
+          surface.addEventListener('pointermove', (event) => {
+            const bounds = surface.getBoundingClientRect();
+            surface.style.setProperty('--mouse-x', `${event.clientX - bounds.left}px`);
+            surface.style.setProperty('--mouse-y', `${event.clientY - bounds.top}px`);
+          }, { passive: true });
+        });
+      }
+    </script>
   </body>
 </html>

@@ -344,14 +344,121 @@ window.GMPostPreview = (() => {
   }
 
   const briefForm = document.querySelector("#brief-form");
-  if (briefForm) briefForm.addEventListener("submit", (event) => event.preventDefault());
+  if (briefForm) {
+    const feedback = document.querySelector("#brief-feedback");
+    const fields = ["brand_name", "description", "audience", "voice_tone", "primary_goal"];
+    const messages = { en: { load: "Could not load the brand brief.", save: "Save failed. Your draft is still here.", staleConflict: "This save was rejected because the server changed. Compare both versions before choosing what to do.", unknownConflict: "The save response was lost. Its outcome is unknown. Compare both versions before choosing what to do.", saved: "Saved and confirmed. Reloading…", savedNoMarker: "Saved and confirmed. Session storage is unavailable; reloading…", reload: "Saved, but reload failed.", viewer: "You can view this brief but cannot edit it.", loadServer: "Load server version", keepDraft: "Keep draft and continue editing", replaceDraft: "Replace server version with this draft", retrySave: "Retry with the unchanged version", retryLoad: "Check the server again", outcomeCurrent: "The server currently has these values. The lost response means this client cannot confirm who saved them.", alreadyCurrent: "These values are already current on the server; this client did not make a confirmed save.", reconcileReady: "Both versions were compared. Your draft is ready to edit against the displayed server version.", serverVersion: "Server version", yourDraft: "Your draft", empty: "(empty)" }, es: { load: "No se pudo cargar el brief.", save: "No se pudo guardar. Tu borrador sigue aquí.", staleConflict: "El servidor cambió y rechazó este guardado. Compara ambas versiones antes de elegir qué hacer.", unknownConflict: "Se perdió la respuesta del guardado. El resultado es desconocido. Compara ambas versiones antes de elegir qué hacer.", saved: "Guardado y confirmado. Recargando…", savedNoMarker: "Guardado y confirmado. El almacenamiento de sesión no está disponible; recargando…", reload: "Se guardó, pero no se pudo recargar.", viewer: "Puedes ver este brief, pero no editarlo.", loadServer: "Cargar versión del servidor", keepDraft: "Conservar el borrador y seguir editando", replaceDraft: "Reemplazar la versión del servidor con este borrador", retrySave: "Reintentar con la versión sin cambios", retryLoad: "Consultar el servidor de nuevo", outcomeCurrent: "El servidor tiene estos valores. Al perderse la respuesta, este cliente no puede confirmar quién los guardó.", alreadyCurrent: "Estos valores ya están en el servidor; este cliente no confirmó el guardado.", reconcileReady: "Se compararon ambas versiones. Puedes editar el borrador usando la versión del servidor mostrada.", serverVersion: "Versión del servidor", yourDraft: "Tu borrador", empty: "(vacío)" } };
+    const msg = (key) => messages[language() === "es" ? "es" : "en"][key];
+    const navigationKey = "gm-brief-navigation-status";
+    const readNavigationStatus = () => { try { return JSON.parse(sessionStorage.getItem(navigationKey) || "null"); } catch { return null; } };
+    const pendingNavigationStatus = (identity) => { const state = readNavigationStatus(); return Boolean(identity?.organization_id && state?.workspace === identity.organization_id && state?.path === location.pathname); };
+    const clearNavigationStatusAfterLoad = () => { try { const state = readNavigationStatus(); if (state?.path === location.pathname) sessionStorage.removeItem(navigationKey); } catch {} };
+    const saveNavigationStatus = () => { try { sessionStorage.setItem(navigationKey, JSON.stringify({ workspace: window.GMAuth.identity.organization_id, path: location.pathname })); return true; } catch { return false; } };
+    const feedbackView = {
+      messageNode: null,
+      messageKey: null,
+      actions: [],
+      labels: [],
+      fieldLabels: [],
+      readFieldLabel: (field) => briefForm.elements.namedItem(field).closest("label").querySelector("span").textContent,
+    };
+    const renderFeedbackLanguage = () => window.GMBrandBriefFeedback.renderBrandBriefFeedbackLanguage(feedbackView, msg);
+    const clearFeedback = () => {
+      feedback.replaceChildren();
+      feedbackView.messageNode = null; feedbackView.messageKey = null;
+      feedbackView.actions = []; feedbackView.labels = []; feedbackView.fieldLabels = [];
+      delete feedback.dataset.status;
+    };
+    const say = (key) => {
+      clearFeedback();
+      if (!key) return;
+      feedback.dataset.status = key;
+      feedbackView.messageKey = key;
+      feedbackView.messageNode = document.createElement("span");
+      feedback.append(feedbackView.messageNode);
+      renderFeedbackLanguage();
+    };
+    const readForm = () => Object.fromEntries(fields.map((name) => [name, briefForm.elements.namedItem(name).value]));
+    const fill = (brief) => fields.forEach((name) => { briefForm.elements.namedItem(name).value = brief ? brief[name] : ""; });
+    const owner = () => window.GMAuth?.identity?.roles?.includes("owner") === true;
+    const setEditable = (enabled) => {
+      fields.forEach((name) => { briefForm.elements.namedItem(name).disabled = !enabled || !owner(); });
+      const submit = briefForm.querySelector("button[type=submit]");
+      submit.disabled = !enabled || !owner(); submit.hidden = !owner();
+    };
+    const addAction = (key, action) => { const button = document.createElement("button"); button.type = "button"; button.dataset.status = key; button.addEventListener("click", action); feedback.append(" ", button); feedbackView.actions.push({ node: button, key }); renderFeedbackLanguage(); return button; };
+    const showComparison = (context) => {
+      const comparison = document.createElement("div"); comparison.className = "brief-conflict-comparison";
+      fields.forEach((key) => {
+        const item = document.createElement("section"); item.className = "brief-conflict-field";
+        const heading = document.createElement("strong"); item.append(heading);
+        feedbackView.fieldLabels.push({ node: heading, field: key });
+        [["serverVersion", context.serverBrief?.[key] ?? ""], ["yourDraft", context.draft[key]]].forEach(([title, value]) => {
+          const version = document.createElement("div"); const name = document.createElement("b"); name.textContent = msg(title);
+          feedbackView.labels.push({ node: name, key: title });
+          const text = document.createElement("pre"); text.textContent = value || msg("empty"); version.append(name, text); item.append(version);
+        });
+        comparison.append(item);
+      });
+      feedback.append(comparison);
+    };
+    let flow;
+    const retryButton = () => addAction("retryLoad", () => flow.retryRecovery());
+    flow = window.GMBrandBriefFlow.createBrandBriefFlow({
+      fields,
+      request: (path, options) => window.GMAuth.request(path, options),
+      readDraft: readForm,
+      applyBrief: fill,
+      setEditable,
+      onStatus: (status) => {
+      if (status === null) { clearFeedback(); return; }
+        if (status === "load-error") { briefForm.hidden = false; const saved = pendingNavigationStatus(window.GMAuth?.identity); say(saved ? "reload" : "load"); addAction("retryLoad", () => flow.load()); return; }
+        if (status === "confirm-pending") { say("reload"); retryButton(); return; }
+        if (status === "unknown-pending") { say("unknownConflict"); retryButton(); return; }
+        if (status === "stale-pending") { say("staleConflict"); retryButton(); return; }
+        const labels = { "save-error": "save", "outcome-current": "outcomeCurrent", "already-current": "alreadyCurrent", "reconcile-ready": "reconcileReady", saved: "saved", "saved-no-marker": "savedNoMarker" };
+        say(labels[status] || null);
+      },
+      onLoaded: () => {
+        clearNavigationStatusAfterLoad();
+        clearFeedback(); briefForm.hidden = false;
+        if (!owner()) { say("viewer"); document.querySelector(".brand-assets")?.setAttribute("hidden", ""); }
+      },
+      beforeReload: saveNavigationStatus,
+      onConfirmed: () => location.reload(),
+      onConflict: (context) => {
+        say(context.cause === "unknown" ? "unknownConflict" : "staleConflict");
+        showComparison(context);
+        if (context.allowRetryOriginal) addAction("retrySave", () => flow.chooseConflict(context.id, "retry-original"));
+        else {
+          addAction("loadServer", () => flow.chooseConflict(context.id, "load-server"));
+          addAction("keepDraft", () => flow.chooseConflict(context.id, "keep-draft"));
+          addAction("replaceDraft", () => flow.chooseConflict(context.id, "replace-draft"));
+        }
+      },
+    });
+    let initialLoadStarted = false;
+    const startInitialLoad = () => { if (!initialLoadStarted) { initialLoadStarted = true; flow.load(); } };
+    document.addEventListener("goodmarketing:account-ready", (event) => {
+      if (!event.detail.identity.roles.includes("owner")) document.querySelector(".brand-assets")?.setAttribute("hidden", "");
+      startInitialLoad();
+    }, { once: true });
+    briefForm.addEventListener("submit", (event) => { event.preventDefault(); flow.save(readForm()); });
+    document.addEventListener("goodmarketing:language-change", () => {
+      renderFeedbackLanguage();
+    });
+    if (window.GMAuth?.identity) startInitialLoad();
+  }
   const directMessagePreference = document.querySelector("#direct-message-responses");
   const directMessageSaved = document.querySelector("#direct-message-settings-saved");
   if (directMessagePreference) {
-    try { directMessagePreference.checked = localStorage.getItem("goodmarketing.directMessageResponses") === "true"; } catch {}
+    const settingKey = () => window.GMAuth?.key("directMessageResponses") || "goodmarketing.directMessageResponses";
+    const loadPreference = () => { try { directMessagePreference.checked = localStorage.getItem(settingKey()) === "true"; } catch {} };
+    if (window.GMAuth?.identity) loadPreference();
+    else document.addEventListener("goodmarketing:account-ready", loadPreference, { once: true });
     directMessagePreference.addEventListener("change", () => {
       try {
-        localStorage.setItem("goodmarketing.directMessageResponses", String(directMessagePreference.checked));
+        localStorage.setItem(settingKey(), String(directMessagePreference.checked));
         if (directMessageSaved) directMessageSaved.hidden = false;
       } catch {
         if (directMessageSaved) {

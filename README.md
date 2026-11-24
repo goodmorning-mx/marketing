@@ -35,3 +35,11 @@ value is missing. Do not put these values in Git or the frontend. `DATABASE_URL`
 must point to the private PostgreSQL resource, and `CORS_ORIGINS` must include
 the deployed frontend origin. The API has no email delivery integration; staff
 can follow up using the contact details shown in the admin page.
+
+## Customer accounts
+
+Customer account activation is invitation-only at `/activate/`; customers sign
+in at `/login/`. `/signup/` remains the public demo-request form. See
+[`docs/accounts.md`](docs/accounts.md) for the gm-auth pin, DEV runtime
+configuration, additive migrations, staff invitation workflow, permissions, and
+rollback instructions. Do not add real secrets or invitation links to Git.

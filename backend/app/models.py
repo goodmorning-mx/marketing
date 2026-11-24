@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, JSON, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, JSON, String, Text, func, Boolean, Integer, Index
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -27,9 +27,13 @@ class Brand(Base):
     target_date: Mapped[str] = mapped_column(String(30), default="")
     growth_timeline: Mapped[str] = mapped_column(String(240), default="")
     platforms: Mapped[list[str]] = mapped_column(JSON, default=list)
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     campaigns: Mapped[list["Campaign"]] = relationship(back_populates="brand", cascade="all, delete-orphan")
+
+    __table_args__ = (Index("uq_brands_primary_tenant", "tenant_id", unique=True, postgresql_where=(is_primary.is_(True)), sqlite_where=(is_primary.is_(True))),)
 
 
 class Campaign(Base):

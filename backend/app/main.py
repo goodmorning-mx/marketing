@@ -17,7 +17,7 @@ from app.config import get_settings
 from app.database import engine
 from app.models import Base
 from sqlalchemy.engine import Engine
-from gm_auth import AuthService, AuthSettings
+from gm_auth import AuthService, AuthSettings, create_auth_router
 from gm_auth.models import metadata as gm_auth_metadata
 
 settings = get_settings()
@@ -65,6 +65,16 @@ def account_service() -> AuthService:
     if auth_service is None:
         auth_service = configure_auth()
     return auth_service
+
+
+class _LazyAuthService:
+    """Resolve runtime configuration only when an auth endpoint is requested."""
+
+    def __getattr__(self, name: str):
+        return getattr(account_service(), name)
+
+
+app.include_router(create_auth_router(_LazyAuthService()))
 
 
 class DemoRequest(BaseModel):

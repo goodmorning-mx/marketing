@@ -91,6 +91,20 @@ def test_brand_campaign_content_and_approval_flow_is_organization_scoped(account
     assert client.get(f"/api/connections/meta/status?brand_id={brand_id}", headers=auth(accounts["other"])).status_code == 404
 
 
+def test_gm_auth_login_and_identity_endpoints(accounts) -> None:
+    response = client.post("/auth/login", json={
+        "email": "owner@north.test",
+        "password": "a sufficiently long password",
+        "organization_id": "org-north",
+    })
+    assert response.status_code == 200
+    token = response.json()["access_token"]
+
+    identity = client.get("/auth/me", headers=auth(token))
+    assert identity.status_code == 200
+    assert identity.json()["organization_id"] == "org-north"
+
+
 def test_same_workspace_viewer_can_read_but_cannot_mutate(accounts) -> None:
     brand = client.post("/api/brands", headers=auth(accounts["owner"]), json={"name": "North Brand"}).json()
     read = client.get(f"/api/brands?tenant_id=org-south", headers=auth(accounts["viewer"]))

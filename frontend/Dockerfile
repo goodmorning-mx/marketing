@@ -8,6 +8,7 @@ COPY site.css /usr/share/nginx/html/site.css
 COPY language.js /usr/share/nginx/html/language.js
 COPY auth.js /usr/share/nginx/html/auth.js
 COPY login.js /usr/share/nginx/html/login.js
+COPY account-flow.js /usr/share/nginx/html/account-flow.js
 COPY activate.js /usr/share/nginx/html/activate.js
 COPY account.css /usr/share/nginx/html/account.css
 COPY orbit.js /usr/share/nginx/html/orbit.js
@@ -23,6 +24,10 @@ COPY pricing /usr/share/nginx/html/pricing
 COPY coming-soon /usr/share/nginx/html/coming-soon
 COPY admin /usr/share/nginx/html/admin
 COPY login /usr/share/nginx/html/login
+COPY register /usr/share/nginx/html/register
+COPY verify-email /usr/share/nginx/html/verify-email
+COPY forgot-password /usr/share/nginx/html/forgot-password
+COPY reset-password /usr/share/nginx/html/reset-password
 COPY activate /usr/share/nginx/html/activate
 COPY workspace /usr/share/nginx/html/workspace
 COPY nginx.conf /etc/nginx/templates/default.conf.template

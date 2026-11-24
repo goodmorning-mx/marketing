@@ -34,12 +34,14 @@ def test_gm_auth_migrations_succeed_on_first_and_repeated_startup(monkeypatch):
             "demo-requests:1",
             "marketing:strategy-fields:1",
             "marketing:owner-write-permission:1",
+            "marketing:self-service-accounts:1",
             "marketing:primary-brand-brief:1",
         }
         assert {
             "gm_auth_users", "gm_auth_organizations", "gm_auth_memberships",
             "gm_auth_refresh_sessions", "goodmarketing_workspace_profiles",
-            "goodmarketing_invitations", "brands", "campaigns", "content_items",
+            "goodmarketing_invitations", "goodmarketing_email_verifications", "goodmarketing_account_limits",
+            "brands", "campaigns", "content_items",
             "platform_connections", "publish_jobs", "demo_requests",
         } <= {row[0] for row in tables}
     finally:
@@ -148,7 +150,7 @@ def test_migrations_replay_over_preexisting_adapters_schema_without_losing_data(
         assert old_writer_defaults == (False, 1)
         assert "WHERE is_primary" in partial_unique
         assert fk_count == 1
-        assert version_count == 7
+        assert version_count == 8
     finally:
         if main._runtime_engine is not None:
             main._runtime_engine.dispose()

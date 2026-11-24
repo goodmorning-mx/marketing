@@ -9,12 +9,16 @@ from typing import Literal
 
 import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from psycopg.rows import dict_row
+from app.account_email import AccountEmail
 from app.config import get_settings
+from app import self_service
 from app.models import Base
 from app.adapters import router as adapters_router
 from sqlalchemy import create_engine, text
@@ -62,7 +66,7 @@ def configure_auth() -> AuthService:
     secret = os.getenv("AUTH_JWT_SECRET", "")
     if not secret or len(secret) < 32:
         raise HTTPException(status_code=503, detail="Account access is not configured.")
-    return AuthService(runtime_database_engine(), AuthSettings(jwt_secret=secret, issuer="goodmarketing"))
+    return self_service.MarketingAuthService(runtime_database_engine(), AuthSettings(jwt_secret=secret, issuer="goodmarketing"))
 
 
 def account_service() -> AuthService:
@@ -80,6 +84,15 @@ class _LazyAuthService:
 
 
 app.include_router(create_auth_router(_LazyAuthService()))
+
+
+@app.exception_handler(RequestValidationError)
+async def redact_auth_validation(request: Request, exc: RequestValidationError):
+    if request.url.path.startswith("/auth/"):
+        return JSONResponse(status_code=422, content={"detail": "Invalid account request."},
+                            headers={"Cache-Control": "no-store"})
+    return await request_validation_exception_handler(request, exc)
+
 
 
 def require_allowed_origin(request: Request) -> None:
@@ -137,12 +150,14 @@ class WorkspaceNameInput(BaseModel):
 
 def set_session(response: Response, tokens):
     domain = os.getenv("AUTH_COOKIE_DOMAIN", "dev.marketing.goodmorning.mx") or None
+    response.headers["Cache-Control"] = "no-store"
     response.set_cookie("gm_access", tokens.access_token, httponly=True, secure=True, samesite="lax", max_age=tokens.expires_in, path="/", domain=domain)
     response.set_cookie("gm_refresh", tokens.refresh_token, httponly=True, secure=True, samesite="lax", max_age=30 * 86400, path="/auth", domain=domain)
 
 
 def clear_session(response: Response):
     domain = os.getenv("AUTH_COOKIE_DOMAIN", "dev.marketing.goodmorning.mx") or None
+    response.headers["Cache-Control"] = "no-store"
     response.delete_cookie("gm_access", path="/", domain=domain, secure=True, httponly=True)
     response.delete_cookie("gm_refresh", path="/auth", domain=domain, secure=True, httponly=True)
 
@@ -221,6 +236,7 @@ def startup_database():
                 migrations.extend((
                     ("workspace-accounts:1", "002_workspace_accounts.sql"),
                     ("marketing:owner-write-permission:1", "005_owner_marketing_permissions.sql"),
+                    ("marketing:self-service-accounts:1", "007_self_service_accounts.sql"),
                 ))
             for version, migration in migrations:
                 found = connection.execute("SELECT 1 FROM goodmarketing_schema_migrations WHERE version = %s", (version,)).fetchone()
@@ -259,10 +275,61 @@ def health() -> dict[str, str]:
     return {"service": settings.app_name, "status": "ok", "environment": settings.app_env}
 
 
+def limit_account_request(service: AuthService, request: Request, action: str, email: str | None = None):
+    peer = request.client.host if request.client else None
+    self_service.limit(service.engine, action=action, email=email, address=peer)
+
+
+@app.post("/auth/registration/request", status_code=202)
+def start_registration(payload: self_service.EmailRequest, request: Request, response: Response,
+                       service: AuthService = Depends(account_service)):
+    require_allowed_origin(request)
+    email = str(payload.email).lower()
+    limit_account_request(service, request, "registration", email)
+    mailer = AccountEmail(settings.allowed_origins, settings.app_env)
+    self_service.request_verification(service, mailer, email, payload.locale)
+    response.headers["Cache-Control"] = "no-store"
+    return {"message": "If this address is eligible, check your inbox. If nothing arrives, try again."}
+
+
+@app.post("/auth/registration/verify", status_code=204)
+def finish_registration(payload: self_service.RegistrationConfirmation, request: Request, response: Response,
+                        service: AuthService = Depends(account_service)):
+    require_allowed_origin(request)
+    limit_account_request(service, request, "verify")
+    if not self_service.verify_and_provision(service, payload):
+        raise HTTPException(status_code=400, detail="Invalid, expired, or used verification link.")
+    response.headers["Cache-Control"] = "no-store"
+
+
+@app.post("/auth/session/password-reset/request", status_code=202)
+def start_browser_reset(payload: self_service.EmailRequest, request: Request, response: Response,
+                        service: AuthService = Depends(account_service)):
+    require_allowed_origin(request)
+    email = str(payload.email).lower()
+    limit_account_request(service, request, "reset", email)
+    mailer = AccountEmail(settings.allowed_origins, settings.app_env)
+    self_service.request_reset(service, mailer, email, payload.locale)
+    response.headers["Cache-Control"] = "no-store"
+    return {"message": "If this address is eligible, check your inbox. If nothing arrives, try again."}
+
+
+@app.post("/auth/session/password-reset/confirm", status_code=204)
+def finish_browser_reset(payload: self_service.ResetConfirmation, request: Request, response: Response,
+                         service: AuthService = Depends(account_service)):
+    require_allowed_origin(request)
+    limit_account_request(service, request, "reset-confirm")
+    if not service.reset_password(payload.token, payload.password):
+        raise HTTPException(status_code=400, detail="Invalid, expired, or used reset link.")
+    clear_session(response)
+
+
 @app.post("/auth/session/login")
 def customer_login(payload: WorkspaceLoginInput, request: Request, response: Response, service: AuthService = Depends(account_service)):
     require_allowed_origin(request)
-    tokens = service.login(email=payload.email.strip().lower(), password=payload.password, organization_id=payload.organization_id)
+    email = payload.email.strip().lower()
+    limit_account_request(service, request, "login", email)
+    tokens = service.login(email=email, password=payload.password, organization_id=payload.organization_id)
     if tokens is None:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     set_session(response, tokens)
@@ -273,9 +340,12 @@ def customer_login(payload: WorkspaceLoginInput, request: Request, response: Res
 def customer_workspaces(payload: CustomerCredentials, request: Request, service: AuthService = Depends(account_service)):
     """List only memberships belonging to an identity whose password was verified."""
     require_allowed_origin(request)
-    tokens = service.login(email=payload.email.strip().lower(), password=payload.password)
+    email = payload.email.strip().lower()
+    limit_account_request(service, request, "login", email)
+    tokens = service.login(email=email, password=payload.password)
     if tokens is None:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
+    service.logout(tokens.refresh_token)
     with service.engine.connect() as connection:
         rows = connection.execute(text("""SELECT o.id, COALESCE(p.display_name, o.name) FROM gm_auth_memberships m
             JOIN gm_auth_organizations o ON o.id = m.organization_id
@@ -307,7 +377,8 @@ def customer_refresh(request: Request, response: Response, service: AuthService 
 
 
 @app.get("/auth/session/me")
-def customer_me(identity: AuthIdentity = Depends(current_customer)):
+def customer_me(response: Response, identity: AuthIdentity = Depends(current_customer)):
+    response.headers["Cache-Control"] = "no-store"
     return identity.as_dict()
 
 

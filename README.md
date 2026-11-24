@@ -33,13 +33,12 @@ Configure `ADMIN_USERNAME` and `ADMIN_PASSWORD` as secret environment values on
 the API service before using `/admin/`. The admin API fails closed when either
 value is missing. Do not put these values in Git or the frontend. `DATABASE_URL`
 must point to the private PostgreSQL resource, and `CORS_ORIGINS` must include
-the deployed frontend origin. The API has no email delivery integration; staff
-can follow up using the contact details shown in the admin page.
+the deployed frontend origin. Staff can follow up using the contact details shown in the admin page.
 
 ## Customer accounts
 
-Customer account activation is invitation-only at `/activate/`; customers sign
-in at `/login/`. `/signup/` remains the public demo-request form. See
-[`docs/accounts.md`](docs/accounts.md) for the gm-auth pin, DEV runtime
-configuration, additive migrations, staff invitation workflow, permissions, and
-rollback instructions. Do not add real secrets or invitation links to Git.
+Public registration starts at `/register/`, followed by email verification and
+creation of one owned workspace. Customers sign in at `/login/` and can request a
+reset at `/forgot-password/`. The historical demo-request form remains at
+`/signup/`. See [the account runtime guide](docs/accounts.md) for configuration
+and release prerequisites.

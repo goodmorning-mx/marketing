@@ -481,6 +481,7 @@ footer{border-color:var(--surface-hairline);color:#a1a1aa}
 .account-chip span{display:grid;gap:2px;max-width:190px}
 .account-chip strong{overflow:hidden;color:#f6f8ff;font-size:.78rem;text-overflow:ellipsis;white-space:nowrap}
 .account-chip small{overflow:hidden;color:#aeb9d6;font-size:.7rem;text-overflow:ellipsis;white-space:nowrap}
+.account-chip [data-auth-logout-status]{white-space:normal}
 .account-chip button{min-height:30px;padding:0 10px;border:1px solid #ffffff25;border-radius:999px;background:transparent;color:#dce2f8;font:inherit;font-size:.75rem;cursor:pointer}
 .workspace-name-form{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:0 0 24px;padding:16px;border:1px solid #ffffff20;border-radius:14px;background:#ffffff06}
 .workspace-name-form label{display:grid;gap:6px;flex:1;min-width:180px;color:#aeb9d6;font-size:.8rem}

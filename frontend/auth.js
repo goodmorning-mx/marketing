@@ -2,8 +2,8 @@
   const api = window.GM_API_URL || `https://api.${location.host}`;
   const lang = () => document.documentElement.lang === 'es' ? 'es' : 'en';
   const copy = {
-    en: { logout: 'Log out', workspace: 'Workspace', account: 'Signed in as', load: 'Workspace details could not be loaded.', retry: 'Try again', updated: 'Workspace name updated.', failed: 'Could not update workspace name.', boot: 'Account details could not be loaded. Your access is protected; retry or sign in again.', savedReload: 'Your brief was saved, but the page could not reload it. Retry loading.' },
-    es: { logout: 'Cerrar sesión', workspace: 'Espacio de trabajo', account: 'Sesión iniciada como', load: 'No se pudieron cargar los datos del espacio.', retry: 'Intentar de nuevo', updated: 'Nombre del espacio actualizado.', failed: 'No se pudo actualizar el nombre del espacio.', boot: 'No se pudieron cargar los datos de la cuenta. El acceso está protegido; inténtalo de nuevo o inicia sesión.', savedReload: 'El brief se guardó, pero no se pudo volver a cargar. Intenta cargarlo de nuevo.' }
+    en: { logout: 'Log out', logoutFailed: 'Could not log out. Try again.', workspace: 'Workspace', account: 'Signed in as', load: 'Workspace details could not be loaded.', retry: 'Try again', updated: 'Workspace name updated.', failed: 'Could not update workspace name.', boot: 'Account details could not be loaded. Your access is protected; retry or sign in again.', savedReload: 'Your brief was saved, but the page could not reload it. Retry loading.' },
+    es: { logout: 'Cerrar sesión', logoutFailed: 'No se pudo cerrar la sesión. Inténtalo de nuevo.', workspace: 'Espacio de trabajo', account: 'Sesión iniciada como', load: 'No se pudieron cargar los datos del espacio.', retry: 'Intentar de nuevo', updated: 'Nombre del espacio actualizado.', failed: 'No se pudo actualizar el nombre del espacio.', boot: 'No se pudieron cargar los datos de la cuenta. El acceso está protegido; inténtalo de nuevo o inicia sesión.', savedReload: 'El brief se guardó, pero no se pudo volver a cargar. Intenta cargarlo de nuevo.' }
   };
   async function request(path, options = {}) {
     return fetch(api + path, { credentials: 'include', ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
@@ -60,12 +60,26 @@
     if (!actions) return;
     const box = document.createElement('div');
     box.className = 'account-chip';
-    box.innerHTML = `<span><strong data-account-name></strong><small data-workspace-name></small></span><button type="button" data-auth-logout>${copy[lang()].logout}</button>`;
+    box.innerHTML = `<span><strong data-account-name></strong><small data-workspace-name></small><small role="status" data-auth-logout-status></small></span><button type="button" data-auth-logout>${copy[lang()].logout}</button>`;
     actions.append(box);
     box.querySelector('[data-account-name]').textContent = identity.name || identity.email;
-    box.querySelector('[data-auth-logout]').addEventListener('click', async () => {
-      await request('/auth/session/logout', { method: 'POST' });
-      location.replace('/login/');
+    const logout = box.querySelector('[data-auth-logout]');
+    const logoutStatus = box.querySelector('[data-auth-logout-status]');
+    document.addEventListener('goodmarketing:language-change', () => {
+      logout.textContent = copy[lang()].logout;
+      if (logoutStatus.textContent) logoutStatus.textContent = copy[lang()].logoutFailed;
+    });
+    logout.addEventListener('click', async () => {
+      logout.disabled = true;
+      logoutStatus.textContent = '';
+      try {
+        const result = await request('/auth/session/logout', { method: 'POST' });
+        if (!result.ok) throw new Error();
+        location.replace('/login/');
+      } catch {
+        logoutStatus.textContent = copy[lang()].logoutFailed;
+        logout.disabled = false;
+      }
     });
     const form = document.querySelector('[data-workspace-name-form]');
     if (form && !identity.permissions.includes('workspace:name:update')) form.hidden = true;

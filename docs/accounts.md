@@ -3,7 +3,7 @@
 GoodMarketing installs `gm-auth` v0.1.5 from commit
 `138d66cb44a94781e0d38d8afd1be2dbf718c294`. The module owns user identities,
 organizations, memberships, roles, password hashes, and sessions. GoodMarketing
-adds hashed invitation records and a workspace display-name profile.
+adds verification links, request limits, and workspace display names.
 
 ## Runtime configuration
 
@@ -14,11 +14,27 @@ so the frontend can verify its session with the API; both session cookies are
 Secure, HttpOnly, and SameSite=Lax. The frontend uses `VITE_API_URL` for its
 Nginx session check. Never commit secret values or invitation links.
 
-Staff invitation issuance uses the existing `ADMIN_USERNAME` and
-`ADMIN_PASSWORD` API credentials on `/admin/`. The admin page creates a link for
-a named email, workspace, role, and expiry. Staff deliver the link manually.
-The link token is only in its URL fragment, is hashed at rest, and is removed
-from the browser address bar before activation. No mail delivery is configured.
+Self-service registration starts at `/register/`. A customer proves email
+ownership before setting the password. Verification links expire in 30 minutes.
+Verification provisions the gm-auth owner, organization, membership and workspace
+profile in one PostgreSQL transaction. Each normalized email can create one
+workspace through this path. Browser reset uses the gm-auth token lifecycle and
+revokes refresh sessions. Existing access tokens expire after their usual
+15-minute lifetime.
+
+The API needs an approved SMTP relay. Bind `ACCOUNT_PUBLIC_ORIGIN` to the exact
+HTTPS frontend origin already allowed by CORS. Set `ACCOUNT_EMAIL_FROM`,
+`ACCOUNT_SMTP_HOST`, and the relay's `ACCOUNT_SMTP_PORT` and
+`ACCOUNT_SMTP_SECURITY` (`ssl` or `starttls`). If the relay requires
+authentication, bind `ACCOUNT_SMTP_USERNAME` and `ACCOUNT_SMTP_PASSWORD` to the
+API through Factory-managed configuration. The relay must accept the sending
+address. Keep account-link click tracking off. Check delivery with the authorized
+test mailbox before release. Without SMTP configuration, email requests return
+503. No new mail service or staff credential is provisioned by this change.
+
+Existing staff invitation issuance remains available through the credentialed
+`/admin/invitations` API. Existing links use `/activate/`. Public onboarding uses
+the email-verification path.
 
 Roles are `owner` and `viewer`. Both can read their own workspace profile and
 organization-owned Adapters records. Owners can update the workspace display
@@ -49,6 +65,7 @@ On API startup, the backend serializes additive setup and records each step in
 7. `006_primary_brand_brief.sql` adds the non-primary SQL default and revision
    fields plus the per-organization primary Brand index. Existing rows remain
    non-primary and old inserts keep their established behavior.
+8. `007_self_service_accounts.sql` adds hashed verification links and account request limits.
 
 These steps are safe to replay. The gm-auth migration uses the approved
 v0.1.5 package metadata, which matches the tables created by the historical
@@ -62,7 +79,10 @@ identity and set HttpOnly cookies. Browser refresh and logout read the refresh
 cookie, and Nginx uses the browser identity route to protect workspace pages.
 Cookie-backed requests use the configured DEV origins. `/auth/workspaces`
 lists memberships after credential verification, and `/auth/activate` redeems
-an invitation for its assigned workspace.
+an invitation for its assigned workspace. The separate self-service routes are
+`/auth/registration/{request,verify}` and
+`/auth/session/password-reset/{request,confirm}`. Browser credential mutations
+require an allowed origin.
 
 The API uses the existing private PostgreSQL `DATABASE_URL`. Startup applies
 gm-auth, workspace account and owner-permission migrations when Factory supplies

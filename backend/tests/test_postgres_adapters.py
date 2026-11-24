@@ -58,7 +58,8 @@ def test_base_migrations_run_without_auth_and_runtime_auth_migrations_apply_late
             "marketing:strategy-fields:1", "marketing:primary-brand-brief:1",
         }
         assert {"brands", "campaigns", "content_items", "platform_connections", "publish_jobs", "demo_requests"} <= tables
-        assert {"gm_auth_users", "goodmarketing_invitations"}.isdisjoint(tables)
+        assert {"gm_auth_users", "goodmarketing_invitations", "goodmarketing_email_verifications",
+                "goodmarketing_account_limits"}.isdisjoint(tables)
 
         monkeypatch.setenv("AUTH_JWT_SECRET", "synthetic-signing-key-only-for-postgres-tests")
         monkeypatch.setattr(main, "auth_service", None)
@@ -70,8 +71,10 @@ def test_base_migrations_run_without_auth_and_runtime_auth_migrations_apply_late
             all_tables = {row[0] for row in connection.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = %s", (schema,))}
         assert all_versions - versions == {
             "gm-auth:0.1.5", "workspace-accounts:1", "marketing:owner-write-permission:1",
+            "marketing:self-service-accounts:1",
         }
-        assert {"gm_auth_users", "gm_auth_organizations", "goodmarketing_invitations", "goodmarketing_workspace_profiles"} <= all_tables
+        assert {"gm_auth_users", "gm_auth_organizations", "goodmarketing_invitations", "goodmarketing_workspace_profiles",
+                "goodmarketing_email_verifications", "goodmarketing_account_limits"} <= all_tables
     finally:
         _drop_schema(base_url, schema)
 
@@ -186,6 +189,7 @@ def test_existing_adapters_schema_keeps_rows_and_gains_missing_fields(monkeypatc
                 assert {row[0] for row in current_ledger} == {
                     "gm-auth:0.1.5", "marketing:adapters-models:189869c", "workspace-accounts:1",
                     "demo-requests:1", "marketing:strategy-fields:1", "marketing:owner-write-permission:1",
+                    "marketing:self-service-accounts:1",
                     "marketing:primary-brand-brief:1",
                 }
                 if ledger is not None:

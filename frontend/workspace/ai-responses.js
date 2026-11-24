@@ -1,6 +1,5 @@
-(async () => {
-  await window.GMAuth?.ready;
-  const storageKey = window.GMAuth?.key("ai-response-review-v1") || "goodmarketing-ai-response-review-v1";
+(() => {
+  const storageKey = "goodmarketing-ai-response-review-v1";
   const locale = () => document.documentElement.lang === "es" ? "es" : "en";
   const copy = {
     en: {

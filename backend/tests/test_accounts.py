@@ -303,6 +303,7 @@ def test_refresh_rotates_refresh_session_and_logout_revokes_access(client):
     assert test_client.get("/auth/session/me").status_code == 200
     assert test_client.get("/auth/me").status_code == 401
     old_refresh = test_client.cookies.get("gm_refresh")
+    stale_client = TestClient(main.app, base_url=str(test_client.base_url), cookies=test_client.cookies)
     assert test_client.post("/auth/session/refresh", headers={"Origin": "https://other.example.test"}).status_code == 403
     rotated = test_client.post("/auth/session/refresh", headers=headers)
     assert rotated.status_code == 200
@@ -311,9 +312,6 @@ def test_refresh_rotates_refresh_session_and_logout_revokes_access(client):
     current_refresh = test_client.cookies.get("gm_refresh")
     assert current_refresh != old_refresh
 
-    stale_client = TestClient(main.app, base_url=str(test_client.base_url))
-    stale_client.cookies.set("gm_refresh", old_refresh, domain="dev.marketing.goodmorning.mx", path="/auth")
-    stale_client.cookies.set("gm_access", "expired", domain="dev.marketing.goodmorning.mx", path="/")
     stale_refresh = stale_client.post("/auth/session/refresh", headers=headers)
     assert stale_refresh.status_code == 401
     assert {cookie.split("=", 1)[0] for cookie in stale_refresh.headers.get_list("set-cookie")} == {"gm_access", "gm_refresh"}

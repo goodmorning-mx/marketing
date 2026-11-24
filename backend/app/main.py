@@ -109,16 +109,16 @@ def require_staff(credentials: HTTPBasicCredentials | None = Depends(basic_auth)
     return credentials.username
 
 
-class LoginInput(BaseModel):
+class CustomerCredentials(BaseModel):
     email: str = Field(min_length=5, max_length=320)
     password: str = Field(min_length=8, max_length=256)
 
 
-class WorkspaceLoginInput(LoginInput):
+class WorkspaceLoginInput(CustomerCredentials):
     organization_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 
-class ActivateInput(LoginInput):
+class ActivateInput(CustomerCredentials):
     name: str = Field(min_length=2, max_length=255)
     token: str = Field(min_length=32, max_length=256)
 
@@ -270,7 +270,7 @@ def customer_login(payload: WorkspaceLoginInput, request: Request, response: Res
 
 
 @app.post("/auth/workspaces")
-def customer_workspaces(payload: LoginInput, request: Request, service: AuthService = Depends(account_service)):
+def customer_workspaces(payload: CustomerCredentials, request: Request, service: AuthService = Depends(account_service)):
     """List only memberships belonging to an identity whose password was verified."""
     require_allowed_origin(request)
     tokens = service.login(email=payload.email.strip().lower(), password=payload.password)

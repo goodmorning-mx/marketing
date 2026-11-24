@@ -449,25 +449,6 @@ window.GMPostPreview = (() => {
     });
     if (window.GMAuth?.identity) startInitialLoad();
   }
-  const directMessagePreference = document.querySelector("#direct-message-responses");
-  const directMessageSaved = document.querySelector("#direct-message-settings-saved");
-  if (directMessagePreference) {
-    const settingKey = () => window.GMAuth?.key("directMessageResponses") || "goodmarketing.directMessageResponses";
-    const loadPreference = () => { try { directMessagePreference.checked = localStorage.getItem(settingKey()) === "true"; } catch {} };
-    if (window.GMAuth?.identity) loadPreference();
-    else document.addEventListener("goodmarketing:account-ready", loadPreference, { once: true });
-    directMessagePreference.addEventListener("change", () => {
-      try {
-        localStorage.setItem(settingKey(), String(directMessagePreference.checked));
-        if (directMessageSaved) directMessageSaved.hidden = false;
-      } catch {
-        if (directMessageSaved) {
-          directMessageSaved.hidden = false;
-          directMessageSaved.textContent = language() === "es" ? "No se pudo guardar en este navegador." : "Could not save in this browser.";
-        }
-      }
-    });
-  }
   const assetModeButtons = [...document.querySelectorAll("[data-asset-mode]")];
   const assetModePanels = {
     upload: document.querySelector("#asset-upload-panel"),
@@ -526,29 +507,24 @@ window.GMPostPreview = (() => {
     if (contentPreviewUrl) URL.revokeObjectURL(contentPreviewUrl);
     contentPreviewUrl = "";
   }
-  const startAiContent = document.querySelector("#start-ai-content");
-  const aiContentPathStatus = document.querySelector("#ai-content-path-status");
+  document.querySelectorAll("[data-coming-soon]").forEach((button) => {
+    const status = document.getElementById(button.getAttribute("aria-describedby"));
+    if (!status) return;
+    const showStatus = () => {
+      status.textContent = language() === "es" ? "Próximamente" : "Coming soon";
+    };
+    button.addEventListener("click", showStatus);
+    document.addEventListener("goodmarketing:language-change", () => {
+      if (status.textContent) showStatus();
+    });
+  });
   const contentAssetsName = document.querySelector("#content-assets-name");
   contentPicker?.addEventListener("change", () => {
     releaseContentPreviewUrl();
     const files = [...contentPicker.files];
     const file = files[0];
-    selectedCampaignContent = file ? { type: "upload", files, file } : null;
+    selectedCampaignContent = file ? { files, file } : null;
     if (file?.type.startsWith("image/") || file?.type.startsWith("video/")) contentPreviewUrl = URL.createObjectURL(file);
-    startAiContent?.setAttribute("aria-pressed", "false");
-    startAiContent?.closest(".content-option")?.classList.remove("is-selected");
-    if (aiContentPathStatus) aiContentPathStatus.hidden = true;
-    updateCampaignContentEstimate();
-    renderContentPreview();
-  });
-  startAiContent?.addEventListener("click", () => {
-    releaseContentPreviewUrl();
-    selectedCampaignContent = { type: "generated" };
-    if (contentPicker) contentPicker.value = "";
-    setFileName(contentAssetsName, [], { en: "No files selected", es: "Ningún archivo seleccionado" });
-    startAiContent.setAttribute("aria-pressed", "true");
-    startAiContent.closest(".content-option")?.classList.add("is-selected");
-    if (aiContentPathStatus) aiContentPathStatus.hidden = false;
     updateCampaignContentEstimate();
     renderContentPreview();
   });
@@ -557,9 +533,6 @@ window.GMPostPreview = (() => {
     selectedCampaignContent = null;
     if (contentPicker) contentPicker.value = "";
     setFileName(contentAssetsName, [], { en: "No files selected", es: "Ningún archivo seleccionado" });
-    startAiContent?.setAttribute("aria-pressed", "false");
-    startAiContent?.closest(".content-option")?.classList.remove("is-selected");
-    if (aiContentPathStatus) aiContentPathStatus.hidden = true;
     updateCampaignContentEstimate();
     renderContentPreview();
   });
@@ -616,9 +589,7 @@ window.GMPostPreview = (() => {
     const postsPerWeek = { low: 3, medium: 4, high: 5 }[frequency?.value] || 4;
     const days = Number(strategyDuration.value);
     const contentPieces = Math.ceil((postsPerWeek * days) / 7);
-    const uploadedPieces = selectedCampaignContent?.type === "upload" ? selectedCampaignContent.files.length : 0;
-    const generatedPieces = selectedCampaignContent?.type === "generated" ? 1 : 0;
-    const completedPieces = uploadedPieces + generatedPieces;
+    const completedPieces = selectedCampaignContent?.files.length ?? 0;
     const numberFormat = new Intl.NumberFormat(currentLanguage);
     contentEstimateNumber.textContent = `${numberFormat.format(completedPieces)}/${numberFormat.format(contentPieces)}`;
     contentEstimateLabel.textContent = currentLanguage === "es"
@@ -681,13 +652,8 @@ window.GMPostPreview = (() => {
     const selected = selectedCampaignContent;
     let format = isSpanish ? "Contenido de campaña" : "Campaign content";
     let previewTitle = isSpanish ? "No hay contenido seleccionado" : "No content selected";
-    let previewCopy = isSpanish ? "Elige un archivo o genera un borrador para ver la vista previa." : "Choose a file or generate a draft to preview it.";
-    if (selected?.type === "generated") {
-      format = isSpanish ? "Ejemplo de borrador con IA" : "AI draft example";
-      previewTitle = title?.dataset[isSpanish ? "defaultEs" : "defaultEn"] || previewTitle;
-      previewCopy = copy?.dataset[isSpanish ? "defaultEs" : "defaultEn"] || previewCopy;
-      if (art) { art.hidden = false; art.setAttribute("aria-hidden", "true"); art.innerHTML = '<span>W</span><i>✳</i>'; }
-    } else if (selected?.type === "upload") {
+    let previewCopy = isSpanish ? "Elige un archivo para ver la vista previa." : "Choose a file to preview it.";
+    if (selected) {
       const { file, files } = selected;
       const kind = file.type.startsWith("image/") ? (isSpanish ? "Imagen cargada" : "Uploaded image")
         : file.type.startsWith("video/") ? (isSpanish ? "Video cargado" : "Uploaded video")
@@ -737,9 +703,7 @@ window.GMPostPreview = (() => {
     if (selectedContentSummary) {
       selectedContentSummary.hidden = !selected;
       if (selectedContentLabel && selected) {
-        selectedContentLabel.textContent = selected.type === "generated"
-          ? (isSpanish ? "Borrador de ejemplo generado con IA" : "AI-generated example draft")
-          : `${isSpanish ? "Seleccionado" : "Selected"}: ${selected.files.map((file) => file.name).join(", ")}`;
+        selectedContentLabel.textContent = `${isSpanish ? "Seleccionado" : "Selected"}: ${selected.files.map((file) => file.name).join(", ")}`;
       }
     }
   }

@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import json
 import os
@@ -21,6 +22,8 @@ from app.account_email import AccountEmail
 from app.config import get_settings
 from app import self_service
 from app.brand_assets import MAX_OUTPUT_BYTES, decode_logo
+from app.brand_fonts import validate_font
+from app.brand_palette import MAX_PALETTE_BYTES, parse_gpl
 from app.models import Base
 from app.adapters import router as adapters_router
 from sqlalchemy import create_engine, text
@@ -240,6 +243,7 @@ def startup_database():
                     ("marketing:owner-write-permission:1", "005_owner_marketing_permissions.sql"),
                     ("marketing:self-service-accounts:1", "007_self_service_accounts.sql"),
                     ("marketing:workspace-brand-appearance:1", "008_workspace_brand_appearance.sql"),
+                    ("marketing:workspace-brand-asset-extensions:1", "009_workspace_brand_asset_extensions.sql"),
                 ))
             for version, migration in migrations:
                 found = connection.execute("SELECT 1 FROM goodmarketing_schema_migrations WHERE version = %s", (version,)).fetchone()
@@ -530,24 +534,45 @@ BRAND_TEMPLATES = {
     "sunny-wit": ("#FFE01B", "#A78000", "#DDD29C", "#171407", "#FEFEFE"),
     "open-canvas": ("#D4C7B2", "#76634C", "#D7D0C5", "#15130F", "#FEFEFE"),
 }
-MAX_ASSET_REQUEST_BYTES = 1_500_000
+MAX_ASSET_REQUEST_BYTES = 6_000_000
+
+
+class BrandFontChange(BaseModel):
+    model_config = {"extra": "forbid"}
+    action: Literal["keep", "replace", "remove", "add"]
+    id: uuid.UUID | None = None
+    filename: str | None = None
+    base64: str | None = None
 
 
 class BrandAssetsInput(BaseModel):
     model_config = {"extra": "forbid"}
-    template_key: str | None
+    template_key: str | None = None
     logo_action: Literal["keep", "replace", "remove"] = "keep"
     logo_media_type: Literal["image/png", "image/jpeg", "image/webp", "image/svg+xml"] | None = None
     logo_base64: str | None = None
+    palette_source: Literal["template", "custom"] | None = None
+    palette_action: Literal["keep", "replace", "remove"] = "keep"
+    palette_filename: str | None = None
+    palette_base64: str | None = None
+    font_changes: list[BrandFontChange] | None = None
 
 
 def _appearance_dict(row):
     if row is None:
         return None
     logo_present = row["logo_size"] is not None
+    custom_palette = row.get("custom_palette") or []
+    if isinstance(custom_palette, str):
+        custom_palette = json.loads(custom_palette)
+    palette_source = row.get("palette_source", "template")
     return {
         "template_key": row["template_key"],
-        "colors": [row[f"color_{index}"].strip() for index in range(1, 6)],
+        "template_colors": [row[f"color_{index}"].strip() for index in range(1, 6)],
+        "palette_source": palette_source,
+        "custom_palette": ({"filename": row.get("custom_palette_filename"), "colors": custom_palette} if custom_palette else None),
+        "colors": custom_palette if palette_source == "custom" and custom_palette else [row[f"color_{index}"].strip() for index in range(1, 6)],
+        "fonts": row.get("fonts", []),
         "revision": row["revision"],
         "logo": ({"media_type": "image/png", "sha256": row["logo_sha256"], "size": row["logo_size"], "width": row["logo_width"], "height": row["logo_height"]} if logo_present else None),
     }
@@ -561,7 +586,7 @@ def _appearance_etag(organization_id: str, assets: dict | None) -> str:
 def _read_appearance(connection, organization_id: str, *, lock: bool = False):
     suffix = " FOR UPDATE" if lock else ""
     return connection.execute(
-        "SELECT organization_id, revision, template_key, color_1, color_2, color_3, color_4, color_5, logo_sha256, logo_size, logo_width, logo_height FROM goodmarketing_brand_appearances WHERE organization_id = %s" + suffix,
+        "SELECT a.organization_id, a.revision, a.template_key, a.color_1, a.color_2, a.color_3, a.color_4, a.color_5, a.logo_sha256, a.logo_size, a.logo_width, a.logo_height, a.palette_source, a.custom_palette, a.custom_palette_filename, COALESCE((SELECT jsonb_agg(jsonb_build_object('id', f.font_id, 'filename', f.filename, 'name', f.display_name, 'media_type', f.media_type, 'size', f.size, 'sha256', f.sha256) ORDER BY f.created_at, f.font_id) FROM goodmarketing_brand_fonts f WHERE f.organization_id = a.organization_id), '[]'::jsonb) AS fonts FROM goodmarketing_brand_appearances a WHERE a.organization_id = %s" + suffix,
         (organization_id,),
     ).fetchone()
 
@@ -613,11 +638,71 @@ def _save_brand_assets(body: bytes, validator: str, organization_id: str) -> tup
     except (ValidationError, RecursionError) as exc:
         raise HTTPException(status_code=422, detail="Brand assets request is invalid.") from exc
     colors, replacement, logo_metadata = _validate_appearance(payload)
+    custom_palette = None
+    palette_filename = None
+    if payload.palette_action == "replace":
+        try:
+            if not payload.palette_base64 or not payload.palette_filename:
+                raise ValueError("Choose a GIMP Palette (.gpl) file.")
+            if len(payload.palette_base64) > ((MAX_PALETTE_BYTES + 2) // 3) * 4:
+                raise ValueError("Palette file exceeds 16 KiB.")
+            palette_bytes = base64.b64decode(payload.palette_base64, validate=True)
+            palette_filename, custom_palette = parse_gpl(palette_bytes, payload.palette_filename)
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+    elif payload.palette_base64 is not None or payload.palette_filename is not None:
+        raise HTTPException(status_code=422, detail="Palette data is only accepted when replacing the palette.")
+    prepared_fonts = []
+    if payload.font_changes is not None:
+        if len(payload.font_changes) > 6:
+            raise HTTPException(status_code=422, detail="Choose up to three brand fonts.")
+        for change in payload.font_changes:
+            action = change.action
+            font_id = change.id
+            validated = None
+            if action in {"add", "replace"}:
+                try:
+                    if not isinstance(change.base64, str) or not isinstance(change.filename, str):
+                        raise ValueError("Choose a supported font file.")
+                    if len(change.base64) > ((1024 * 1024 + 2) // 3) * 4:
+                        raise ValueError("Font files must not exceed 1 MiB.")
+                    font_data = base64.b64decode(change.base64, validate=True)
+                    validated = validate_font(font_data, change.filename)
+                except (ValueError, UnicodeDecodeError) as exc:
+                    raise HTTPException(status_code=422, detail="Font file is malformed or unsupported.") from exc
+            if (action in {"keep", "remove", "replace"}) != (font_id is not None):
+                raise HTTPException(status_code=422, detail="Brand font change is invalid.")
+            prepared_fonts.append((action, font_id, validated))
     with database_connection() as connection:
         current_row = _read_appearance(connection, organization_id, lock=True)
         current = _appearance_dict(current_row)
         if _appearance_etag(organization_id, current) != validator:
             raise HTTPException(status_code=412, detail="Brand assets changed. Reload before saving.")
+        existing_fonts = connection.execute("SELECT font_id FROM goodmarketing_brand_fonts WHERE organization_id = %s FOR UPDATE", (organization_id,)).fetchall()
+        existing_ids = {row["font_id"] for row in existing_fonts}
+        if payload.font_changes is not None:
+            specified = [font_id for action, font_id, _font in prepared_fonts if action in {"keep", "remove", "replace"}]
+            if len(specified) != len(set(specified)) or set(specified) != existing_ids:
+                raise HTTPException(status_code=422, detail="Reload brand assets before changing fonts.")
+            final_count = sum(action in {"keep", "replace", "add"} for action, _font_id, _font in prepared_fonts)
+            if final_count > 3:
+                raise HTTPException(status_code=422, detail="Choose up to three brand fonts.")
+        effective_template_key = payload.template_key if "template_key" in payload.model_fields_set else (current_row["template_key"] if current_row is not None else "goodmarketing")
+        if effective_template_key is None:
+            effective_template_key = "goodmarketing"
+        if "template_key" not in payload.model_fields_set and current_row is not None:
+            colors = [current_row[f"color_{index}"].strip() for index in range(1, 6)]
+        old_palette = current_row["custom_palette"] if current_row is not None else []
+        if isinstance(old_palette, str):
+            old_palette = json.loads(old_palette)
+        old_palette_filename = current_row["custom_palette_filename"] if current_row is not None else None
+        if payload.palette_action == "remove":
+            custom_palette, palette_filename = [], None
+        elif payload.palette_action == "keep":
+            custom_palette, palette_filename = old_palette, old_palette_filename
+        palette_source = payload.palette_source or (current_row["palette_source"] if current_row is not None else "template")
+        if not custom_palette and palette_source == "custom":
+            palette_source = "template"
         if current_row is None:
             logo_bytes = replacement if payload.logo_action == "replace" else None
             logo_sha = logo_metadata["sha256"] if logo_metadata else None
@@ -625,26 +710,36 @@ def _save_brand_assets(body: bytes, validator: str, organization_id: str) -> tup
             logo_width = logo_metadata["width"] if logo_metadata else None
             logo_height = logo_metadata["height"] if logo_metadata else None
             inserted = connection.execute(
-                "INSERT INTO goodmarketing_brand_appearances (organization_id, revision, template_key, color_1, color_2, color_3, color_4, color_5, logo_bytes, logo_sha256, logo_size, logo_width, logo_height) VALUES (%s, 1, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING RETURNING organization_id",
-                (organization_id, payload.template_key, *colors, logo_bytes, logo_sha, logo_size, logo_width, logo_height),
+                "INSERT INTO goodmarketing_brand_appearances (organization_id, revision, template_key, color_1, color_2, color_3, color_4, color_5, logo_bytes, logo_sha256, logo_size, logo_width, logo_height, palette_source, custom_palette, custom_palette_filename) VALUES (%s, 1, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING RETURNING organization_id",
+                (organization_id, effective_template_key, *colors, logo_bytes, logo_sha, logo_size, logo_width, logo_height, palette_source, json.dumps(custom_palette), palette_filename),
             ).fetchone()
             if inserted is None:
                 raise HTTPException(status_code=412, detail="Brand assets changed. Reload before saving.")
         elif payload.logo_action == "keep":
             updated = connection.execute(
-                "UPDATE goodmarketing_brand_appearances SET revision = revision + 1, template_key = %s, color_1 = %s, color_2 = %s, color_3 = %s, color_4 = %s, color_5 = %s, updated_at = now() WHERE organization_id = %s AND revision = %s RETURNING organization_id",
-                (payload.template_key, *colors, organization_id, current_row["revision"]),
+                "UPDATE goodmarketing_brand_appearances SET revision = revision + 1, template_key = %s, color_1 = %s, color_2 = %s, color_3 = %s, color_4 = %s, color_5 = %s, palette_source = %s, custom_palette = %s, custom_palette_filename = %s, updated_at = now() WHERE organization_id = %s AND revision = %s RETURNING organization_id",
+                (effective_template_key, *colors, palette_source, json.dumps(custom_palette), palette_filename, organization_id, current_row["revision"]),
             ).fetchone()
             if updated is None:
                 raise HTTPException(status_code=412, detail="Brand assets changed. Reload before saving.")
         else:
             logo_values = (replacement, logo_metadata["sha256"], logo_metadata["size"], logo_metadata["width"], logo_metadata["height"]) if payload.logo_action == "replace" else (None, None, None, None, None)
             updated = connection.execute(
-                "UPDATE goodmarketing_brand_appearances SET revision = revision + 1, template_key = %s, color_1 = %s, color_2 = %s, color_3 = %s, color_4 = %s, color_5 = %s, logo_bytes = %s, logo_sha256 = %s, logo_size = %s, logo_width = %s, logo_height = %s, updated_at = now() WHERE organization_id = %s AND revision = %s RETURNING organization_id",
-                (payload.template_key, *colors, *logo_values, organization_id, current_row["revision"]),
+                "UPDATE goodmarketing_brand_appearances SET revision = revision + 1, template_key = %s, color_1 = %s, color_2 = %s, color_3 = %s, color_4 = %s, color_5 = %s, logo_bytes = %s, logo_sha256 = %s, logo_size = %s, logo_width = %s, logo_height = %s, palette_source = %s, custom_palette = %s, custom_palette_filename = %s, updated_at = now() WHERE organization_id = %s AND revision = %s RETURNING organization_id",
+                (effective_template_key, *colors, *logo_values, palette_source, json.dumps(custom_palette), palette_filename, organization_id, current_row["revision"]),
             ).fetchone()
             if updated is None:
                 raise HTTPException(status_code=412, detail="Brand assets changed. Reload before saving.")
+        if payload.font_changes is not None:
+            for action, font_id, validated in prepared_fonts:
+                if action == "remove":
+                    connection.execute("DELETE FROM goodmarketing_brand_fonts WHERE organization_id = %s AND font_id = %s", (organization_id, font_id))
+                elif action in {"add", "replace"}:
+                    saved_font_id = font_id or uuid.uuid4()
+                    if action == "replace":
+                        connection.execute("UPDATE goodmarketing_brand_fonts SET filename = %s, display_name = %s, media_type = %s, font_bytes = %s, sha256 = %s, size = %s WHERE organization_id = %s AND font_id = %s", (validated.filename, validated.display_name, validated.media_type, validated.data, validated.sha256, len(validated.data), organization_id, saved_font_id))
+                    else:
+                        connection.execute("INSERT INTO goodmarketing_brand_fonts (organization_id, font_id, filename, display_name, media_type, font_bytes, sha256, size) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", (organization_id, saved_font_id, validated.filename, validated.display_name, validated.media_type, validated.data, validated.sha256, len(validated.data)))
         saved_row = _read_appearance(connection, organization_id)
     assets = _appearance_dict(saved_row)
     return assets, _appearance_etag(organization_id, assets)
@@ -721,6 +816,43 @@ def read_brand_logo(identity: AuthIdentity = Depends(current_customer)):
     if row is None or row["logo_bytes"] is None:
         raise HTTPException(status_code=404, detail="No saved logo.", headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
     return Response(content=bytes(row["logo_bytes"]), media_type="image/png", headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Content-Disposition": 'inline; filename="brand-logo.png"'})
+
+
+@app.post("/workspace/brand-assets/palette-preview")
+async def preview_brand_palette(request: Request, identity: AuthIdentity = Depends(current_customer)):
+    if "workspace:read" not in identity.permissions:
+        raise HTTPException(status_code=403, detail="Workspace access is not permitted.")
+    content_length = request.headers.get("content-length")
+    if content_length and (not content_length.isdigit() or int(content_length) > 24 * 1024):
+        raise HTTPException(status_code=413, detail="Palette preview request is too large.")
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > 24 * 1024:
+            raise HTTPException(status_code=413, detail="Palette preview request is too large.")
+    try:
+        payload = json.loads(bytes(body))
+        if not isinstance(payload, dict) or not isinstance(payload.get("filename"), str) or not isinstance(payload.get("base64"), str):
+            raise ValueError("Choose a GIMP Palette (.gpl) file.")
+        encoded = payload["base64"]
+        if len(encoded) > ((MAX_PALETTE_BYTES + 2) // 3) * 4:
+            raise ValueError("Palette file exceeds 16 KiB.")
+        data = base64.b64decode(encoded, validate=True)
+        filename, colors = parse_gpl(data, payload["filename"])
+    except (ValueError, UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc) or "Palette file is invalid.") from exc
+    return JSONResponse({"filename": filename, "colors": colors}, headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+
+
+@app.get("/workspace/brand-assets/fonts/{font_id}")
+def read_brand_font(font_id: uuid.UUID, identity: AuthIdentity = Depends(current_customer)):
+    if "workspace:read" not in identity.permissions:
+        raise HTTPException(status_code=403, detail="Workspace access is not permitted.")
+    with database_connection() as connection:
+        row = connection.execute("SELECT font_bytes, filename, media_type FROM goodmarketing_brand_fonts WHERE organization_id = %s AND font_id = %s", (identity.organization_id, font_id)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="No saved brand font.", headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+    return Response(content=bytes(row["font_bytes"]), media_type=row["media_type"], headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Content-Disposition": 'inline; filename="brand-font"'})
 
 
 @app.put("/workspace/brand-assets")

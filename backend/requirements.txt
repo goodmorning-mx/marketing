@@ -10,3 +10,5 @@ gm-auth @ git+https://github.com/goodmorning-mx/gm-auth.git@138d66cb44a94781e0d3
 
 Pillow==13.0.0
 resvg_py==0.5.0
+fonttools==4.69.1
+Brotli==1.2.1

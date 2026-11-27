@@ -45,10 +45,19 @@ def test_brand_assets_persist_replace_remove_and_isolate_workspaces(monkeypatch)
             assert saved.json()["assets"]["colors"] == ["#46E582", "#147D49", "#AFD2BB", "#08120F", "#FEFEFE"]
             assert saved.json()["assets"]["logo"]["media_type"] == "image/png"
             assert client.get("/workspace/brand-assets/logo", cookies=a).headers["content-type"] == "image/png"
-            invalid = client.put("/workspace/brand-assets", cookies=a, headers={"Origin": origin, "If-Match": saved.headers["ETag"]}, json={"template_key": "forward", "logo_action": "replace", "logo_media_type": "image/png", "logo_base64": encoded})
+            gpl = b"GIMP Palette\nName: Synthetic\nColumns: 0\n10 20 30 ignored label\n255 0 128\n"
+            preview = client.post("/workspace/brand-assets/palette-preview", cookies=a, headers={"Origin": origin}, json={"filename": "synthetic.gpl", "base64": base64.b64encode(gpl).decode()})
+            assert preview.status_code == 200 and preview.json()["colors"] == ["#0A141E", "#FF0080"]
+            assert preview.headers["Cache-Control"] == "private, no-store"
+            palette = client.put("/workspace/brand-assets", cookies=a, headers={"Origin": origin, "If-Match": saved.headers["ETag"]}, json={"palette_action": "replace", "palette_source": "custom", "palette_filename": "synthetic.gpl", "palette_base64": base64.b64encode(gpl).decode(), "font_changes": []})
+            assert palette.status_code == 200
+            assert palette.json()["assets"]["template_key"] == "night-pulse"
+            assert palette.json()["assets"]["template_colors"] == ["#46E582", "#147D49", "#AFD2BB", "#08120F", "#FEFEFE"]
+            assert palette.json()["assets"]["colors"] == ["#0A141E", "#FF0080"]
+            invalid = client.put("/workspace/brand-assets", cookies=a, headers={"Origin": origin, "If-Match": palette.headers["ETag"]}, json={"template_key": "forward", "logo_action": "replace", "logo_media_type": "image/png", "logo_base64": encoded})
             assert invalid.status_code == 422
             after_invalid = client.get("/workspace/brand-assets", cookies=a)
-            assert after_invalid.json()["assets"] == saved.json()["assets"]
+            assert after_invalid.json()["assets"] == palette.json()["assets"]
             workspace_b = client.get("/workspace/brand-assets", cookies=b)
             assert workspace_b.status_code == 200 and workspace_b.json()["assets"] is None
             missing_logo = client.get("/workspace/brand-assets/logo", cookies=b)
@@ -58,7 +67,7 @@ def test_brand_assets_persist_replace_remove_and_isolate_workspaces(monkeypatch)
             assert removed.status_code == 200 and removed.json()["assets"]["logo"] is None
             stale = client.put("/workspace/brand-assets", cookies=a, headers={"Origin": origin, "If-Match": after_invalid.headers["ETag"]}, json={"template_key": "forward", "logo_action": "keep"})
             assert stale.status_code == 412
-            assert client.put("/workspace/brand-assets", cookies=a, headers={"Origin": origin, "If-Match": removed.headers["ETag"]}, content=b" " * 1_500_001).status_code == 413
+            assert client.put("/workspace/brand-assets", cookies=a, headers={"Origin": origin, "If-Match": removed.headers["ETag"]}, content=b" " * 6_000_001).status_code == 413
     finally:
         if main.auth_service is not None:
             main.auth_service.engine.dispose()

@@ -37,6 +37,7 @@ def test_gm_auth_migrations_succeed_on_first_and_repeated_startup(monkeypatch):
             "marketing:self-service-accounts:1",
             "marketing:primary-brand-brief:1",
             "marketing:workspace-brand-appearance:1",
+            "marketing:workspace-brand-asset-extensions:1",
         }
         assert {
             "gm_auth_users", "gm_auth_organizations", "gm_auth_memberships",
@@ -151,7 +152,7 @@ def test_migrations_replay_over_preexisting_adapters_schema_without_losing_data(
         assert old_writer_defaults == (False, 1)
         assert "WHERE is_primary" in partial_unique
         assert fk_count == 1
-        assert version_count == 9
+        assert version_count == 10
     finally:
         if main._runtime_engine is not None:
             main._runtime_engine.dispose()

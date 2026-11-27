@@ -466,28 +466,11 @@ window.GMPostPreview = (() => {
     setAssetMode(selectedMode);
   }
 
-  const templateChoices = [...document.querySelectorAll("[data-template-choice]")];
-  const selectedTemplateName = document.querySelector("#template-preview-name");
-  const selectedTemplateTone = document.querySelector("#template-preview-tone");
-  const selectedTemplateSwatch = document.querySelector("#template-preview-swatch");
-  function selectBrandTemplate(button) {
-    if (!button || !selectedTemplateName || !selectedTemplateTone || !selectedTemplateSwatch) return;
-    templateChoices.forEach((choice) => choice.setAttribute("aria-pressed", String(choice === button)));
-    selectedTemplateName.textContent = button.dataset.templateName;
-    selectedTemplateTone.textContent = button.dataset[`tone${language() === "es" ? "Es" : "En"}`];
-    button.dataset.colors.split(",").forEach((color, index) => selectedTemplateSwatch.style.setProperty(`--template-color-${index + 1}`, color));
-  }
-  templateChoices.forEach((button) => button.addEventListener("click", () => selectBrandTemplate(button)));
-  if (templateChoices.length) selectBrandTemplate(templateChoices.find((button) => button.getAttribute("aria-pressed") === "true"));
-
   function setFileName(target, files, emptyText) {
     if (!target) return;
     target.textContent = files.length ? [...files].map((file) => file.name).join(", ") : emptyText[language()];
   }
   const fileInputs = [
-    ["#color-scheme-file", "#color-scheme-name", { en: "No file selected", es: "Ningún archivo seleccionado" }],
-    ["#font-files", "#font-files-name", { en: "No files selected", es: "Ningún archivo seleccionado" }],
-    ["#logo-file", "#logo-file-name", { en: "No file selected", es: "Ningún archivo seleccionado" }],
     ["#content-assets", "#content-assets-name", { en: "No files selected", es: "Ningún archivo seleccionado" }]
   ];
   fileInputs.forEach(([inputSelector, nameSelector, emptyText]) => {
@@ -536,22 +519,7 @@ window.GMPostPreview = (() => {
     updateCampaignContentEstimate();
     renderContentPreview();
   });
-  const logoInput = document.querySelector("#logo-file");
-  const logoPreview = document.querySelector("#logo-preview");
-  let logoPreviewUrl;
-  if (logoInput && logoPreview) logoInput.addEventListener("change", () => {
-    if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl);
-    const file = logoInput.files[0];
-    if (!file || !file.type.startsWith("image/")) {
-      logoPreview.hidden = true;
-      logoPreview.removeAttribute("src");
-      return;
-    }
-    logoPreviewUrl = URL.createObjectURL(file);
-    logoPreview.src = logoPreviewUrl;
-    logoPreview.alt = language() === "es" ? "Vista previa del logotipo" : "Logo preview";
-    logoPreview.hidden = false;
-  });
+
 
   const campaignForm = document.querySelector("#campaign-form");
   const campaignName = document.querySelector("#campaign-name");
@@ -770,7 +738,6 @@ window.GMPostPreview = (() => {
       const name = document.querySelector(nameSelector);
       if (input && name && !input.files.length) setFileName(name, [], emptyText);
     });
-    if (logoPreview && !logoPreview.hidden) logoPreview.alt = language() === "es" ? "Vista previa del logotipo" : "Logo preview";
     renderContentPreview();
     renderChannelSummaries();
     renderSchedulePreview();

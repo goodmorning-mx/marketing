@@ -10,15 +10,17 @@ from typing import Literal
 import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials, HTTPBearer
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from psycopg.rows import dict_row
 from app.account_email import AccountEmail
 from app.config import get_settings
 from app import self_service
+from app.brand_assets import MAX_OUTPUT_BYTES, decode_logo
 from app.models import Base
 from app.adapters import router as adapters_router
 from sqlalchemy import create_engine, text
@@ -237,6 +239,7 @@ def startup_database():
                     ("workspace-accounts:1", "002_workspace_accounts.sql"),
                     ("marketing:owner-write-permission:1", "005_owner_marketing_permissions.sql"),
                     ("marketing:self-service-accounts:1", "007_self_service_accounts.sql"),
+                    ("marketing:workspace-brand-appearance:1", "008_workspace_brand_appearance.sql"),
                 ))
             for version, migration in migrations:
                 found = connection.execute("SELECT 1 FROM goodmarketing_schema_migrations WHERE version = %s", (version,)).fetchone()
@@ -516,6 +519,137 @@ def _brief_etag(organization_id: str, brief: dict | None) -> str:
     return '"bb-' + hashlib.sha256(payload.encode()).hexdigest() + '"'
 
 
+BRAND_TEMPLATES = {
+    "goodmarketing": ("#718ED1", "#000CE0", "#A0AECB", "#00010E", "#FEFEFE"),
+    "night-pulse": ("#46E582", "#147D49", "#AFD2BB", "#08120F", "#FEFEFE"),
+    "bright-bounce": ("#A0EF20", "#58A900", "#C8D9B5", "#0E180B", "#FEFEFE"),
+    "clear-form": ("#79BAFF", "#1769B4", "#B5C3D3", "#0D1219", "#FEFEFE"),
+    "forward": ("#FF8654", "#C34B25", "#DBC3B9", "#170B08", "#FEFEFE"),
+    "soft-focus": ("#F3A8BD", "#A95778", "#E2C8D0", "#170D13", "#FEFEFE"),
+    "loud-rebel": ("#D7B46A", "#765521", "#D5C9AE", "#100E0A", "#FEFEFE"),
+    "sunny-wit": ("#FFE01B", "#A78000", "#DDD29C", "#171407", "#FEFEFE"),
+    "open-canvas": ("#D4C7B2", "#76634C", "#D7D0C5", "#15130F", "#FEFEFE"),
+}
+MAX_ASSET_REQUEST_BYTES = 1_500_000
+
+
+class BrandAssetsInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    template_key: str | None
+    logo_action: Literal["keep", "replace", "remove"] = "keep"
+    logo_media_type: Literal["image/png", "image/jpeg", "image/webp", "image/svg+xml"] | None = None
+    logo_base64: str | None = None
+
+
+def _appearance_dict(row):
+    if row is None:
+        return None
+    logo_present = row["logo_size"] is not None
+    return {
+        "template_key": row["template_key"],
+        "colors": [row[f"color_{index}"].strip() for index in range(1, 6)],
+        "revision": row["revision"],
+        "logo": ({"media_type": "image/png", "sha256": row["logo_sha256"], "size": row["logo_size"], "width": row["logo_width"], "height": row["logo_height"]} if logo_present else None),
+    }
+
+
+def _appearance_etag(organization_id: str, assets: dict | None) -> str:
+    payload = json.dumps([organization_id, assets], ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return '"ba-' + hashlib.sha256(payload.encode()).hexdigest() + '"'
+
+
+def _read_appearance(connection, organization_id: str, *, lock: bool = False):
+    suffix = " FOR UPDATE" if lock else ""
+    return connection.execute(
+        "SELECT organization_id, revision, template_key, color_1, color_2, color_3, color_4, color_5, logo_sha256, logo_size, logo_width, logo_height FROM goodmarketing_brand_appearances WHERE organization_id = %s" + suffix,
+        (organization_id,),
+    ).fetchone()
+
+
+def _validate_appearance(payload: BrandAssetsInput) -> tuple[list[str], bytes | None, dict | None]:
+    if payload.template_key is not None and payload.template_key not in BRAND_TEMPLATES:
+        raise HTTPException(status_code=422, detail="Choose a supported brand template.")
+    colors = list(BRAND_TEMPLATES[payload.template_key or "goodmarketing"])
+    has_encoded = payload.logo_base64 is not None
+    has_type = payload.logo_media_type is not None
+    logo = None
+    logo_metadata = None
+    if payload.logo_action == "replace":
+        if not has_encoded or not has_type:
+            raise HTTPException(status_code=422, detail="Choose a valid logo file before saving.")
+        try:
+            logo = decode_logo(payload.logo_base64, payload.logo_media_type)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if len(logo.data) > MAX_OUTPUT_BYTES:
+            raise HTTPException(status_code=422, detail="Processed logo is too large to save.")
+        logo_metadata = {"sha256": hashlib.sha256(logo.data).hexdigest(), "size": len(logo.data), "width": logo.width, "height": logo.height}
+    elif has_encoded or has_type:
+        raise HTTPException(status_code=422, detail="Logo data is only accepted when replacing the logo.")
+    return colors, logo.data if logo else None, logo_metadata
+
+
+async def _read_bounded_body(request: Request) -> bytes:
+    content_length = request.headers.get("content-length")
+    if content_length and (not content_length.isdigit() or int(content_length) > MAX_ASSET_REQUEST_BYTES):
+        raise HTTPException(status_code=413, detail="Brand assets request is too large.")
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > MAX_ASSET_REQUEST_BYTES:
+            raise HTTPException(status_code=413, detail="Brand assets request is too large.")
+    return bytes(body)
+
+
+def _save_brand_assets(body: bytes, validator: str, organization_id: str) -> tuple[dict, str]:
+    try:
+        value = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError, RecursionError) as exc:
+        raise HTTPException(status_code=400, detail="Brand assets request is not valid JSON.") from exc
+    if not isinstance(value, dict):
+        raise HTTPException(status_code=422, detail="Brand assets request must be a JSON object.")
+    try:
+        payload = BrandAssetsInput.model_validate(value)
+    except (ValidationError, RecursionError) as exc:
+        raise HTTPException(status_code=422, detail="Brand assets request is invalid.") from exc
+    colors, replacement, logo_metadata = _validate_appearance(payload)
+    with database_connection() as connection:
+        current_row = _read_appearance(connection, organization_id, lock=True)
+        current = _appearance_dict(current_row)
+        if _appearance_etag(organization_id, current) != validator:
+            raise HTTPException(status_code=412, detail="Brand assets changed. Reload before saving.")
+        if current_row is None:
+            logo_bytes = replacement if payload.logo_action == "replace" else None
+            logo_sha = logo_metadata["sha256"] if logo_metadata else None
+            logo_size = logo_metadata["size"] if logo_metadata else None
+            logo_width = logo_metadata["width"] if logo_metadata else None
+            logo_height = logo_metadata["height"] if logo_metadata else None
+            inserted = connection.execute(
+                "INSERT INTO goodmarketing_brand_appearances (organization_id, revision, template_key, color_1, color_2, color_3, color_4, color_5, logo_bytes, logo_sha256, logo_size, logo_width, logo_height) VALUES (%s, 1, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING RETURNING organization_id",
+                (organization_id, payload.template_key, *colors, logo_bytes, logo_sha, logo_size, logo_width, logo_height),
+            ).fetchone()
+            if inserted is None:
+                raise HTTPException(status_code=412, detail="Brand assets changed. Reload before saving.")
+        elif payload.logo_action == "keep":
+            updated = connection.execute(
+                "UPDATE goodmarketing_brand_appearances SET revision = revision + 1, template_key = %s, color_1 = %s, color_2 = %s, color_3 = %s, color_4 = %s, color_5 = %s, updated_at = now() WHERE organization_id = %s AND revision = %s RETURNING organization_id",
+                (payload.template_key, *colors, organization_id, current_row["revision"]),
+            ).fetchone()
+            if updated is None:
+                raise HTTPException(status_code=412, detail="Brand assets changed. Reload before saving.")
+        else:
+            logo_values = (replacement, logo_metadata["sha256"], logo_metadata["size"], logo_metadata["width"], logo_metadata["height"]) if payload.logo_action == "replace" else (None, None, None, None, None)
+            updated = connection.execute(
+                "UPDATE goodmarketing_brand_appearances SET revision = revision + 1, template_key = %s, color_1 = %s, color_2 = %s, color_3 = %s, color_4 = %s, color_5 = %s, logo_bytes = %s, logo_sha256 = %s, logo_size = %s, logo_width = %s, logo_height = %s, updated_at = now() WHERE organization_id = %s AND revision = %s RETURNING organization_id",
+                (payload.template_key, *colors, *logo_values, organization_id, current_row["revision"]),
+            ).fetchone()
+            if updated is None:
+                raise HTTPException(status_code=412, detail="Brand assets changed. Reload before saving.")
+        saved_row = _read_appearance(connection, organization_id)
+    assets = _appearance_dict(saved_row)
+    return assets, _appearance_etag(organization_id, assets)
+
+
 def _brief_dict(row):
     if row is None:
         return None
@@ -563,6 +697,47 @@ def write_brand_brief(payload: BrandBriefInput, request: Request, response: Resp
     response.headers["ETag"] = _brief_etag(identity.organization_id, saved)
     response.headers["Cache-Control"] = "private, no-store"
     return {"brief": saved}
+
+
+@app.get("/workspace/brand-assets")
+def read_brand_assets(response: Response, identity: AuthIdentity = Depends(current_customer)):
+    if "workspace:read" not in identity.permissions:
+        raise HTTPException(status_code=403, detail="Workspace access is not permitted.")
+    with database_connection() as connection:
+        row = _read_appearance(connection, identity.organization_id)
+    assets = _appearance_dict(row)
+    response.headers["ETag"] = _appearance_etag(identity.organization_id, assets)
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return {"assets": assets}
+
+
+@app.get("/workspace/brand-assets/logo")
+def read_brand_logo(identity: AuthIdentity = Depends(current_customer)):
+    if "workspace:read" not in identity.permissions:
+        raise HTTPException(status_code=403, detail="Workspace access is not permitted.")
+    with database_connection() as connection:
+        row = connection.execute("SELECT logo_bytes FROM goodmarketing_brand_appearances WHERE organization_id = %s", (identity.organization_id,)).fetchone()
+    if row is None or row["logo_bytes"] is None:
+        raise HTTPException(status_code=404, detail="No saved logo.", headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+    return Response(content=bytes(row["logo_bytes"]), media_type="image/png", headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Content-Disposition": 'inline; filename="brand-logo.png"'})
+
+
+@app.put("/workspace/brand-assets")
+async def write_brand_assets(request: Request, response: Response, identity: AuthIdentity = Depends(current_customer)):
+    if "owner" not in identity.roles or "marketing:write" not in identity.permissions:
+        raise HTTPException(status_code=403, detail="Marketing updates are not permitted.")
+    validator = request.headers.get("If-Match")
+    if validator is None:
+        raise HTTPException(status_code=428, detail="If-Match is required.")
+    if validator.startswith("W/") or validator == "*" or not re.fullmatch(r'"ba-[0-9a-f]{64}"', validator):
+        raise HTTPException(status_code=400, detail="Unsupported If-Match validator.")
+    body = await _read_bounded_body(request)
+    assets, etag = await run_in_threadpool(_save_brand_assets, body, validator, identity.organization_id)
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return {"assets": assets}
 
 
 @app.post("/demo-requests", status_code=status.HTTP_201_CREATED)

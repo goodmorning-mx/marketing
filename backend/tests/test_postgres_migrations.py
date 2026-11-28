@@ -40,6 +40,7 @@ def test_gm_auth_migrations_succeed_on_first_and_repeated_startup(monkeypatch):
             "marketing:workspace-brand-asset-extensions:1",
             "marketing:workspace-campaigns:1",
             "marketing:workspace-content-media:1",
+            "marketing:dev-account-provenance:1",
         }
         assert {
             "gm_auth_users", "gm_auth_organizations", "gm_auth_memberships",
@@ -48,6 +49,11 @@ def test_gm_auth_migrations_succeed_on_first_and_repeated_startup(monkeypatch):
             "brands", "campaigns", "content_items",
             "platform_connections", "publish_jobs", "demo_requests",
         } <= {row[0] for row in tables}
+        with psycopg.connect(connection_url) as connection:
+            columns = {row[0] for row in connection.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'goodmarketing_workspace_profiles'"
+            ).fetchall()}
+        assert "dev_managed_owner_user_id" in columns
     finally:
         if main.auth_service is not None:
             main.auth_service.engine.dispose()
@@ -159,7 +165,7 @@ def test_migrations_replay_over_preexisting_adapters_schema_without_losing_data(
         assert campaign_columns["workspace_id"] == "YES"
         assert campaign_columns["duration_days"] == "YES"
         assert campaign_columns["posting_frequency"] == "YES"
-        assert version_count == 12
+        assert version_count == 13
     finally:
         if main._runtime_engine is not None:
             main._runtime_engine.dispose()

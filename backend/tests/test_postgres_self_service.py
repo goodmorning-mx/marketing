@@ -1,4 +1,5 @@
 import os
+import secrets
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from uuid import uuid4
@@ -208,3 +209,48 @@ def test_delivery_failure_keeps_resend_usable_and_auth_errors_redacted(account_s
     with engine.connect() as conn:
         assert conn.scalar(text("SELECT token_hash FROM goodmarketing_email_verifications WHERE token_hash = :hash"),
                            {"hash": digest(token)}) is None
+
+
+def test_dev_manual_access_gates_only_browser_initiation(account_stack, monkeypatch):
+    engine, mailbox = account_stack
+    monkeypatch.setattr(main.settings, "app_env", "dev")
+    monkeypatch.setenv("ACCOUNT_DEV_MANUAL_ACCESS", "true")
+    access = client().get("/auth/account-access")
+    assert access.status_code == 200
+    assert access.json() == {"manual_access": True}
+    assert access.headers["cache-control"] == "no-store"
+
+    registration = post(REGISTER, {"email": f"manual-{uuid4()}@example.net"})
+    reset = post(RESET, {"email": f"manual-{uuid4()}@example.net"})
+    assert registration.status_code == reset.status_code == 403
+    assert registration.json() == reset.json() == {"code": "manual_dev_access"}
+    assert registration.headers["cache-control"] == reset.headers["cache-control"] == "no-store"
+    assert not mailbox.messages
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT count(*) FROM goodmarketing_email_verifications")).scalar_one() == 0
+        assert connection.execute(text("SELECT count(*) FROM gm_auth_password_resets")).scalar_one() == 0
+
+    service = main.account_service()
+    service.create_organization(organization_id="manual-bearer-org", slug="manual-bearer-org", name="Manual Bearer")
+    manual_password = secrets.token_urlsafe(24)
+    service.create_user(email="manual-bearer@example.net", name="Manual Bearer", password=manual_password,
+                        organization_id="manual-bearer-org", roles={"owner"}, permissions={"workspace:read", "marketing:write"})
+    legacy_reset = client().post("/auth/password-reset/request", json={"email": "manual-bearer@example.net"})
+    login = post("/auth/session/login", {"email": "manual-bearer@example.net", "password": manual_password})
+    assert legacy_reset.status_code == 200
+    assert login.status_code == 200
+
+    monkeypatch.setenv("ACCOUNT_DEV_MANUAL_ACCESS", "false")
+    assert client().get("/auth/account-access").json() == {"manual_access": False}
+    assert post(REGISTER, {"email": f"normal-{uuid4()}@example.net"}).status_code == 202
+    assert post(RESET, {"email": "manual-bearer@example.net"}).status_code == 202
+    assert len(mailbox.messages) == 2
+
+
+def test_dev_manual_access_is_inert_outside_exact_dev_setting(account_stack, monkeypatch):
+    monkeypatch.setenv("ACCOUNT_DEV_MANUAL_ACCESS", "true")
+    monkeypatch.setattr(main.settings, "app_env", "production")
+    access = client().get("/auth/account-access")
+    assert access.status_code == 200
+    assert access.json() == {"manual_access": False}
+    assert post(REGISTER, {"email": f"normal-{uuid4()}@example.net"}).status_code == 202

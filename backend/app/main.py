@@ -262,6 +262,7 @@ def startup_database():
                     ("marketing:workspace-brand-asset-extensions:1", "009_workspace_brand_asset_extensions.sql"),
                     ("marketing:workspace-campaigns:1", "010_workspace_campaigns.sql"),
                     ("marketing:workspace-content-media:1", "011_workspace_content_media.sql"),
+                    ("marketing:dev-account-provenance:1", "012_dev_account_provenance.sql"),
                 ))
             for version, migration in migrations:
                 found = connection.execute("SELECT 1 FROM goodmarketing_schema_migrations WHERE version = %s", (version,)).fetchone()
@@ -305,10 +306,26 @@ def limit_account_request(service: AuthService, request: Request, action: str, e
     self_service.limit(service.engine, action=action, email=email, address=peer)
 
 
+def account_dev_manual_access_enabled() -> bool:
+    return settings.app_env == "dev" and os.getenv("ACCOUNT_DEV_MANUAL_ACCESS") == "true"
+
+
+@app.get("/auth/account-access")
+def account_access(response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return {"manual_access": account_dev_manual_access_enabled()}
+
+
+def manual_access_denied():
+    return JSONResponse(status_code=403, content={"code": "manual_dev_access"}, headers={"Cache-Control": "no-store"})
+
+
 @app.post("/auth/registration/request", status_code=202)
-def start_registration(payload: self_service.EmailRequest, request: Request, response: Response,
-                       service: AuthService = Depends(account_service)):
+def start_registration(payload: self_service.EmailRequest, request: Request, response: Response):
     require_allowed_origin(request)
+    if account_dev_manual_access_enabled():
+        return manual_access_denied()
+    service = account_service()
     email = str(payload.email).lower()
     limit_account_request(service, request, "registration", email)
     mailer = AccountEmail(settings.allowed_origins, settings.app_env)
@@ -328,9 +345,11 @@ def finish_registration(payload: self_service.RegistrationConfirmation, request:
 
 
 @app.post("/auth/session/password-reset/request", status_code=202)
-def start_browser_reset(payload: self_service.EmailRequest, request: Request, response: Response,
-                        service: AuthService = Depends(account_service)):
+def start_browser_reset(payload: self_service.EmailRequest, request: Request, response: Response):
     require_allowed_origin(request)
+    if account_dev_manual_access_enabled():
+        return manual_access_denied()
+    service = account_service()
     email = str(payload.email).lower()
     limit_account_request(service, request, "reset", email)
     mailer = AccountEmail(settings.allowed_origins, settings.app_env)

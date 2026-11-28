@@ -9,12 +9,14 @@
     en: {
       sending: 'Sending…', accepted: 'If this address is eligible, check your inbox. If nothing arrives, submit your email again.',
       retry: 'We could not complete that request right now. Please try again.',
+      manual: 'Marketing DEV access and password changes are managed manually for now. Ask the GoodMarketing team for help.',
       validation: 'Check the information and try again.',
       invalid: 'This link is invalid, expired, or already used. Request a new link to continue.',
     },
     es: {
       sending: 'Enviando…', accepted: 'Si esta dirección cumple los requisitos, revisa tu bandeja de entrada. Si no llega el mensaje, vuelve a enviar tu correo.',
       retry: 'No pudimos completar la solicitud ahora. Inténtalo de nuevo.',
+      manual: 'El acceso y los cambios de contraseña de Marketing DEV se gestionan manualmente por ahora. Solicita ayuda al equipo de GoodMarketing.',
       validation: 'Revisa la información e inténtalo de nuevo.',
       invalid: 'Este enlace no es válido, venció o ya se utilizó. Solicita un enlace nuevo para continuar.',
     }
@@ -31,10 +33,40 @@
   const setError = (notice, text) => { notice.textContent = text; notice.style.color = '#ffb8b8'; };
   const setStatus = (notice, text) => { notice.textContent = text; notice.style.color = ''; };
   const setBusy = (form, busy) => { form.querySelector('button[type="submit"]').disabled = busy; };
+  let manualAccess = false;
+  const accountRequestForm = document.querySelector('#register-form, #forgot-form');
+  const showManualAccess = () => {
+    if (!accountRequestForm) return;
+    const notice = document.querySelector('#manual-access-notice');
+    if (notice) { notice.textContent = messages[lang()].manual; notice.hidden = false; }
+    const intro = document.querySelector('#account-access-intro');
+    if (intro) intro.hidden = true;
+    accountRequestForm.hidden = true;
+  };
+  const checkManualAccess = async () => {
+    if (!accountRequestForm) return;
+    try {
+      const response = await fetch(api + '/auth/account-access', { credentials: 'include', cache: 'no-store' });
+      if (!response.ok) return;
+      const mode = await response.json();
+      if (mode.manual_access === true) { manualAccess = true; showManualAccess(); }
+    } catch { /* Keep the existing form available; server enforcement handles a mode change race. */ }
+  };
+  const isManualAccessRejection = async (response) => {
+    if (response.status !== 403) return false;
+    const body = await response.clone().json().catch(() => ({}));
+    if (body.code !== 'manual_dev_access') return false;
+    manualAccess = true;
+    showManualAccess();
+    return true;
+  };
+  document.addEventListener('goodmarketing:language-change', () => { if (manualAccess) showManualAccess(); });
+  checkManualAccess();
 
   const register = document.querySelector('#register-form');
   if (register) register.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (manualAccess) { showManualAccess(); return; }
     const notice = noticeFor(), button = register.querySelector('button');
     const email = register.elements.email.value.trim();
     if (email.length > 254) { register.elements.email.setCustomValidity(lang() === 'es' ? 'Usa un correo de hasta 254 caracteres.' : 'Use an email address up to 254 characters.'); register.elements.email.reportValidity(); return; }
@@ -42,6 +74,7 @@
     try {
       const response = await post('/auth/registration/request', { email, locale: lang() });
       if (response.status === 202) { setStatus(notice, messages[lang()].accepted); register.reset(); }
+      else if (await isManualAccessRejection(response)) return;
       else if (response.status === 422) setError(notice, messages[lang()].validation);
       else setError(notice, messages[lang()].retry);
     } catch { setError(notice, messages[lang()].retry); }
@@ -71,12 +104,14 @@
   const forgot = document.querySelector('#forgot-form');
   if (forgot) forgot.addEventListener('submit', async (event) => {
     event.preventDefault(); const notice = noticeFor(), button = forgot.querySelector('button');
+    if (manualAccess) { showManualAccess(); return; }
     const email = forgot.elements.email.value.trim();
     if (email.length > 254) { forgot.elements.email.setCustomValidity(lang() === 'es' ? 'Usa un correo de hasta 254 caracteres.' : 'Use an email address up to 254 characters.'); forgot.elements.email.reportValidity(); return; }
     forgot.elements.email.setCustomValidity(''); setBusy(forgot, true); setStatus(notice, messages[lang()].sending);
     try {
       const response = await post('/auth/session/password-reset/request', { email, locale: lang() });
       if (response.status === 202) { setStatus(notice, messages[lang()].accepted); forgot.reset(); }
+      else if (await isManualAccessRejection(response)) return;
       else if (response.status === 422) setError(notice, messages[lang()].validation);
       else setError(notice, messages[lang()].retry);
     } catch { setError(notice, messages[lang()].retry); }

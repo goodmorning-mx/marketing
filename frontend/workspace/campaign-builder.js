@@ -12,7 +12,8 @@
   let statusKey = "";
   const copy = {
     loading: () => spanish() ? "Cargando campaña…" : "Loading campaign…",
-    unavailable: () => spanish() ? "Esta campaña no está disponible." : "This campaign is unavailable.",
+    unavailableCampaign: () => spanish() ? "Esta campaña no está disponible." : "This campaign is unavailable.",
+    unavailableField: () => spanish() ? "No disponible" : "Unavailable",
     legacy: () => spanish() ? "La duración o frecuencia anterior no está disponible; guarda solo valores conocidos o elige un valor nuevo." : "Legacy duration or frequency is unavailable; save only fields with known values unless you choose a new value.",
     saving: () => spanish() ? "Guardando borrador…" : "Saving campaign draft…",
     saved: () => spanish() ? "Se guardó el borrador." : "Campaign draft saved.",
@@ -20,7 +21,6 @@
     invalid: () => spanish() ? "Revisa los campos e inténtalo de nuevo. Tus cambios siguen aquí." : "Review the campaign fields and try again. Your edits are still here.",
     failed: () => spanish() ? "No se pudo guardar la campaña. Tus cambios siguen aquí; inténtalo de nuevo." : "Could not save the campaign. Your edits are still here; try again.",
     required: () => spanish() ? "Escribe un nombre para guardar la campaña." : "Enter a campaign name to save the campaign.",
-    unavailable: () => spanish() ? "No disponible" : "Unavailable",
     setDuration: () => spanish() ? "Usar duración de 30 días" : "Set duration to 30 days",
     setFrequency: () => spanish() ? "Usar frecuencia media" : "Set medium frequency",
   };
@@ -37,7 +37,7 @@
     document.addEventListener("goodmarketing:language-change", () => { if (button.isConnected) button.textContent = getLabel(); });
   }
   async function loadForEdit() {
-    status.textContent = copy.loading();
+    statusKey = "loading"; status.textContent = copy.loading();
     try {
       const result = await GMAuth.request(`/workspace/campaigns/${encodeURIComponent(editingId)}`);
       if (!result.ok) throw new Error();
@@ -49,7 +49,7 @@
         hydrating = true; duration.value = loadedCampaign.duration_days;
         duration.dispatchEvent(new Event("input", { bubbles: true })); hydrating = false;
       } else {
-        duration.disabled = true; if (durationOutput) { durationOutput.textContent = copy.unavailable(); duration.setAttribute("aria-valuetext", copy.unavailable()); }
+        duration.disabled = true; if (durationOutput) { durationOutput.textContent = copy.unavailableField(); duration.setAttribute("aria-valuetext", copy.unavailableField()); }
         const durationField = duration.closest("fieldset");
         addUnavailableChoice(durationField, "set-missing-duration", copy.setDuration, () => {
           duration.disabled = false; duration.value = "30"; hydrating = true; duration.dispatchEvent(new Event("input", { bubbles: true })); hydrating = false; durationTouched = true;
@@ -72,19 +72,19 @@
       }
       statusKey = ""; status.textContent = "";
       readyToSave = true; if (button) button.disabled = false;
-    } catch { status.textContent = copy.unavailable(); if (button) button.disabled = true; }
+    } catch { statusKey = "unavailableCampaign"; status.textContent = copy.unavailableCampaign(); if (button) button.disabled = true; }
   }
   async function save() {
     if (saving || !readyToSave) return;
     if (!name.value.trim()) { name.setAttribute("aria-invalid", "true"); const error = document.querySelector("#campaign-name-error"); if (error) error.hidden = false; statusKey = ""; status.textContent = ""; name.focus(); return; }
     name.removeAttribute("aria-invalid");
-    saving = true; button.disabled = true; status.textContent = copy.saving();
+    saving = true; button.disabled = true; statusKey = "saving"; status.textContent = copy.saving();
     try {
       const data = payload();
       const result = await GMAuth.request(editingId ? `/workspace/campaigns/${encodeURIComponent(editingId)}` : "/workspace/campaigns", {
         method: editingId ? "PUT" : "POST", headers: { ...(editingId ? { "If-Match": etag } : { "Idempotency-Key": requestId }) }, body: JSON.stringify(data)
       });
-      if (result.status === 412) throw new Error(copy.stale());
+      if (result.status === 412) { statusKey = "stale"; throw new Error(copy.stale()); }
       if (result.status === 422) { statusKey = "invalid"; throw new Error(copy.invalid()); }
       if (result.status === 409 && !editingId) {
         const conflict = await result.json().catch(() => ({}));
@@ -93,15 +93,16 @@
         if (campaignId) { const link = document.createElement("a"); link.href = `/workspace/campaigns/detail/?id=${encodeURIComponent(campaignId)}`; link.textContent = spanish() ? "Abrir borrador guardado" : "Open saved draft"; status.append(link); }
         statusKey = ""; return;
       }
-      if (!result.ok) throw new Error(copy.failed());
+      if (!result.ok) { statusKey = "failed"; throw new Error(copy.failed()); }
       const saved = (await result.json()).campaign;
       statusKey = "saved";
       status.textContent = copy.saved();
+      try { sessionStorage.setItem("gm-campaign-navigation-status", JSON.stringify({ workspace: GMAuth.identity.organization_id, id: String(saved.id), path: "/workspace/campaigns/detail/", message: "saved" })); } catch {}
       location.assign(`/workspace/campaigns/detail/?id=${encodeURIComponent(saved.id)}`);
     } catch (error) {
       if (error.message === copy.stale()) statusKey = "stale";
       else if (error.message === copy.invalid()) statusKey = "invalid";
-      else if (error.message === copy.failed() || error.message === "Failed to fetch") statusKey = "failed";
+      else if (error.message === copy.failed() || error.message === "Failed to fetch" || statusKey === "saving") statusKey = "failed";
       status.textContent = statusKey ? copy[statusKey]() : error.message;
     }
     finally { saving = false; button.disabled = false; }
@@ -113,6 +114,6 @@
     if (statusKey) status.textContent = copy[statusKey]();
     const note = document.querySelector("#campaign-legacy-note"); if (note) note.textContent = copy.legacy();
     const durationOutput = document.querySelector("[data-strategy-duration-output]");
-    if (editingId && loadedCampaign && !loadedCampaign.duration_days && duration.disabled && durationOutput) { durationOutput.textContent = copy.unavailable(); duration.setAttribute("aria-valuetext", copy.unavailable()); }
+    if (editingId && loadedCampaign && !loadedCampaign.duration_days && duration.disabled && durationOutput) { durationOutput.textContent = copy.unavailableField(); duration.setAttribute("aria-valuetext", copy.unavailableField()); }
   });
 })();

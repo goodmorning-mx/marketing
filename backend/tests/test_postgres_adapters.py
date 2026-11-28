@@ -176,7 +176,11 @@ def test_existing_adapters_schema_keeps_rows_and_gains_missing_fields(monkeypatc
             main.startup_database()
             with psycopg.connect(connection_url) as connection:
                 after = _legacy_rows(connection)
-                assert _foreign_keys(connection) == foreign_keys
+                migrated_foreign_keys = _foreign_keys(connection)
+                assert set(foreign_keys) <= set(migrated_foreign_keys)
+                assert set(migrated_foreign_keys) - set(foreign_keys) == {
+                    ("campaigns", "FOREIGN KEY (workspace_id) REFERENCES gm_auth_organizations(id) ON DELETE CASCADE")
+                }
                 for table in LEGACY_TABLES:
                     old_columns = before[table][0].keys()
                     assert [{key: row[key] for key in old_columns} for row in after[table]] == before[table], table

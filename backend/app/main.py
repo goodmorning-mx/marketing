@@ -39,9 +39,8 @@ from gm_auth import AuthIdentity, AuthService, AuthSettings, create_auth_router
 from gm_auth.models import metadata as gm_auth_metadata
 
 settings = get_settings()
-# Sol must replace this disabled marker with SHA-256 of
-# f"{normalized_email}\0{credential}".encode() before DEV enrollment is available.
-DEV_ENROLLMENT_PAIR_SHA256 = "DISABLED: Sol must install the authorized DEV enrollment digest"
+# SHA-256 of the normalized email, a NUL separator, and the one-time DEV credential.
+DEV_ENROLLMENT_PAIR_SHA256 = "8167c1d0a712008470a08468e22985b5ffd2f9eaa3d80acba47c1e2aaf37c5b7"
 app = FastAPI(title=settings.app_name, version="0.1.0")
 origins = settings.allowed_origins
 app.add_middleware(

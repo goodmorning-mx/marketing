@@ -211,46 +211,139 @@ def test_delivery_failure_keeps_resend_usable_and_auth_errors_redacted(account_s
                            {"hash": digest(token)}) is None
 
 
-def test_dev_manual_access_gates_only_browser_initiation(account_stack, monkeypatch):
-    engine, mailbox = account_stack
+def test_dev_enrollment_is_disabled_outside_dev_and_email_flows_remain(account_stack, monkeypatch):
+    _, mailbox = account_stack
+    email = "synthetic-guard@example.net"
+    credential = secrets.token_urlsafe(32)
+    monkeypatch.setattr(main, "DEV_ENROLLMENT_PAIR_SHA256",
+                        __import__("hashlib").sha256(f"{email}\0{credential}".encode()).hexdigest())
+    valid = {"email": email, "credential": credential, "name": "Synthetic", "workspace_name": "Synthetic",
+             "password": secrets.token_urlsafe(24)}
+    for environment in ("production", "local"):
+        monkeypatch.setattr(main.settings, "app_env", environment)
+        status = client().get("/auth/dev-enrollment")
+        assert status.json() == {"available": False}
+        assert status.headers["cache-control"] == "no-store"
+        assert post("/auth/dev-enrollment", valid).status_code == 404
     monkeypatch.setattr(main.settings, "app_env", "dev")
-    monkeypatch.setenv("ACCOUNT_DEV_MANUAL_ACCESS", "true")
-    access = client().get("/auth/account-access")
-    assert access.status_code == 200
-    assert access.json() == {"manual_access": True}
-    assert access.headers["cache-control"] == "no-store"
-
-    registration = post(REGISTER, {"email": f"manual-{uuid4()}@example.net"})
-    reset = post(RESET, {"email": f"manual-{uuid4()}@example.net"})
-    assert registration.status_code == reset.status_code == 403
-    assert registration.json() == reset.json() == {"code": "manual_dev_access"}
-    assert registration.headers["cache-control"] == reset.headers["cache-control"] == "no-store"
-    assert not mailbox.messages
-    with engine.connect() as connection:
-        assert connection.execute(text("SELECT count(*) FROM goodmarketing_email_verifications")).scalar_one() == 0
-        assert connection.execute(text("SELECT count(*) FROM gm_auth_password_resets")).scalar_one() == 0
-
-    service = main.account_service()
-    service.create_organization(organization_id="manual-bearer-org", slug="manual-bearer-org", name="Manual Bearer")
-    manual_password = secrets.token_urlsafe(24)
-    service.create_user(email="manual-bearer@example.net", name="Manual Bearer", password=manual_password,
-                        organization_id="manual-bearer-org", roles={"owner"}, permissions={"workspace:read", "marketing:write"})
-    legacy_reset = client().post("/auth/password-reset/request", json={"email": "manual-bearer@example.net"})
-    login = post("/auth/session/login", {"email": "manual-bearer@example.net", "password": manual_password})
-    assert legacy_reset.status_code == 200
-    assert login.status_code == 200
-
-    monkeypatch.setenv("ACCOUNT_DEV_MANUAL_ACCESS", "false")
-    assert client().get("/auth/account-access").json() == {"manual_access": False}
-    assert post(REGISTER, {"email": f"normal-{uuid4()}@example.net"}).status_code == 202
-    assert post(RESET, {"email": "manual-bearer@example.net"}).status_code == 202
+    status = client().get("/auth/dev-enrollment")
+    assert status.json() == {"available": True}
+    assert status.headers["cache-control"] == "no-store"
+    normal_email = f"normal-{uuid4()}@example.net"
+    register(mailbox, normal_email)
+    assert post(RESET, {"email": normal_email}).status_code == 202
     assert len(mailbox.messages) == 2
 
 
-def test_dev_manual_access_is_inert_outside_exact_dev_setting(account_stack, monkeypatch):
-    monkeypatch.setenv("ACCOUNT_DEV_MANUAL_ACCESS", "true")
-    monkeypatch.setattr(main.settings, "app_env", "production")
-    access = client().get("/auth/account-access")
-    assert access.status_code == 200
-    assert access.json() == {"manual_access": False}
-    assert post(REGISTER, {"email": f"normal-{uuid4()}@example.net"}).status_code == 202
+def test_dev_enrollment_one_time_atomic_owner_session_and_redaction(account_stack, monkeypatch):
+    engine, mailbox = account_stack
+    monkeypatch.setattr(main.settings, "app_env", "dev")
+    email = "synthetic-enrollment@example.net"
+    credential = secrets.token_urlsafe(32)
+    password = secrets.token_urlsafe(24)
+    pair = f"{email}\0{credential}"
+    monkeypatch.setattr(main, "DEV_ENROLLMENT_PAIR_SHA256", __import__("hashlib").sha256(pair.encode()).hexdigest())
+    payload = {"email": email, "credential": credential, "name": "Synthetic Owner",
+               "workspace_name": "Synthetic Workspace", "password": password}
+    status = client().get("/auth/dev-enrollment")
+    assert status.json() == {"available": True}
+    assert status.headers["cache-control"] == "no-store"
+    assert post("/auth/dev-enrollment", payload, headers={}).status_code == 403
+
+    wrong = {**payload, "credential": secrets.token_urlsafe(32)}
+    response = post("/auth/dev-enrollment", wrong)
+    assert response.status_code == 403 and credential not in response.text and password not in response.text
+    wrong_email = {**payload, "email": "other@example.net"}
+    assert post("/auth/dev-enrollment", wrong_email).status_code == 403
+    invalid = {**payload, "password": "short"}
+    response = post("/auth/dev-enrollment", invalid)
+    assert response.status_code == 422 and "short" not in response.text
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(lambda _: post("/auth/dev-enrollment", payload), range(2)))
+    assert sorted(response.status_code for response in responses) == [201, 409]
+    assert all(response.headers["cache-control"] == "no-store" for response in responses)
+    assert client().get("/auth/dev-enrollment").json() == {"available": False}
+    with engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM gm_auth_users WHERE lower(email) = :email"), {"email": email}) == 1
+        assert conn.scalar(text("SELECT count(*) FROM goodmarketing_workspace_profiles")) == 1
+        assert conn.scalar(text("SELECT count(*) FROM goodmarketing_dev_enrollment WHERE id = 1")) == 1
+        owner_id = conn.scalar(text("SELECT id FROM gm_auth_users WHERE lower(email) = :email"), {"email": email})
+        org_id = conn.scalar(text("SELECT organization_id FROM gm_auth_memberships WHERE user_id = :id"), {"id": owner_id})
+        permissions = conn.scalar(text("SELECT permissions::text FROM gm_auth_memberships WHERE user_id = :id"), {"id": owner_id})
+        assert "owner" in conn.scalar(text("SELECT roles::text FROM gm_auth_memberships WHERE user_id = :id"), {"id": owner_id})
+        assert "marketing:write" in permissions
+
+    other_email = "isolation-owner@example.net"
+    register(mailbox, other_email, "Other Workspace")
+    with client() as owner, client() as other:
+        login = owner.post("/auth/session/login", headers=ORIGIN_HEADERS,
+                           json={"email": email, "password": password})
+        assert login.status_code == 200
+        assert owner.get("/auth/session/me").status_code == 200
+        assert owner.get("/workspace").json()["display_name"] == "Synthetic Workspace"
+        other_login = other.post("/auth/session/login", headers=ORIGIN_HEADERS,
+                                 json={"email": other_email, "password": PASSWORD})
+        assert other_login.status_code == 200
+        assert other.get("/workspace").json()["display_name"] == "Other Workspace"
+        assert other.get("/workspace", params={"organization_id": org_id}).json()["display_name"] == "Other Workspace"
+        campaign = owner.post("/workspace/campaigns", headers={**ORIGIN_HEADERS, "Idempotency-Key": str(uuid4())},
+                              json={"name": "Private owner campaign", "objective": "Isolation check",
+                                    "platforms": ["facebook"], "duration_days": 30,
+                                    "posting_frequency": "medium"})
+        assert campaign.status_code == 201
+        campaign_id = campaign.json()["campaign"]["id"]
+        assert other.get(f"/workspace/campaigns/{campaign_id}").status_code == 404
+        refresh = owner.post("/auth/session/refresh", headers=ORIGIN_HEADERS)
+        assert refresh.status_code == 200
+        assert owner.post("/auth/session/logout", headers=ORIGIN_HEADERS).status_code == 204
+        assert owner.get("/auth/session/me").status_code == 401
+
+    # The slot remains spent if its owner is later deleted or the API restarts.
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM gm_auth_users WHERE id = :id"), {"id": owner_id})
+        conn.execute(text("DELETE FROM goodmarketing_workspace_profiles WHERE organization_id = :id"), {"id": org_id})
+        conn.execute(text("DELETE FROM gm_auth_organizations WHERE id = :id"), {"id": org_id})
+        assert conn.scalar(text("SELECT count(*) FROM gm_auth_users WHERE id = :id"), {"id": owner_id}) == 0
+        assert conn.scalar(text("SELECT count(*) FROM gm_auth_organizations WHERE id = :id"), {"id": org_id}) == 0
+    main.startup_database()
+    retry = post("/auth/dev-enrollment", payload)
+    assert retry.status_code == 409
+
+
+def test_dev_enrollment_conflicts_with_mixed_case_existing_identity_without_changes(account_stack, monkeypatch):
+    engine, _ = account_stack
+    monkeypatch.setattr(main.settings, "app_env", "dev")
+    normalized_email = "existing-dev@example.net"
+    credential = secrets.token_urlsafe(32)
+    monkeypatch.setattr(main, "DEV_ENROLLMENT_PAIR_SHA256",
+                        __import__("hashlib").sha256(f"{normalized_email}\0{credential}".encode()).hexdigest())
+    service = main.account_service()
+    with engine.begin() as conn:
+        organization_id = main.self_service.create_owner_workspace(
+            conn, service, email=normalized_email, name="Existing Owner",
+            workspace_name="Existing Workspace", password=PASSWORD
+        )
+        owner_id = conn.scalar(text("SELECT id FROM gm_auth_users WHERE email = :email"), {"email": normalized_email})
+
+    with client() as browser:
+        login = browser.post("/auth/session/login", headers=ORIGIN_HEADERS,
+                             json={"email": normalized_email, "password": PASSWORD})
+        assert login.status_code == 200
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE gm_auth_users SET email = :email WHERE id = :id"),
+                         {"email": "Existing-Dev@Example.Net", "id": owner_id})
+        request = {"email": "EXISTING-DEV@example.net", "credential": credential,
+                   "name": "Attacker Name", "workspace_name": "Replacement Workspace",
+                   "password": secrets.token_urlsafe(24)}
+        response = post("/auth/dev-enrollment", request)
+        assert response.status_code == 409
+        assert request["password"] not in response.text and credential not in response.text
+        assert browser.get("/auth/session/me").status_code == 200
+        assert browser.get("/workspace").json()["display_name"] == "Existing Workspace"
+
+    with engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM gm_auth_users WHERE lower(email) = :email"),
+                           {"email": normalized_email}) == 1
+        assert conn.scalar(text("SELECT count(*) FROM goodmarketing_workspace_profiles")) == 1
+        assert conn.scalar(text("SELECT count(*) FROM goodmarketing_dev_enrollment")) == 0

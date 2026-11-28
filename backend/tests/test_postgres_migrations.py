@@ -40,20 +40,16 @@ def test_gm_auth_migrations_succeed_on_first_and_repeated_startup(monkeypatch):
             "marketing:workspace-brand-asset-extensions:1",
             "marketing:workspace-campaigns:1",
             "marketing:workspace-content-media:1",
-            "marketing:dev-account-provenance:1",
+            "marketing:dev-enrollment-slot:1",
         }
         assert {
             "gm_auth_users", "gm_auth_organizations", "gm_auth_memberships",
             "gm_auth_refresh_sessions", "goodmarketing_workspace_profiles",
             "goodmarketing_invitations", "goodmarketing_email_verifications", "goodmarketing_account_limits",
+            "goodmarketing_dev_enrollment",
             "brands", "campaigns", "content_items",
             "platform_connections", "publish_jobs", "demo_requests",
         } <= {row[0] for row in tables}
-        with psycopg.connect(connection_url) as connection:
-            columns = {row[0] for row in connection.execute(
-                "SELECT column_name FROM information_schema.columns WHERE table_name = 'goodmarketing_workspace_profiles'"
-            ).fetchall()}
-        assert "dev_managed_owner_user_id" in columns
     finally:
         if main.auth_service is not None:
             main.auth_service.engine.dispose()

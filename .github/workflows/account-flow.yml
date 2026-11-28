@@ -41,8 +41,8 @@ jobs:
         run: PYTHONPATH=. pytest -q tests
       - name: Test Brand Brief save recovery and conflict handling
         run: node --test frontend/tests/brand-brief-flow.test.cjs
-      - name: Test temporary DEV account access messaging
-        run: node --test frontend/tests/account-manual-access.test.cjs
+      - name: Test guarded temporary DEV enrollment UI
+        run: node --test frontend/tests/account-dev-enrollment.test.cjs
       - name: Check Brand Brief scripts
         run: node --check frontend/workspace/brand-brief-flow.js && node --check frontend/workspace/workspace.js
       - name: Check backend syntax

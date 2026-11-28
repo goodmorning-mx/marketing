@@ -5,4 +5,4 @@
 }
 
 .account-card form[hidden] { display: none; }
-#manual-access-notice[hidden], #account-access-intro[hidden] { display: none; }
+#account-access-intro[hidden] { display: none; }

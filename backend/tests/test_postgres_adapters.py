@@ -59,7 +59,7 @@ def test_base_migrations_run_without_auth_and_runtime_auth_migrations_apply_late
         }
         assert {"brands", "campaigns", "content_items", "platform_connections", "publish_jobs", "demo_requests"} <= tables
         assert {"gm_auth_users", "goodmarketing_invitations", "goodmarketing_email_verifications",
-                "goodmarketing_account_limits"}.isdisjoint(tables)
+                "goodmarketing_account_limits", "goodmarketing_dev_enrollment"}.isdisjoint(tables)
 
         monkeypatch.setenv("AUTH_JWT_SECRET", "synthetic-signing-key-only-for-postgres-tests")
         monkeypatch.setattr(main, "auth_service", None)
@@ -74,10 +74,11 @@ def test_base_migrations_run_without_auth_and_runtime_auth_migrations_apply_late
             "marketing:self-service-accounts:1", "marketing:workspace-brand-appearance:1",
             "marketing:workspace-brand-asset-extensions:1", "marketing:workspace-campaigns:1",
             "marketing:workspace-content-media:1",
-            "marketing:dev-account-provenance:1",
+            "marketing:dev-enrollment-slot:1",
         }
         assert {"gm_auth_users", "gm_auth_organizations", "goodmarketing_invitations", "goodmarketing_workspace_profiles",
-                "goodmarketing_email_verifications", "goodmarketing_account_limits"} <= all_tables
+                "goodmarketing_email_verifications", "goodmarketing_account_limits",
+                "goodmarketing_dev_enrollment"} <= all_tables
         assert {"goodmarketing_brand_appearances", "goodmarketing_brand_fonts"} <= all_tables
         with psycopg.connect(connection_url) as connection:
             columns = {row[0] for row in connection.execute("SELECT column_name FROM information_schema.columns WHERE table_schema = %s AND table_name = 'goodmarketing_brand_appearances'", (schema,))}
@@ -206,7 +207,7 @@ def test_existing_adapters_schema_keeps_rows_and_gains_missing_fields(monkeypatc
                     "marketing:workspace-brand-asset-extensions:1",
                     "marketing:workspace-campaigns:1",
                     "marketing:workspace-content-media:1",
-                    "marketing:dev-account-provenance:1",
+                    "marketing:dev-enrollment-slot:1",
                 }
                 if ledger is not None:
                     assert current_ledger == ledger

@@ -40,6 +40,21 @@ class RegistrationConfirmation(ResetConfirmation):
         return value.strip() if isinstance(value, str) else value
 
 
+class DevEnrollmentInput(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    email: EmailStr = Field(max_length=254)
+    credential: str = Field(min_length=32, max_length=256, pattern=r"^[A-Za-z0-9_-]+$")
+    name: str = Field(min_length=1, max_length=100)
+    workspace_name: str = Field(min_length=1, max_length=100)
+    password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("name", "workspace_name", mode="before")
+    @classmethod
+    def trim_dev_names(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
 def digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
@@ -134,18 +149,57 @@ def verify_and_provision(service: AuthService, payload: RegistrationConfirmation
             """), {"token_hash": token_hash}).scalar()
             if not claimed or connection.scalar(select(users.c.id).where(users.c.email == email)):
                 return False
-            organization_id = str(uuid4())
-            scoped = AuthService(TransactionScope(connection), service.settings, service.audit_hook)
-            scoped.create_organization(organization_id=organization_id, slug=organization_id, name=payload.workspace_name)
-            scoped.create_user(email=email, name=payload.name, password=payload.password, organization_id=organization_id,
-                               roles={"owner"}, permissions=OWNER_PERMISSIONS)
-            connection.execute(text("""
-                INSERT INTO goodmarketing_workspace_profiles (organization_id, display_name)
-                VALUES (:organization_id, :name)
-            """), {"organization_id": organization_id, "name": payload.workspace_name})
+            create_owner_workspace(connection, service, email=email, name=payload.name,
+                                   workspace_name=payload.workspace_name, password=payload.password)
             connection.execute(text("DELETE FROM goodmarketing_email_verifications WHERE email = :email"), {"email": email})
     except IntegrityError:
         # A concurrent legacy account creation may claim the email first. Roll back the whole workspace.
+        return False
+    return True
+
+
+def create_owner_workspace(connection, service: AuthService, *, email: str, name: str,
+                           workspace_name: str, password: str) -> str:
+    """Create the product owner, organization and workspace profile in one transaction."""
+    organization_id = str(uuid4())
+    scoped = AuthService(TransactionScope(connection), service.settings, service.audit_hook)
+    scoped.create_organization(organization_id=organization_id, slug=organization_id, name=workspace_name)
+    scoped.create_user(email=email, name=name, password=password, organization_id=organization_id,
+                       roles={"owner"}, permissions=OWNER_PERMISSIONS)
+    connection.execute(text("""
+        INSERT INTO goodmarketing_workspace_profiles (organization_id, display_name)
+        VALUES (:organization_id, :name)
+    """), {"organization_id": organization_id, "name": workspace_name})
+    return organization_id
+
+
+def provision_dev_enrollment(service: AuthService, *, email: str, name: str,
+                             workspace_name: str, password: str) -> bool:
+    """Consume the one-off DEV enrollment slot and provision atomically."""
+    email = email.lower()
+    try:
+        with service.engine.begin() as connection:
+            # This fixed lock protects the empty-slot case and makes the one-time
+            # enrollment durable across workers, restarts, and identity deletion.
+            connection.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+                               {"key": "dev-enrollment:initial"})
+            connection.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+                               {"key": f"signup:{email}"})
+            consumed = connection.scalar(text(
+                "SELECT 1 FROM goodmarketing_dev_enrollment WHERE id = 1 FOR UPDATE"
+            ))
+            existing = connection.scalar(text(
+                "SELECT id FROM gm_auth_users WHERE lower(email) = :email"
+            ), {"email": email})
+            if consumed or existing:
+                return False
+            organization_id = create_owner_workspace(connection, service, email=email, name=name,
+                                                     workspace_name=workspace_name, password=password)
+            connection.execute(text("""
+                INSERT INTO goodmarketing_dev_enrollment (id, email, consumed_at)
+                VALUES (1, :email, now())
+            """), {"email": email})
+    except IntegrityError:
         return False
     return True
 

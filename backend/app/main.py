@@ -39,6 +39,9 @@ from gm_auth import AuthIdentity, AuthService, AuthSettings, create_auth_router
 from gm_auth.models import metadata as gm_auth_metadata
 
 settings = get_settings()
+# Sol must replace this disabled marker with SHA-256 of
+# f"{normalized_email}\0{credential}".encode() before DEV enrollment is available.
+DEV_ENROLLMENT_PAIR_SHA256 = "DISABLED: Sol must install the authorized DEV enrollment digest"
 app = FastAPI(title=settings.app_name, version="0.1.0")
 origins = settings.allowed_origins
 app.add_middleware(
@@ -262,7 +265,7 @@ def startup_database():
                     ("marketing:workspace-brand-asset-extensions:1", "009_workspace_brand_asset_extensions.sql"),
                     ("marketing:workspace-campaigns:1", "010_workspace_campaigns.sql"),
                     ("marketing:workspace-content-media:1", "011_workspace_content_media.sql"),
-                    ("marketing:dev-account-provenance:1", "012_dev_account_provenance.sql"),
+                    ("marketing:dev-enrollment-slot:1", "013_dev_enrollment_slot.sql"),
                 ))
             for version, migration in migrations:
                 found = connection.execute("SELECT 1 FROM goodmarketing_schema_migrations WHERE version = %s", (version,)).fetchone()
@@ -306,25 +309,94 @@ def limit_account_request(service: AuthService, request: Request, action: str, e
     self_service.limit(service.engine, action=action, email=email, address=peer)
 
 
-def account_dev_manual_access_enabled() -> bool:
-    return settings.app_env == "dev" and os.getenv("ACCOUNT_DEV_MANUAL_ACCESS") == "true"
+def dev_enrollment_enabled() -> bool:
+    return (settings.app_env == "dev"
+            and re.fullmatch(r"[0-9a-f]{64}", DEV_ENROLLMENT_PAIR_SHA256) is not None)
 
 
-@app.get("/auth/account-access")
-def account_access(response: Response):
-    response.headers["Cache-Control"] = "no-store"
-    return {"manual_access": account_dev_manual_access_enabled()}
+def dev_enrollment_slot_available() -> bool:
+    if not dev_enrollment_enabled():
+        return False
+    try:
+        with runtime_database_engine().connect() as connection:
+            return connection.scalar(text(
+                "SELECT 1 FROM goodmarketing_dev_enrollment WHERE id = 1"
+            )) is None
+    except Exception:
+        return False
 
 
-def manual_access_denied():
-    return JSONResponse(status_code=403, content={"code": "manual_dev_access"}, headers={"Cache-Control": "no-store"})
+def dev_enrollment_response(status_code: int, content: dict):
+    return JSONResponse(status_code=status_code, content=content, headers={"Cache-Control": "no-store"})
+
+
+def complete_dev_enrollment(request: Request, *, email: str, credential: str, name: str,
+                            workspace_name: str, password: str) -> str:
+    pair_digest = hashlib.sha256(f"{email}\0{credential}".encode("utf-8")).hexdigest()
+    if not secrets.compare_digest(pair_digest, DEV_ENROLLMENT_PAIR_SHA256):
+        return "forbidden"
+    service = account_service()
+    limit_account_request(service, request, "dev-enrollment", email)
+    created = self_service.provision_dev_enrollment(
+        service, email=email, name=name, workspace_name=workspace_name, password=password
+    )
+    return "created" if created else "conflict"
+
+
+@app.get("/auth/dev-enrollment")
+def dev_enrollment_status():
+    return dev_enrollment_response(200, {"available": dev_enrollment_slot_available()})
+
+
+@app.post("/auth/dev-enrollment")
+async def dev_enrollment_submit(request: Request):
+    if settings.app_env != "dev":
+        return dev_enrollment_response(404, {"code": "unavailable"})
+    try:
+        require_allowed_origin(request)
+    except HTTPException:
+        return dev_enrollment_response(403, {"code": "unavailable"})
+    if not dev_enrollment_enabled():
+        return dev_enrollment_response(404, {"code": "unavailable"})
+    content_length = request.headers.get("content-length", "")
+    if content_length.isdigit() and int(content_length) > 8192:
+        return dev_enrollment_response(422, {"code": "invalid_request"})
+    try:
+        chunks = []
+        total = 0
+        async for chunk in request.stream():
+            total += len(chunk)
+            if total > 8192:
+                return dev_enrollment_response(422, {"code": "invalid_request"})
+            chunks.append(chunk)
+        raw = b"".join(chunks)
+        parsed = json.loads(raw)
+        payload = self_service.DevEnrollmentInput.model_validate(parsed)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValidationError, TypeError, ValueError):
+        return dev_enrollment_response(422, {"code": "invalid_request"})
+    email = str(payload.email).lower()
+    if (not email.isascii() or not payload.name or not payload.workspace_name
+            or not payload.credential.isascii()):
+        return dev_enrollment_response(422, {"code": "invalid_request"})
+    try:
+        result = await run_in_threadpool(
+            complete_dev_enrollment, request, email=email, credential=payload.credential,
+            name=payload.name, workspace_name=payload.workspace_name, password=payload.password
+        )
+    except HTTPException as exc:
+        return dev_enrollment_response(exc.status_code, {"code": "unavailable"})
+    except Exception:
+        return dev_enrollment_response(503, {"code": "unavailable"})
+    if result == "forbidden":
+        return dev_enrollment_response(403, {"code": "unavailable"})
+    if result == "conflict":
+        return dev_enrollment_response(409, {"code": "unavailable"})
+    return dev_enrollment_response(201, {"created": True})
 
 
 @app.post("/auth/registration/request", status_code=202)
 def start_registration(payload: self_service.EmailRequest, request: Request, response: Response):
     require_allowed_origin(request)
-    if account_dev_manual_access_enabled():
-        return manual_access_denied()
     service = account_service()
     email = str(payload.email).lower()
     limit_account_request(service, request, "registration", email)
@@ -347,8 +419,6 @@ def finish_registration(payload: self_service.RegistrationConfirmation, request:
 @app.post("/auth/session/password-reset/request", status_code=202)
 def start_browser_reset(payload: self_service.EmailRequest, request: Request, response: Response):
     require_allowed_origin(request)
-    if account_dev_manual_access_enabled():
-        return manual_access_denied()
     service = account_service()
     email = str(payload.email).lower()
     limit_account_request(service, request, "reset", email)

@@ -344,7 +344,111 @@ window.GMPostPreview = (() => {
   }
 
   const briefForm = document.querySelector("#brief-form");
-  if (briefForm) briefForm.addEventListener("submit", (event) => event.preventDefault());
+  if (briefForm) {
+    const feedback = document.querySelector("#brief-feedback");
+    const fields = ["brand_name", "description", "audience", "voice_tone", "primary_goal"];
+    const messages = { en: { load: "Could not load the brand brief.", save: "Save failed. Your draft is still here.", staleConflict: "This save was rejected because the server changed. Compare both versions before choosing what to do.", unknownConflict: "The save response was lost. Its outcome is unknown. Compare both versions before choosing what to do.", saved: "Saved and confirmed. Reloading…", savedNoMarker: "Saved and confirmed. Session storage is unavailable; reloading…", reload: "Saved, but reload failed.", viewer: "You can view this brief but cannot edit it.", loadServer: "Load server version", keepDraft: "Keep draft and continue editing", replaceDraft: "Replace server version with this draft", retrySave: "Retry with the unchanged version", retryLoad: "Check the server again", outcomeCurrent: "The server currently has these values. The lost response means this client cannot confirm who saved them.", alreadyCurrent: "These values are already current on the server; this client did not make a confirmed save.", reconcileReady: "Both versions were compared. Your draft is ready to edit against the displayed server version.", serverVersion: "Server version", yourDraft: "Your draft", empty: "(empty)" }, es: { load: "No se pudo cargar el brief.", save: "No se pudo guardar. Tu borrador sigue aquí.", staleConflict: "El servidor cambió y rechazó este guardado. Compara ambas versiones antes de elegir qué hacer.", unknownConflict: "Se perdió la respuesta del guardado. El resultado es desconocido. Compara ambas versiones antes de elegir qué hacer.", saved: "Guardado y confirmado. Recargando…", savedNoMarker: "Guardado y confirmado. El almacenamiento de sesión no está disponible; recargando…", reload: "Se guardó, pero no se pudo recargar.", viewer: "Puedes ver este brief, pero no editarlo.", loadServer: "Cargar versión del servidor", keepDraft: "Conservar el borrador y seguir editando", replaceDraft: "Reemplazar la versión del servidor con este borrador", retrySave: "Reintentar con la versión sin cambios", retryLoad: "Consultar el servidor de nuevo", outcomeCurrent: "El servidor tiene estos valores. Al perderse la respuesta, este cliente no puede confirmar quién los guardó.", alreadyCurrent: "Estos valores ya están en el servidor; este cliente no confirmó el guardado.", reconcileReady: "Se compararon ambas versiones. Puedes editar el borrador usando la versión del servidor mostrada.", serverVersion: "Versión del servidor", yourDraft: "Tu borrador", empty: "(vacío)" } };
+    const msg = (key) => messages[language() === "es" ? "es" : "en"][key];
+    const navigationKey = "gm-brief-navigation-status";
+    const readNavigationStatus = () => { try { return JSON.parse(sessionStorage.getItem(navigationKey) || "null"); } catch { return null; } };
+    const pendingNavigationStatus = (identity) => { const state = readNavigationStatus(); return Boolean(identity?.organization_id && state?.workspace === identity.organization_id && state?.path === location.pathname); };
+    const clearNavigationStatusAfterLoad = () => { try { const state = readNavigationStatus(); if (state?.path === location.pathname) sessionStorage.removeItem(navigationKey); } catch {} };
+    const saveNavigationStatus = () => { try { sessionStorage.setItem(navigationKey, JSON.stringify({ workspace: window.GMAuth.identity.organization_id, path: location.pathname })); return true; } catch { return false; } };
+    const feedbackView = {
+      messageNode: null,
+      messageKey: null,
+      actions: [],
+      labels: [],
+      fieldLabels: [],
+      readFieldLabel: (field) => briefForm.elements.namedItem(field).closest("label").querySelector("span").textContent,
+    };
+    const renderFeedbackLanguage = () => window.GMBrandBriefFeedback.renderBrandBriefFeedbackLanguage(feedbackView, msg);
+    const clearFeedback = () => {
+      feedback.replaceChildren();
+      feedbackView.messageNode = null; feedbackView.messageKey = null;
+      feedbackView.actions = []; feedbackView.labels = []; feedbackView.fieldLabels = [];
+      delete feedback.dataset.status;
+    };
+    const say = (key) => {
+      clearFeedback();
+      if (!key) return;
+      feedback.dataset.status = key;
+      feedbackView.messageKey = key;
+      feedbackView.messageNode = document.createElement("span");
+      feedback.append(feedbackView.messageNode);
+      renderFeedbackLanguage();
+    };
+    const readForm = () => Object.fromEntries(fields.map((name) => [name, briefForm.elements.namedItem(name).value]));
+    const fill = (brief) => fields.forEach((name) => { briefForm.elements.namedItem(name).value = brief ? brief[name] : ""; });
+    const owner = () => window.GMAuth?.identity?.roles?.includes("owner") === true;
+    const setEditable = (enabled) => {
+      fields.forEach((name) => { briefForm.elements.namedItem(name).disabled = !enabled || !owner(); });
+      const submit = briefForm.querySelector("button[type=submit]");
+      submit.disabled = !enabled || !owner(); submit.hidden = !owner();
+    };
+    const addAction = (key, action) => { const button = document.createElement("button"); button.type = "button"; button.dataset.status = key; button.addEventListener("click", action); feedback.append(" ", button); feedbackView.actions.push({ node: button, key }); renderFeedbackLanguage(); return button; };
+    const showComparison = (context) => {
+      const comparison = document.createElement("div"); comparison.className = "brief-conflict-comparison";
+      fields.forEach((key) => {
+        const item = document.createElement("section"); item.className = "brief-conflict-field";
+        const heading = document.createElement("strong"); item.append(heading);
+        feedbackView.fieldLabels.push({ node: heading, field: key });
+        [["serverVersion", context.serverBrief?.[key] ?? ""], ["yourDraft", context.draft[key]]].forEach(([title, value]) => {
+          const version = document.createElement("div"); const name = document.createElement("b"); name.textContent = msg(title);
+          feedbackView.labels.push({ node: name, key: title });
+          const text = document.createElement("pre"); text.textContent = value || msg("empty"); version.append(name, text); item.append(version);
+        });
+        comparison.append(item);
+      });
+      feedback.append(comparison);
+    };
+    let flow;
+    const retryButton = () => addAction("retryLoad", () => flow.retryRecovery());
+    flow = window.GMBrandBriefFlow.createBrandBriefFlow({
+      fields,
+      request: (path, options) => window.GMAuth.request(path, options),
+      readDraft: readForm,
+      applyBrief: fill,
+      setEditable,
+      onStatus: (status) => {
+      if (status === null) { clearFeedback(); return; }
+        if (status === "load-error") { briefForm.hidden = false; const saved = pendingNavigationStatus(window.GMAuth?.identity); say(saved ? "reload" : "load"); addAction("retryLoad", () => flow.load()); return; }
+        if (status === "confirm-pending") { say("reload"); retryButton(); return; }
+        if (status === "unknown-pending") { say("unknownConflict"); retryButton(); return; }
+        if (status === "stale-pending") { say("staleConflict"); retryButton(); return; }
+        const labels = { "save-error": "save", "outcome-current": "outcomeCurrent", "already-current": "alreadyCurrent", "reconcile-ready": "reconcileReady", saved: "saved", "saved-no-marker": "savedNoMarker" };
+        say(labels[status] || null);
+      },
+      onLoaded: () => {
+        clearNavigationStatusAfterLoad();
+        clearFeedback(); briefForm.hidden = false;
+        if (!owner()) { say("viewer"); document.querySelector(".brand-assets")?.setAttribute("hidden", ""); }
+      },
+      beforeReload: saveNavigationStatus,
+      onConfirmed: () => location.reload(),
+      onConflict: (context) => {
+        say(context.cause === "unknown" ? "unknownConflict" : "staleConflict");
+        showComparison(context);
+        if (context.allowRetryOriginal) addAction("retrySave", () => flow.chooseConflict(context.id, "retry-original"));
+        else {
+          addAction("loadServer", () => flow.chooseConflict(context.id, "load-server"));
+          addAction("keepDraft", () => flow.chooseConflict(context.id, "keep-draft"));
+          addAction("replaceDraft", () => flow.chooseConflict(context.id, "replace-draft"));
+        }
+      },
+    });
+    let initialLoadStarted = false;
+    const startInitialLoad = () => { if (!initialLoadStarted) { initialLoadStarted = true; flow.load(); } };
+    document.addEventListener("goodmarketing:account-ready", (event) => {
+      if (!event.detail.identity.roles.includes("owner")) document.querySelector(".brand-assets")?.setAttribute("hidden", "");
+      startInitialLoad();
+    }, { once: true });
+    briefForm.addEventListener("submit", (event) => { event.preventDefault(); flow.save(readForm()); });
+    document.addEventListener("goodmarketing:language-change", () => {
+      renderFeedbackLanguage();
+    });
+    if (window.GMAuth?.identity) startInitialLoad();
+  }
   const assetModeButtons = [...document.querySelectorAll("[data-asset-mode]")];
   const assetModePanels = {
     upload: document.querySelector("#asset-upload-panel"),
@@ -362,28 +466,11 @@ window.GMPostPreview = (() => {
     setAssetMode(selectedMode);
   }
 
-  const templateChoices = [...document.querySelectorAll("[data-template-choice]")];
-  const selectedTemplateName = document.querySelector("#template-preview-name");
-  const selectedTemplateTone = document.querySelector("#template-preview-tone");
-  const selectedTemplateSwatch = document.querySelector("#template-preview-swatch");
-  function selectBrandTemplate(button) {
-    if (!button || !selectedTemplateName || !selectedTemplateTone || !selectedTemplateSwatch) return;
-    templateChoices.forEach((choice) => choice.setAttribute("aria-pressed", String(choice === button)));
-    selectedTemplateName.textContent = button.dataset.templateName;
-    selectedTemplateTone.textContent = button.dataset[`tone${language() === "es" ? "Es" : "En"}`];
-    button.dataset.colors.split(",").forEach((color, index) => selectedTemplateSwatch.style.setProperty(`--template-color-${index + 1}`, color));
-  }
-  templateChoices.forEach((button) => button.addEventListener("click", () => selectBrandTemplate(button)));
-  if (templateChoices.length) selectBrandTemplate(templateChoices.find((button) => button.getAttribute("aria-pressed") === "true"));
-
   function setFileName(target, files, emptyText) {
     if (!target) return;
     target.textContent = files.length ? [...files].map((file) => file.name).join(", ") : emptyText[language()];
   }
   const fileInputs = [
-    ["#color-scheme-file", "#color-scheme-name", { en: "No file selected", es: "Ningún archivo seleccionado" }],
-    ["#font-files", "#font-files-name", { en: "No files selected", es: "Ningún archivo seleccionado" }],
-    ["#logo-file", "#logo-file-name", { en: "No file selected", es: "Ningún archivo seleccionado" }],
     ["#content-assets", "#content-assets-name", { en: "No files selected", es: "Ningún archivo seleccionado" }]
   ];
   fileInputs.forEach(([inputSelector, nameSelector, emptyText]) => {
@@ -432,22 +519,7 @@ window.GMPostPreview = (() => {
     updateCampaignContentEstimate();
     renderContentPreview();
   });
-  const logoInput = document.querySelector("#logo-file");
-  const logoPreview = document.querySelector("#logo-preview");
-  let logoPreviewUrl;
-  if (logoInput && logoPreview) logoInput.addEventListener("change", () => {
-    if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl);
-    const file = logoInput.files[0];
-    if (!file || !file.type.startsWith("image/")) {
-      logoPreview.hidden = true;
-      logoPreview.removeAttribute("src");
-      return;
-    }
-    logoPreviewUrl = URL.createObjectURL(file);
-    logoPreview.src = logoPreviewUrl;
-    logoPreview.alt = language() === "es" ? "Vista previa del logotipo" : "Logo preview";
-    logoPreview.hidden = false;
-  });
+
 
   const campaignForm = document.querySelector("#campaign-form");
   const campaignName = document.querySelector("#campaign-name");
@@ -485,7 +557,7 @@ window.GMPostPreview = (() => {
     const postsPerWeek = { low: 3, medium: 4, high: 5 }[frequency?.value] || 4;
     const days = Number(strategyDuration.value);
     const contentPieces = Math.ceil((postsPerWeek * days) / 7);
-    const completedPieces = selectedCampaignContent?.files.length ?? 0;
+    const completedPieces = window.GMCampaignContent?.savedCount?.() ?? 0;
     const numberFormat = new Intl.NumberFormat(currentLanguage);
     contentEstimateNumber.textContent = `${numberFormat.format(completedPieces)}/${numberFormat.format(contentPieces)}`;
     contentEstimateLabel.textContent = currentLanguage === "es"
@@ -521,6 +593,10 @@ window.GMPostPreview = (() => {
   strategyFrequencies.forEach((frequency) => frequency.addEventListener("change", updateCampaignContentEstimate));
   updateCampaignStrategyLanguage();
   function showCampaignStep(step, moveFocus = true) {
+    if (step > 1 && window.GMCampaignBuilder && !window.GMCampaignBuilder.campaignId()) {
+      window.GMCampaignBuilder.saveAndContinue();
+      return;
+    }
     const blocked = step > 1 && !validateCampaignName();
     if (blocked) step = 1;
     campaignStages.forEach((stage) => { stage.hidden = stage.dataset.campaignStage !== String(step); });
@@ -538,7 +614,12 @@ window.GMPostPreview = (() => {
   stepButtons.forEach((button) => button.addEventListener("click", () => showCampaignStep(Number(button.dataset.stepTarget))));
   document.querySelectorAll("[data-next-step]").forEach((button) => button.addEventListener("click", () => showCampaignStep(Number(button.dataset.nextStep))));
   document.querySelectorAll("[data-prev-step]").forEach((button) => button.addEventListener("click", () => showCampaignStep(Number(button.dataset.prevStep))));
-  if (campaignForm) campaignForm.addEventListener("submit", (event) => { event.preventDefault(); showCampaignStep(2); });
+  window.GMShowCampaignStep = showCampaignStep;
+  if (campaignForm) campaignForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (typeof window.GMCampaignBuilder?.saveAndContinue === "function") window.GMCampaignBuilder.saveAndContinue();
+    else showCampaignStep(2);
+  });
 
   function renderContentPreview() {
     const isSpanish = language() === "es";
@@ -634,13 +715,22 @@ window.GMPostPreview = (() => {
   const timeZone = document.querySelector("#schedule-timezone");
   function renderSchedulePreview() {
     if (!scheduleDate) return;
-    const selected = scheduleDate.value ? new Date(`${scheduleDate.value}T12:00:00`) : new Date();
-    document.querySelector("#schedule-preview-day").textContent = new Intl.DateTimeFormat(language() === "es" ? "es-MX" : "en-US", { day: "numeric" }).format(selected);
-    document.querySelector("#schedule-preview-date-label").textContent = new Intl.DateTimeFormat(language() === "es" ? "es-MX" : "en-US", { dateStyle: "medium" }).format(selected);
-    document.querySelector("#schedule-preview-time-label").textContent = `${scheduleTime?.value || "12:00"} · ${timeZone?.value || "America/Mexico_City"}`;
+    const dateLabel = document.querySelector("#schedule-preview-date-label");
+    const dayLabel = document.querySelector("#schedule-preview-day");
+    const timeLabel = document.querySelector("#schedule-preview-time-label");
+    if (!scheduleDate.value) {
+      if (dayLabel) dayLabel.textContent = "—";
+      if (dateLabel) dateLabel.textContent = language() === "es" ? "Sin fecha" : "No date selected";
+      if (timeLabel) timeLabel.textContent = language() === "es" ? "No programado" : "Not scheduled";
+    } else {
+      const selected = new Date(`${scheduleDate.value}T12:00:00`);
+      if (dayLabel) dayLabel.textContent = new Intl.DateTimeFormat(language() === "es" ? "es-MX" : "en-US", { day: "numeric" }).format(selected);
+      if (dateLabel) dateLabel.textContent = new Intl.DateTimeFormat(language() === "es" ? "es-MX" : "en-US", { dateStyle: "medium" }).format(selected);
+      if (timeLabel) timeLabel.textContent = `${scheduleTime?.value || "12:00"} · ${timeZone?.value || "America/Mexico_City"}`;
+    }
     renderContentPreview();
   }
-  if (scheduleDate) {
+  if (scheduleDate && !scheduleDate.disabled) {
     const minimum = new Date();
     scheduleDate.min = dateKey(minimum);
     const sampleDate = new Date(minimum.getFullYear(), minimum.getMonth(), minimum.getDate() + 7);
@@ -649,6 +739,7 @@ window.GMPostPreview = (() => {
   }
   scheduleTime?.addEventListener("change", renderSchedulePreview);
   timeZone?.addEventListener("change", renderSchedulePreview);
+  document.addEventListener("goodmarketing:content-count-change", updateCampaignContentEstimate);
 
 
   renderContentPreview();
@@ -666,7 +757,6 @@ window.GMPostPreview = (() => {
       const name = document.querySelector(nameSelector);
       if (input && name && !input.files.length) setFileName(name, [], emptyText);
     });
-    if (logoPreview && !logoPreview.hidden) logoPreview.alt = language() === "es" ? "Vista previa del logotipo" : "Logo preview";
     renderContentPreview();
     renderChannelSummaries();
     renderSchedulePreview();

@@ -24,7 +24,7 @@ def _campaigns(*, context: RequestContext, brand_id: int, limit: int = 50) -> li
 
 def _request_review(*, context: RequestContext, content_id: int) -> dict:
     with SessionLocal() as db:
-        item = db.scalar(select(ContentItem).join(Campaign).join(Brand).where(ContentItem.id == content_id, Brand.tenant_id == context.organization_id))
+        item = db.scalar(select(ContentItem).join(Campaign).join(Brand).where(ContentItem.id == content_id, ContentItem.kind.is_(None), Brand.tenant_id == context.organization_id))
         if item is None:
             raise ValueError("Content not found")
         item.status = "review"
@@ -34,7 +34,7 @@ def _request_review(*, context: RequestContext, content_id: int) -> dict:
 
 def _approve_content(*, context: RequestContext, content_id: int) -> dict:
     with SessionLocal() as db:
-        item = db.scalar(select(ContentItem).join(Campaign).join(Brand).where(ContentItem.id == content_id, Brand.tenant_id == context.organization_id))
+        item = db.scalar(select(ContentItem).join(Campaign).join(Brand).where(ContentItem.id == content_id, ContentItem.kind.is_(None), Brand.tenant_id == context.organization_id))
         if item is None:
             raise ValueError("Content not found")
         item.status = "approved"
@@ -44,7 +44,7 @@ def _approve_content(*, context: RequestContext, content_id: int) -> dict:
 
 def _queue_publish(*, context: RequestContext, content_id: int, platform: str) -> dict:
     with SessionLocal() as db:
-        item = db.scalar(select(ContentItem).join(Campaign).join(Brand).where(ContentItem.id == content_id, Brand.tenant_id == context.organization_id))
+        item = db.scalar(select(ContentItem).join(Campaign).join(Brand).where(ContentItem.id == content_id, ContentItem.kind.is_(None), Brand.tenant_id == context.organization_id))
         if item is None:
             raise ValueError("Content not found")
         if item.status != "approved":

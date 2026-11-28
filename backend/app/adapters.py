@@ -5,9 +5,11 @@ tenant and X-GM headers remain accepted as input for wire compatibility, but
 never establish authority.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+import re
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from gm_auth import AuthIdentity
 from gm_mcp import PermissionDenied, RequestContext
@@ -39,6 +41,26 @@ class BrandIn(BaseModel):
     target_date: str = ""
     growth_timeline: str = ""
     platforms: list[str] = []
+
+
+class BrandPatchIn(BaseModel):
+    # Partial updates preserve omitted values; the historical BrandIn contract
+    # remains unchanged for create and non-primary clients.
+    tenant_id: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    website: str | None = None
+    industry: str | None = None
+    summary: str | None = None
+    goal: str | None = None
+    audience: str | None = None
+    positioning: str | None = None
+    offers: str | None = None
+    tone: str | None = None
+    message: str | None = None
+    metrics: str | None = None
+    target_date: str | None = None
+    growth_timeline: str | None = None
+    platforms: list[str] | None = None
 
 
 class CampaignIn(BaseModel):
@@ -103,7 +125,7 @@ def require_marketing_read(identity: AuthIdentity = Depends(customer_identity)) 
 
 
 def require_marketing_write(identity: AuthIdentity = Depends(require_marketing_read)) -> AuthIdentity:
-    if "marketing:write" not in identity.permissions:
+    if "owner" not in identity.roles or "marketing:write" not in identity.permissions:
         raise HTTPException(status_code=403, detail="Marketing updates are not permitted.")
     return identity
 
@@ -127,7 +149,7 @@ def _owned_campaign(db: Session, organization_id: str, campaign_id: int) -> Camp
 
 
 def _owned_content(db: Session, organization_id: str, content_id: int) -> ContentItem:
-    item = db.scalar(select(ContentItem).join(Campaign).join(Brand).where(ContentItem.id == content_id, Brand.tenant_id == organization_id))
+    item = db.scalar(select(ContentItem).join(Campaign).join(Brand).where(ContentItem.id == content_id, ContentItem.kind.is_(None), Brand.tenant_id == organization_id))
     if item is None:
         raise HTTPException(status_code=404, detail="Content not found")
     return item
@@ -143,7 +165,7 @@ def _tool_context(identity: AuthIdentity, request: Request) -> RequestContext:
     permissions = set()
     if "workspace:read" in identity.permissions:
         permissions.add("read")
-    if "marketing:write" in identity.permissions:
+    if "owner" in identity.roles and "marketing:write" in identity.permissions:
         permissions.add("write")
     return RequestContext(user_id=identity.user_id, organization_id=identity.organization_id, product_id="marketing", permissions=frozenset(permissions), request_id=request.headers.get("X-Request-ID"))
 
@@ -175,13 +197,35 @@ def create_brand(payload: BrandIn, identity: AuthIdentity = Depends(require_mark
     return _brand_data(brand)
 
 
-@router.patch("/api/brands/{brand_id}")
-def update_brand(brand_id: int, payload: BrandIn, identity: AuthIdentity = Depends(require_marketing_write), db: Session = Depends(get_db)) -> dict:
+@router.patch("/api/brands/{brand_id}", openapi_extra={"requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/BrandIn"}}}}})
+def update_brand(brand_id: int, payload: BrandPatchIn, request: Request, response: Response, identity: AuthIdentity = Depends(require_marketing_write), db: Session = Depends(get_db)) -> dict:
     brand = _owned_brand(db, identity.organization_id, brand_id)
-    for key, value in payload.model_dump(exclude={"tenant_id"}).items():
-        setattr(brand, key, value)
-    db.commit()
-    db.refresh(brand)
+    changes = payload.model_dump(exclude={"tenant_id"}, exclude_unset=True)
+    if any(value is None for value in changes.values()):
+        raise HTTPException(status_code=422, detail="Brand fields cannot be null.")
+    brief_fields = {"name", "summary", "audience", "tone", "goal"}
+    if brand.is_primary and brief_fields.intersection(changes):
+        from app.main import _brief_dict, _brief_etag, validate_primary_brand_fields
+        validate_primary_brand_fields(name=changes.get("name", brand.name), tone=changes.get("tone", brand.tone))
+        expected = request.headers.get("If-Match")
+        if expected is None:
+            raise HTTPException(status_code=428, detail="If-Match is required.")
+        if expected.startswith("W/") or expected == "*" or not re.fullmatch(r'"bb-[0-9a-f]{64}"', expected):
+            raise HTTPException(status_code=400, detail="Unsupported If-Match validator.")
+        current = _brief_dict({"id": brand.id, "name": brand.name, "summary": brand.summary, "audience": brand.audience, "tone": brand.tone, "goal": brand.goal, "revision": brand.revision})
+        if _brief_etag(identity.organization_id, current) != expected:
+            raise HTTPException(status_code=412, detail="The brand brief changed. Reload before saving.")
+        updated = db.execute(update(Brand).where(Brand.id == brand.id, Brand.tenant_id == identity.organization_id, Brand.is_primary.is_(True), Brand.revision == brand.revision).values(**changes, revision=Brand.revision + 1))
+        if updated.rowcount != 1:
+            raise HTTPException(status_code=412, detail="The brand brief changed. Reload before saving.")
+        db.commit()
+        db.refresh(brand)
+        response.headers["ETag"] = _brief_etag(identity.organization_id, _brief_dict({"id": brand.id, "name": brand.name, "summary": brand.summary, "audience": brand.audience, "tone": brand.tone, "goal": brand.goal, "revision": brand.revision}))
+    else:
+        for key, value in changes.items():
+            setattr(brand, key, value)
+        db.commit()
+        db.refresh(brand)
     return _brand_data(brand)
 
 
@@ -226,7 +270,7 @@ def create_content(payload: ContentIn, identity: AuthIdentity = Depends(require_
 @router.get("/api/content")
 def list_content(campaign_id: int, identity: AuthIdentity = Depends(require_marketing_read), db: Session = Depends(get_db)) -> list[dict]:
     _owned_campaign(db, identity.organization_id, campaign_id)
-    items = db.scalars(select(ContentItem).where(ContentItem.campaign_id == campaign_id).order_by(ContentItem.id.desc())).all()
+    items = db.scalars(select(ContentItem).where(ContentItem.campaign_id == campaign_id, ContentItem.kind.is_(None)).order_by(ContentItem.id.desc())).all()
     return [{"id": item.id, "campaign_id": item.campaign_id, "title": item.title, "copy": item.copy, "asset_name": item.asset_name, "platforms": item.platforms, "variants": item.variants, "status": item.status} for item in items]
 
 

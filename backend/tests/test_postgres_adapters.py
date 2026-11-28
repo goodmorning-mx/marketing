@@ -42,7 +42,7 @@ def _start_twice(monkeypatch, schema_url):
     main.startup_database()
 
 
-def test_new_database_migrations_apply_once_without_auth_secret(monkeypatch):
+def test_base_migrations_run_without_auth_and_runtime_auth_migrations_apply_later(monkeypatch):
     base_url = make_url(os.environ["TEST_DATABASE_URL"])
     schema = f"gm_adapter_new_{uuid4().hex}"
     _create_schema(base_url, schema)
@@ -53,8 +53,36 @@ def test_new_database_migrations_apply_once_without_auth_secret(monkeypatch):
         with psycopg.connect(connection_url) as connection:
             versions = {row[0] for row in connection.execute("SELECT version FROM goodmarketing_schema_migrations")}
             tables = {row[0] for row in connection.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = %s", (schema,))}
-        assert versions == {"marketing:adapters-models:189869c", "demo-requests:1", "marketing:strategy-fields:1"}
+        assert versions == {
+            "marketing:adapters-models:189869c", "demo-requests:1",
+            "marketing:strategy-fields:1", "marketing:primary-brand-brief:1",
+        }
         assert {"brands", "campaigns", "content_items", "platform_connections", "publish_jobs", "demo_requests"} <= tables
+        assert {"gm_auth_users", "goodmarketing_invitations", "goodmarketing_email_verifications",
+                "goodmarketing_account_limits", "goodmarketing_dev_enrollment"}.isdisjoint(tables)
+
+        monkeypatch.setenv("AUTH_JWT_SECRET", "synthetic-signing-key-only-for-postgres-tests")
+        monkeypatch.setattr(main, "auth_service", None)
+        main.startup_database()
+        main.startup_database()
+        assert main.auth_service is None
+        with psycopg.connect(connection_url) as connection:
+            all_versions = {row[0] for row in connection.execute("SELECT version FROM goodmarketing_schema_migrations")}
+            all_tables = {row[0] for row in connection.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = %s", (schema,))}
+        assert all_versions - versions == {
+            "gm-auth:0.1.5", "workspace-accounts:1", "marketing:owner-write-permission:1",
+            "marketing:self-service-accounts:1", "marketing:workspace-brand-appearance:1",
+            "marketing:workspace-brand-asset-extensions:1", "marketing:workspace-campaigns:1",
+            "marketing:workspace-content-media:1",
+            "marketing:dev-enrollment-slot:1",
+        }
+        assert {"gm_auth_users", "gm_auth_organizations", "goodmarketing_invitations", "goodmarketing_workspace_profiles",
+                "goodmarketing_email_verifications", "goodmarketing_account_limits",
+                "goodmarketing_dev_enrollment"} <= all_tables
+        assert {"goodmarketing_brand_appearances", "goodmarketing_brand_fonts"} <= all_tables
+        with psycopg.connect(connection_url) as connection:
+            columns = {row[0] for row in connection.execute("SELECT column_name FROM information_schema.columns WHERE table_schema = %s AND table_name = 'goodmarketing_brand_appearances'", (schema,))}
+        assert {"palette_source", "custom_palette", "custom_palette_filename"} <= columns
     finally:
         _drop_schema(base_url, schema)
 
@@ -71,11 +99,12 @@ def _legacy_rows(connection):
 
 
 def _foreign_keys(connection):
-    return connection.execute("""
+    rows = connection.execute("""
         SELECT conrelid::regclass::text, pg_get_constraintdef(oid)
         FROM pg_constraint WHERE contype = 'f' AND connamespace = current_schema()::regnamespace
         ORDER BY conrelid::regclass::text, conname
     """).fetchall()
+    return [row for row in rows if row[0].split(".")[-1].strip('"') in LEGACY_TABLES]
 
 
 def test_existing_adapters_schema_keeps_rows_and_gains_missing_fields(monkeypatch):
@@ -138,7 +167,7 @@ def test_existing_adapters_schema_keeps_rows_and_gains_missing_fields(monkeypatc
         }
 
         monkeypatch.setenv("DATABASE_URL", schema_url.render_as_string(hide_password=False))
-        monkeypatch.delenv("AUTH_JWT_SECRET", raising=False)
+        monkeypatch.setenv("AUTH_JWT_SECRET", "synthetic-signing-key-only-for-postgres-tests")
         # Assert after the first migration and again after replay, rather than only at the end.
         ledger = None
         for attempt in range(2):
@@ -150,7 +179,11 @@ def test_existing_adapters_schema_keeps_rows_and_gains_missing_fields(monkeypatc
             main.startup_database()
             with psycopg.connect(connection_url) as connection:
                 after = _legacy_rows(connection)
-                assert _foreign_keys(connection) == foreign_keys
+                migrated_foreign_keys = _foreign_keys(connection)
+                assert set(foreign_keys) <= set(migrated_foreign_keys)
+                assert set(migrated_foreign_keys) - set(foreign_keys) == {
+                    ("campaigns", "FOREIGN KEY (workspace_id) REFERENCES gm_auth_organizations(id) ON DELETE CASCADE")
+                }
                 for table in LEGACY_TABLES:
                     old_columns = before[table][0].keys()
                     assert [{key: row[key] for key in old_columns} for row in after[table]] == before[table], table
@@ -165,7 +198,17 @@ def test_existing_adapters_schema_keeps_rows_and_gains_missing_fields(monkeypatc
                 assert connection.execute("SELECT audience, positioning FROM brands WHERE id = 71").fetchone() == ("", "")
                 assert connection.execute("SELECT key_message, success_metrics FROM campaigns WHERE id = 72").fetchone() == ("", "")
                 current_ledger = connection.execute("SELECT version, applied_at FROM goodmarketing_schema_migrations ORDER BY version").fetchall()
-                assert len(current_ledger) == 3
+                assert {row[0] for row in current_ledger} == {
+                    "gm-auth:0.1.5", "marketing:adapters-models:189869c", "workspace-accounts:1",
+                    "demo-requests:1", "marketing:strategy-fields:1", "marketing:owner-write-permission:1",
+                    "marketing:self-service-accounts:1",
+                    "marketing:primary-brand-brief:1",
+                    "marketing:workspace-brand-appearance:1",
+                    "marketing:workspace-brand-asset-extensions:1",
+                    "marketing:workspace-campaigns:1",
+                    "marketing:workspace-content-media:1",
+                    "marketing:dev-enrollment-slot:1",
+                }
                 if ledger is not None:
                     assert current_ledger == ledger
                 ledger = current_ledger

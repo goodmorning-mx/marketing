@@ -1,7 +1,15 @@
 fastapi==0.116.1
+python-multipart==0.0.34
 uvicorn[standard]==0.35.0
 pydantic-settings==2.10.1
+email-validator==2.3.0
 psycopg[binary]==3.2.10
 SQLAlchemy>=2.0,<3
+PyJWT>=2.9,<3
 gm-mcp @ https://github.com/goodmorning-mx/gm-mcp/archive/698fb12ae9dfb691e451d12300a3177551afc9a1.tar.gz
 gm-auth @ git+https://github.com/goodmorning-mx/gm-auth.git@138d66cb44a94781e0d38d8afd1be2dbf718c294
+
+Pillow==13.0.0
+resvg_py==0.5.0
+fonttools==4.69.1
+Brotli==1.2.1

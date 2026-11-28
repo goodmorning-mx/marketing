@@ -174,7 +174,11 @@ def adapter_contract_ok(expected: dict[str, Any], actual: dict[str, Any]) -> boo
 def account_endpoints_ok(actual: dict[str, Any]) -> bool:
     expected = {
         ("POST", "/auth/login"), ("POST", "/auth/activate"), ("POST", "/auth/logout"),
-        ("POST", "/auth/refresh"), ("GET", "/auth/me"), ("POST", "/admin/invitations"),
+        ("POST", "/auth/refresh"), ("GET", "/auth/me"),
+        ("POST", "/auth/password-reset/request"), ("POST", "/auth/password-reset/confirm"),
+        ("POST", "/auth/session/login"), ("POST", "/auth/session/logout"),
+        ("POST", "/auth/session/refresh"), ("GET", "/auth/session/me"),
+        ("POST", "/auth/workspaces"), ("POST", "/admin/invitations"),
         ("GET", "/workspace"), ("PUT", "/workspace"), ("POST", "/demo-requests"),
         ("GET", "/admin/demo-requests"), ("PUT", "/admin/demo-requests/{request_id}"),
     }
@@ -192,7 +196,6 @@ def main() -> int:
     parser.add_argument("--live-health-url", default=DEFAULT_HEALTH_URL)
     parser.add_argument("--live-openapi-file", type=Path, help="Use a previously fetched OpenAPI JSON file.")
     parser.add_argument("--live-health-file", type=Path, help="Use a previously fetched health JSON file.")
-    parser.add_argument("--require-account-endpoints", action="store_true")
     args = parser.parse_args()
 
     historical = load_json(BASELINE_PATH)
@@ -203,9 +206,7 @@ def main() -> int:
 
     live_ok = compare("Live DEV vs historical source 189869c", historical, live)
     source_ok = adapter_contract_ok(historical, current)
-    endpoints_ok = account_endpoints_ok(current) if args.require_account_endpoints else True
-    if not args.require_account_endpoints:
-        print("Account endpoint check: deferred until the account release")
+    endpoints_ok = account_endpoints_ok(current)
     live_health_ok = compare_health("Live health response vs historical source 189869c", historical_health, live_health)
     source_health_ok = compare_health("Current health response vs historical source 189869c", historical_health, current_health_response())
     return 0 if live_ok and source_ok and endpoints_ok and live_health_ok and source_health_ok else 1

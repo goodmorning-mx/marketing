@@ -10,4 +10,4 @@ These logo image files come from Meta's Brand Resource Center. Each file is used
 Additional beta channel marks:
 
 - TikTok and YouTube icons from [Simple Icons](https://github.com/simple-icons/simple-icons) (SVG).
-- LinkedIn [in] mark from [LinkedIn Brand Guidelines](https://brand.linkedin.com/in-logo) (PNG).
+- LinkedIn [in] mark from [LinkedIn Brand Guidelines](https://brand.linkedin.com/in-logo) (`social/linkedin.svg`).

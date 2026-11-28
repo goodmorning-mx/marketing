@@ -21,6 +21,7 @@
       button.setAttribute("aria-pressed", String(button.dataset.language === nextLanguage));
     });
     try { localStorage.setItem(key, nextLanguage); } catch { /* Keep the choice for this page. */ }
+    document.dispatchEvent(new CustomEvent("goodmarketing:language-change", { detail: { language: nextLanguage } }));
   }
 
   document.querySelectorAll("[data-language]").forEach((button) => {

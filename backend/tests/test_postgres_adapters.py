@@ -73,6 +73,7 @@ def test_base_migrations_run_without_auth_and_runtime_auth_migrations_apply_late
             "gm-auth:0.1.5", "workspace-accounts:1", "marketing:owner-write-permission:1",
             "marketing:self-service-accounts:1", "marketing:workspace-brand-appearance:1",
             "marketing:workspace-brand-asset-extensions:1", "marketing:workspace-campaigns:1",
+            "marketing:workspace-content-media:1",
         }
         assert {"gm_auth_users", "gm_auth_organizations", "goodmarketing_invitations", "goodmarketing_workspace_profiles",
                 "goodmarketing_email_verifications", "goodmarketing_account_limits"} <= all_tables
@@ -203,6 +204,7 @@ def test_existing_adapters_schema_keeps_rows_and_gains_missing_fields(monkeypatc
                     "marketing:workspace-brand-appearance:1",
                     "marketing:workspace-brand-asset-extensions:1",
                     "marketing:workspace-campaigns:1",
+                    "marketing:workspace-content-media:1",
                 }
                 if ledger is not None:
                     assert current_ledger == ledger

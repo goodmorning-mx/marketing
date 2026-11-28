@@ -24,7 +24,7 @@
     setDuration: () => spanish() ? "Usar duración de 30 días" : "Set duration to 30 days",
     setFrequency: () => spanish() ? "Usar frecuencia media" : "Set medium frequency",
   };
-  const editingId = new URLSearchParams(location.search).get("id");
+  let editingId = new URLSearchParams(location.search).get("id");
   let etag = null, saving = false, requestId = crypto.randomUUID(), loadedCampaign = null, durationTouched = false, frequencyTouched = false, platformsTouched = false, readyToSave = !editingId, hydrating = false;
   duration?.addEventListener("input", () => { if (!hydrating) durationTouched = true; });
   document.querySelectorAll("[data-strategy-platform]").forEach((node) => node.addEventListener("click", () => { platformsTouched = true; }));
@@ -74,7 +74,7 @@
       readyToSave = true; if (button) button.disabled = false;
     } catch { statusKey = "unavailableCampaign"; status.textContent = copy.unavailableCampaign(); if (button) button.disabled = true; }
   }
-  async function save() {
+  async function save({ navigate = true } = {}) {
     if (saving || !readyToSave) return;
     if (!name.value.trim()) { name.setAttribute("aria-invalid", "true"); const error = document.querySelector("#campaign-name-error"); if (error) error.hidden = false; statusKey = ""; status.textContent = ""; name.focus(); return; }
     name.removeAttribute("aria-invalid");
@@ -97,8 +97,16 @@
       const saved = (await result.json()).campaign;
       statusKey = "saved";
       status.textContent = copy.saved();
-      try { sessionStorage.setItem("gm-campaign-navigation-status", JSON.stringify({ workspace: GMAuth.identity.organization_id, id: String(saved.id), path: "/workspace/campaigns/detail/", message: "saved" })); } catch {}
-      location.assign(`/workspace/campaigns/detail/?id=${encodeURIComponent(saved.id)}`);
+      if (navigate) {
+        try { sessionStorage.setItem("gm-campaign-navigation-status", JSON.stringify({ workspace: GMAuth.identity.organization_id, id: String(saved.id), path: "/workspace/campaigns/detail/", message: "saved" })); } catch {}
+        location.assign(`/workspace/campaigns/detail/?id=${encodeURIComponent(saved.id)}`);
+      }
+      else {
+        editingId = String(saved.id); etag = result.headers.get("ETag"); loadedCampaign = saved; requestId = crypto.randomUUID();
+        history.replaceState(null, "", `/workspace/new-campaign/?id=${encodeURIComponent(saved.id)}`);
+        document.dispatchEvent(new CustomEvent("goodmarketing:campaign-ready", { detail: { campaign: saved } }));
+        window.GMShowCampaignStep?.(2);
+      }
     } catch (error) {
       if (error.message === copy.stale()) statusKey = "stale";
       else if (error.message === copy.invalid()) statusKey = "invalid";
@@ -107,7 +115,8 @@
     }
     finally { saving = false; button.disabled = false; }
   }
-  button?.addEventListener("click", save);
+  button?.addEventListener("click", () => save({ navigate: true }));
+  window.GMCampaignBuilder = { saveAndContinue: () => save({ navigate: false }), campaignId: () => editingId };
   if (editingId && button) button.disabled = true;
   document.addEventListener("goodmarketing:account-ready", () => { if (editingId) loadForEdit(); });
   document.addEventListener("goodmarketing:language-change", () => {

@@ -172,6 +172,67 @@ def test_tool_registry_confirmation_gates_remain_enabled(accounts) -> None:
     assert response.status_code == 200 and response.json()["requires_confirmation"] is True
 
 
+def test_workspace_content_lifecycle_is_scoped_conditional_and_idempotent(accounts) -> None:
+    campaign = client.post("/workspace/campaigns", headers={**auth(accounts["owner"]), "Idempotency-Key": "5e18487a-8257-4b0f-b512-aca62eae4b24"},
+                           json={"name": "Content workflow", "objective": "Test managed content", "platforms": ["facebook"], "duration_days": 30, "posting_frequency": "medium"})
+    assert campaign.status_code == 201
+    campaign_id = campaign.json()["campaign"]["id"]
+    content_key = "40bddbd7-1568-4c21-8af4-ed2c4c3966ea"
+    payload = {"kind": "text", "copy": "A clear launch note", "platforms": ["facebook"]}
+    created = client.post(f"/workspace/campaigns/{campaign_id}/content", headers={**auth(accounts["owner"]), "Idempotency-Key": content_key}, json=payload)
+    assert created.status_code == 201
+    item = created.json()["content"]
+    assert item["status"] == "draft" and item["title"] == "A clear launch note"
+    replay = client.post(f"/workspace/campaigns/{campaign_id}/content", headers={**auth(accounts["owner"]), "Idempotency-Key": content_key}, json=payload)
+    assert replay.status_code == 200 and replay.json()["replayed"] is True and replay.json()["content"]["id"] == item["id"]
+    changed_reuse = client.post(f"/workspace/campaigns/{campaign_id}/content", headers={**auth(accounts["owner"]), "Idempotency-Key": content_key}, json={**payload, "copy": "Changed"})
+    assert changed_reuse.status_code == 409
+    read = client.get(f"/workspace/content/{item['id']}", headers=auth(accounts["other"]))
+    assert read.status_code == 404
+    assert client.get(f"/workspace/content/{item['id']}", headers=auth(accounts["viewer"])).status_code == 200
+    missing_etag = client.post(f"/workspace/content/{item['id']}/review", headers=auth(accounts["owner"]))
+    assert missing_etag.status_code == 428
+    reviewed = client.post(f"/workspace/content/{item['id']}/review", headers={**auth(accounts["owner"]), "If-Match": created.headers["ETag"]})
+    assert reviewed.status_code == 200 and reviewed.json()["content"]["status"] == "review"
+    approved = client.post(f"/workspace/content/{item['id']}/approve", headers={**auth(accounts["owner"]), "If-Match": reviewed.headers["ETag"]})
+    assert approved.status_code == 200
+    assert approved.json()["content"]["status"] == "approved"
+    assert approved.json()["content"]["approved_by_user_id"]
+    returned = client.post(f"/workspace/content/{item['id']}/return", headers={**auth(accounts["owner"]), "If-Match": approved.headers["ETag"]})
+    assert returned.status_code == 200
+    assert returned.json()["content"]["status"] == "draft"
+    assert returned.json()["content"]["approved_by_user_id"] is None
+    reviewed_again = client.post(f"/workspace/content/{item['id']}/review", headers={**auth(accounts["owner"]), "If-Match": returned.headers["ETag"]})
+    changed = client.put(f"/workspace/content/{item['id']}", headers={**auth(accounts["owner"]), "If-Match": reviewed_again.headers["ETag"]},
+                         json={**payload, "copy": "Edited while in review"})
+    assert changed.status_code == 200 and changed.json()["content"]["status"] == "draft"
+    stale = client.put(f"/workspace/content/{item['id']}", headers={**auth(accounts["owner"]), "If-Match": reviewed_again.headers["ETag"]}, json=payload)
+    assert stale.status_code == 412
+    listing = client.get(f"/workspace/campaigns/{campaign_id}/content", headers=auth(accounts["owner"]))
+    assert len(listing.json()["content"]) == 1
+    removed = client.delete(f"/workspace/content/{item['id']}", headers={**auth(accounts["owner"]), "If-Match": changed.headers["ETag"]})
+    assert removed.status_code == 200
+    assert client.get(f"/workspace/content/{item['id']}", headers=auth(accounts["owner"])).status_code == 404
+    assert client.post(f"/workspace/campaigns/{campaign_id}/content", headers={**auth(accounts["owner"]), "Idempotency-Key": content_key}, json=payload).status_code == 409
+
+
+def test_workspace_content_rejects_bad_destinations_links_and_incomplete_review(accounts) -> None:
+    campaign = client.post("/workspace/campaigns", headers={**auth(accounts["owner"]), "Idempotency-Key": "304ae901-6076-4e77-8e09-bfaf593e9d70"},
+                           json={"name": "Validation", "objective": "", "platforms": ["facebook"], "duration_days": 30, "posting_frequency": "medium"}).json()["campaign"]
+    base = f"/workspace/campaigns/{campaign['id']}/content"
+    bad_platform = client.post(base, headers={**auth(accounts["owner"]), "Idempotency-Key": "42c7b310-19d9-4712-b7c3-d65f2ce84499"},
+                               json={"kind": "reel", "copy": "Caption", "platforms": ["facebook"]})
+    assert bad_platform.status_code == 422
+    bad_link = client.post(base, headers={**auth(accounts["owner"]), "Idempotency-Key": "7731a9d8-bfb2-4127-8178-8a10d10eb32e"},
+                           json={"kind": "link", "link_url": "http://example.test", "copy": "Visit", "platforms": ["facebook"]})
+    assert bad_link.status_code == 422
+    incomplete = client.post(base, headers={**auth(accounts["owner"]), "Idempotency-Key": "4213ef62-d960-4139-90b4-2c1b55140d2d"},
+                             json={"kind": "text", "copy": "", "platforms": ["facebook"]})
+    assert incomplete.status_code == 201
+    etag = incomplete.headers["ETag"]
+    assert client.post(f"/workspace/content/{incomplete.json()['content']['id']}/review", headers={**auth(accounts["owner"]), "If-Match": etag}).status_code == 422
+
+
 def test_primary_brand_adapter_patch_is_partial_and_revision_conditional(accounts):
     from sqlalchemy import update
     from app.models import Brand

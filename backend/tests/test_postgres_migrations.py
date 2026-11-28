@@ -39,6 +39,7 @@ def test_gm_auth_migrations_succeed_on_first_and_repeated_startup(monkeypatch):
             "marketing:workspace-brand-appearance:1",
             "marketing:workspace-brand-asset-extensions:1",
             "marketing:workspace-campaigns:1",
+            "marketing:workspace-content-media:1",
         }
         assert {
             "gm_auth_users", "gm_auth_organizations", "gm_auth_memberships",
@@ -158,7 +159,7 @@ def test_migrations_replay_over_preexisting_adapters_schema_without_losing_data(
         assert campaign_columns["workspace_id"] == "YES"
         assert campaign_columns["duration_days"] == "YES"
         assert campaign_columns["posting_frequency"] == "YES"
-        assert version_count == 11
+        assert version_count == 12
     finally:
         if main._runtime_engine is not None:
             main._runtime_engine.dispose()

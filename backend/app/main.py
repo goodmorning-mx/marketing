@@ -7,14 +7,17 @@ import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Literal
+from urllib.parse import urlsplit
 
 import psycopg
-from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Request, Response, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Request, Response, UploadFile, status
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.formparsers import MultiPartException, MultiPartParser
+from starlette.datastructures import UploadFile as StarletteUploadFile
 from fastapi.security import HTTPBasic, HTTPBasicCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from psycopg.rows import dict_row
@@ -25,9 +28,10 @@ from app.brand_assets import MAX_OUTPUT_BYTES, decode_logo
 from app.brand_fonts import validate_font
 from app.brand_palette import MAX_PALETTE_BYTES, parse_gpl
 from app.database import get_db
-from app.models import Base, Brand, Campaign
+from app.models import Base, Brand, Campaign, ContentItem, ContentMedia
+from app.content_media import MAX_PHOTO_BYTES, MAX_REEL_BYTES, MAX_WORKSPACE_BYTES, InvalidMedia, safe_filename, validate_jpeg, validate_mp4
 from app.adapters import router as adapters_router
-from sqlalchemy import and_, create_engine, or_, select, text
+from sqlalchemy import and_, create_engine, delete, func, or_, select, text, update
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -41,11 +45,20 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
+    allow_methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*", "If-Match"],
-    expose_headers=["ETag"],
+    expose_headers=["ETag", "Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition", "X-Content-Type-Options"],
 )
 app.include_router(adapters_router)
+
+
+@app.middleware("http")
+async def private_workspace_content_responses(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/workspace/content/") or re.fullmatch(r"/workspace/campaigns/[^/]+/content", path):
+        response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 basic_auth = HTTPBasic(auto_error=False)
 bearer = HTTPBearer(auto_error=False)
@@ -248,6 +261,7 @@ def startup_database():
                     ("marketing:workspace-brand-appearance:1", "008_workspace_brand_appearance.sql"),
                     ("marketing:workspace-brand-asset-extensions:1", "009_workspace_brand_asset_extensions.sql"),
                     ("marketing:workspace-campaigns:1", "010_workspace_campaigns.sql"),
+                    ("marketing:workspace-content-media:1", "011_workspace_content_media.sql"),
                 ))
             for version, migration in migrations:
                 found = connection.execute("SELECT 1 FROM goodmarketing_schema_migrations WHERE version = %s", (version,)).fetchone()
@@ -980,6 +994,477 @@ def archive_workspace_campaign(request: Request, response: Response,
     response.headers["ETag"] = _workspace_campaign_etag(identity.organization_id, campaign)
     response.headers["Cache-Control"] = "private, no-store"
     return {"campaign": _workspace_campaign_dict(campaign)}
+
+
+class WorkspaceContentInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    kind: Literal["text", "link", "photo", "reel"]
+    title: str = Field(default="", max_length=240)
+    copy_text: str = Field(default="", alias="copy", max_length=10_000)
+    link_url: str = Field(default="", max_length=2_000)
+    platforms: list[Literal["facebook", "instagram"]] = Field(default_factory=list, max_length=2)
+
+
+def _content_fingerprint(payload: WorkspaceContentInput) -> str:
+    raw = json.dumps(payload.model_dump(mode="json", by_alias=True), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _workspace_content_key(value: str | None) -> str:
+    if not value:
+        raise HTTPException(status_code=428, detail="Idempotency-Key is required.")
+    try:
+        return str(uuid.UUID(value))
+    except (ValueError, AttributeError) as exc:
+        raise HTTPException(status_code=400, detail="Idempotency-Key must be a UUID.") from exc
+
+
+def _validate_content_fields(kind: str, title: str, copy_text: str, link_url: str, platforms: list[str]) -> tuple[str, list[str]]:
+    selected = list(dict.fromkeys(platforms))
+    if not selected:
+        raise HTTPException(status_code=422, detail="Select at least one destination.")
+    allowed = {"text": {"facebook"}, "link": {"facebook"}, "photo": {"facebook", "instagram"}, "reel": {"instagram"}}
+    if any(platform not in allowed[kind] for platform in selected):
+        raise HTTPException(status_code=422, detail="The selected destinations do not support this content type.")
+    if kind == "link":
+        try:
+            parts = urlsplit(link_url)
+            _ = parts.port
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="Enter a valid HTTPS link.") from exc
+        if parts.scheme != "https" or not parts.hostname or parts.username or parts.password:
+            raise HTTPException(status_code=422, detail="Enter a valid HTTPS link.")
+    elif link_url:
+        raise HTTPException(status_code=422, detail="Links are only supported for link posts.")
+    if not title.strip():
+        if kind == "link" and link_url:
+            try:
+                title = urlsplit(link_url).hostname or "Link post"
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail="Enter a valid HTTPS link.") from exc
+        elif copy_text.strip():
+            title = copy_text.strip().splitlines()[0][:240]
+        else:
+            title = {"text": "Text post", "link": "Link post", "photo": "Photo post", "reel": "Reel"}[kind]
+    return title.strip(), selected
+
+
+def _content_etag(organization_id: str, item: ContentItem) -> str:
+    value = hashlib.sha256(f"{organization_id}:{item.id}:{item.revision}".encode()).hexdigest()
+    return f'"cc-{value}"'
+
+
+def _require_content_etag(request: Request, organization_id: str, item: ContentItem) -> None:
+    validator = request.headers.get("If-Match")
+    if validator is None:
+        raise HTTPException(status_code=428, detail="If-Match is required.")
+    if validator.startswith("W/") or validator == "*" or not re.fullmatch(r'"cc-[0-9a-f]{64}"', validator):
+        raise HTTPException(status_code=400, detail="Unsupported If-Match validator.")
+    if validator != _content_etag(organization_id, item):
+        raise HTTPException(status_code=412, detail="Content changed in another session. Reload before saving.")
+
+
+def _workspace_content_query(organization_id: str, content_id: int | None = None, *, lock: bool = False):
+    query = select(ContentItem).join(Campaign, Campaign.id == ContentItem.campaign_id).outerjoin(Brand, Brand.id == Campaign.brand_id).where(
+        ContentItem.kind.is_not(None), ContentItem.deleted_at.is_(None),
+        or_(Campaign.workspace_id == organization_id, and_(Campaign.workspace_id.is_(None), Brand.tenant_id == organization_id)),
+    )
+    if content_id is not None:
+        query = query.where(ContentItem.id == content_id)
+    if lock:
+        query = query.with_for_update(of=ContentItem)
+    return query
+
+
+def _content_payload(item: ContentItem, media: dict | None = None) -> dict:
+    return {"id": item.id, "campaign_id": item.campaign_id, "kind": item.kind, "title": item.title,
+            "copy": item.copy or "", "link_url": item.link_url or "", "platforms": item.platforms or [],
+            "status": item.status, "revision": item.revision, "approved_by_user_id": item.approved_by_user_id,
+            "approved_at": item.approved_at.isoformat() if item.approved_at else None,
+            "created_at": item.created_at.isoformat() if item.created_at else None, "media": media}
+
+
+def _content_media_summary(db: Session, content_id: int) -> dict | None:
+    row = db.execute(select(ContentMedia.id, ContentMedia.media_kind, ContentMedia.media_type, ContentMedia.filename,
+                            ContentMedia.size_bytes, ContentMedia.sha256, ContentMedia.metadata_json)
+                     .where(ContentMedia.content_id == content_id)).first()
+    if row is None:
+        return None
+    return {"id": row.id, "kind": row.media_kind, "type": row.media_type, "filename": row.filename,
+            "size_bytes": row.size_bytes, "sha256": row.sha256, "metadata": row.metadata_json,
+            "url": f"/workspace/content/{content_id}/media"}
+
+
+def _content_media_summaries(db: Session, content_ids: list[int]) -> dict[int, dict]:
+    if not content_ids:
+        return {}
+    rows = db.execute(select(ContentMedia.content_id, ContentMedia.id, ContentMedia.media_kind, ContentMedia.media_type,
+                             ContentMedia.filename, ContentMedia.size_bytes, ContentMedia.sha256, ContentMedia.metadata_json)
+                      .where(ContentMedia.content_id.in_(content_ids))).all()
+    return {row.content_id: {"id": row.id, "kind": row.media_kind, "type": row.media_type, "filename": row.filename,
+                             "size_bytes": row.size_bytes, "sha256": row.sha256, "metadata": row.metadata_json,
+                             "url": f"/workspace/content/{row.content_id}/media"} for row in rows}
+
+
+def _content_response(response: Response, identity: AuthIdentity, item: ContentItem, db: Session) -> dict:
+    response.headers["ETag"] = _content_etag(identity.organization_id, item)
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"content": _content_payload(item, _content_media_summary(db, item.id))}
+
+
+def _validate_existing_photo_destinations(db: Session, item: ContentItem, platforms: list[str]) -> None:
+    if item.kind != "photo" or "instagram" not in platforms:
+        return
+    row = db.execute(select(ContentMedia.media_type, ContentMedia.metadata_json).where(ContentMedia.content_id == item.id)).first()
+    if row is None:
+        return
+    if row.media_type != "image/jpeg":
+        raise HTTPException(status_code=422, detail="Instagram destinations require a JPEG photo.")
+    metadata = row.metadata_json or {}
+    try:
+        ratio = int(metadata["width"]) / int(metadata["height"])
+    except (KeyError, TypeError, ValueError, ZeroDivisionError) as exc:
+        raise HTTPException(status_code=422, detail="The saved photo could not be validated for Instagram.") from exc
+    if not 0.8 <= ratio <= 1.91:
+        raise HTTPException(status_code=422, detail="Instagram photos must use a 4:5 to 1.91:1 aspect ratio.")
+
+
+def _require_media_workspace_lock(db: Session, organization_id: str) -> None:
+    if db.get_bind().dialect.name != "postgresql":
+        return
+    row = db.execute(text("SELECT id FROM gm_auth_organizations WHERE id = :organization_id FOR UPDATE"),
+                     {"organization_id": organization_id}).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Workspace not found.")
+
+
+def _content_complete(db: Session, item: ContentItem) -> bool:
+    if item.kind in {"text", "link"}:
+        return bool((item.copy or "").strip()) if item.kind == "text" else bool(item.link_url and (item.copy or "").strip())
+    return bool((item.copy or "").strip()) and db.scalar(select(ContentMedia.id).where(ContentMedia.content_id == item.id)) is not None
+
+
+@app.get("/workspace/campaigns/{campaign_id}/content")
+def list_workspace_content(campaign_id: int = Path(..., ge=1, le=2_147_483_647), response: Response = None,
+                           identity: AuthIdentity = Depends(current_customer), db: Session = Depends(get_db)):
+    _require_campaign_read(identity)
+    campaign = db.scalar(_workspace_campaign_query(identity.organization_id, campaign_id))
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="Campaign not found.")
+    rows = db.scalars(_workspace_content_query(identity.organization_id).where(ContentItem.campaign_id == campaign_id).order_by(ContentItem.id)).all()
+    media_by_content = _content_media_summaries(db, [item.id for item in rows])
+    response.headers["Cache-Control"] = "private, no-store"
+    content_rows = []
+    for item in rows:
+        row = _content_payload(item, media_by_content.get(item.id))
+        row["etag"] = _content_etag(identity.organization_id, item)
+        content_rows.append(row)
+    return {"content": content_rows}
+
+
+@app.post("/workspace/campaigns/{campaign_id}/content", status_code=201)
+def create_workspace_content(payload: WorkspaceContentInput, campaign_id: int = Path(..., ge=1, le=2_147_483_647),
+                             request: Request = None, response: Response = None,
+                             identity: AuthIdentity = Depends(current_customer), db: Session = Depends(get_db),
+                             idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+    _require_campaign_write(identity)
+    campaign = db.scalar(_workspace_campaign_query(identity.organization_id, campaign_id, lock=True))
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="Campaign not found.")
+    key = _workspace_content_key(idempotency_key)
+    fingerprint = _content_fingerprint(payload)
+    existing = db.scalar(select(ContentItem).where(ContentItem.campaign_id == campaign_id, ContentItem.create_request_id == key))
+    if existing is not None:
+        if existing.create_request_fingerprint != fingerprint or existing.deleted_at is not None:
+            raise HTTPException(status_code=409, detail="This save request was already used.")
+        response.status_code = 200
+        response.headers["ETag"] = _content_etag(identity.organization_id, existing)
+        response.headers["Cache-Control"] = "private, no-store"
+        return {"content": _content_payload(existing, _content_media_summary(db, existing.id)), "replayed": True}
+    title, platforms = _validate_content_fields(payload.kind, payload.title, payload.copy_text, payload.link_url, payload.platforms)
+    item = ContentItem(campaign_id=campaign_id, kind=payload.kind, title=title, copy=payload.copy_text.strip(),
+                       link_url=payload.link_url.strip(), platforms=platforms, status="draft", revision=1,
+                       create_request_id=key, create_request_fingerprint=fingerprint)
+    db.add(item)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = db.scalar(select(ContentItem).where(ContentItem.campaign_id == campaign_id, ContentItem.create_request_id == key))
+        if existing is None:
+            raise
+        if existing.create_request_fingerprint != fingerprint or existing.deleted_at is not None:
+            raise HTTPException(status_code=409, detail="This save request was already used.")
+        item = existing
+        response.status_code = 200
+        replayed = True
+    else:
+        replayed = False
+    db.refresh(item)
+    response.headers["ETag"] = _content_etag(identity.organization_id, item)
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"content": _content_payload(item), "replayed": replayed}
+
+
+@app.get("/workspace/content/{content_id}")
+def read_workspace_content(content_id: int = Path(..., ge=1, le=2_147_483_647), response: Response = None,
+                           identity: AuthIdentity = Depends(current_customer), db: Session = Depends(get_db)):
+    _require_campaign_read(identity)
+    item = db.scalar(_workspace_content_query(identity.organization_id, content_id))
+    if item is None:
+        raise HTTPException(status_code=404, detail="Content not found.")
+    return _content_response(response, identity, item, db)
+
+
+@app.put("/workspace/content/{content_id}")
+def update_workspace_content(payload: WorkspaceContentInput, request: Request,
+                             content_id: int = Path(..., ge=1, le=2_147_483_647), response: Response = None,
+                             identity: AuthIdentity = Depends(current_customer), db: Session = Depends(get_db)):
+    _require_campaign_write(identity)
+    item = db.scalar(_workspace_content_query(identity.organization_id, content_id, lock=True))
+    if item is None:
+        raise HTTPException(status_code=404, detail="Content not found.")
+    _require_content_etag(request, identity.organization_id, item)
+    if payload.kind != item.kind:
+        raise HTTPException(status_code=422, detail="A saved content item cannot change type.")
+    title, platforms = _validate_content_fields(payload.kind, payload.title, payload.copy_text, payload.link_url, payload.platforms)
+    _validate_existing_photo_destinations(db, item, platforms)
+    changed = (item.title, item.copy or "", item.link_url or "", item.platforms or []) != (title, payload.copy_text.strip(), payload.link_url.strip(), platforms)
+    item.title, item.copy, item.link_url, item.platforms = title, payload.copy_text.strip(), payload.link_url.strip(), platforms
+    if changed:
+        item.revision += 1
+        if item.status in {"review", "approved"}:
+            item.status = "draft"
+            item.approved_by_user_id = None
+            item.approved_at = None
+    db.commit()
+    db.refresh(item)
+    return _content_response(response, identity, item, db)
+
+
+def _content_action(content_id: int, action: str, request: Request, response: Response,
+                    identity: AuthIdentity, db: Session) -> dict:
+    _require_campaign_write(identity)
+    item = db.scalar(_workspace_content_query(identity.organization_id, content_id, lock=True))
+    if item is None:
+        raise HTTPException(status_code=404, detail="Content not found.")
+    _require_content_etag(request, identity.organization_id, item)
+    if action in {"review", "approve"} and not _content_complete(db, item):
+        raise HTTPException(status_code=422, detail="Complete the content and add required media before review.")
+    if action == "review" and item.status == "draft":
+        item.status = "review"
+    elif action == "approve" and item.status == "review":
+        item.status = "approved"
+        item.approved_by_user_id = identity.user_id
+        item.approved_at = datetime.now(timezone.utc)
+    elif action == "return" and item.status in {"review", "approved"}:
+        item.status = "draft"
+        item.approved_by_user_id = None
+        item.approved_at = None
+    elif action == "remove":
+        _require_media_workspace_lock(db, identity.organization_id)
+        db.execute(text("DELETE FROM content_media WHERE content_id = :content_id"), {"content_id": item.id})
+        item.deleted_at = datetime.now(timezone.utc)
+        item.revision += 1
+    else:
+        raise HTTPException(status_code=409, detail="This content action is not available in the current state.")
+    if action != "remove":
+        item.revision += 1
+    db.commit()
+    db.refresh(item)
+    response.headers["ETag"] = _content_etag(identity.organization_id, item)
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"content": _content_payload(item, None if action == "remove" else _content_media_summary(db, item.id))}
+
+
+@app.post("/workspace/content/{content_id}/review")
+def request_content_review(content_id: int = Path(..., ge=1, le=2_147_483_647), request: Request = None,
+                           response: Response = None, identity: AuthIdentity = Depends(current_customer), db: Session = Depends(get_db)):
+    return _content_action(content_id, "review", request, response, identity, db)
+
+
+@app.post("/workspace/content/{content_id}/approve")
+def approve_workspace_content(content_id: int = Path(..., ge=1, le=2_147_483_647), request: Request = None,
+                              response: Response = None, identity: AuthIdentity = Depends(current_customer), db: Session = Depends(get_db)):
+    return _content_action(content_id, "approve", request, response, identity, db)
+
+
+@app.post("/workspace/content/{content_id}/return")
+def return_workspace_content(content_id: int = Path(..., ge=1, le=2_147_483_647), request: Request = None,
+                             response: Response = None, identity: AuthIdentity = Depends(current_customer), db: Session = Depends(get_db)):
+    return _content_action(content_id, "return", request, response, identity, db)
+
+
+@app.delete("/workspace/content/{content_id}")
+def remove_workspace_content(content_id: int = Path(..., ge=1, le=2_147_483_647), request: Request = None,
+                             response: Response = None, identity: AuthIdentity = Depends(current_customer), db: Session = Depends(get_db)):
+    return _content_action(content_id, "remove", request, response, identity, db)
+
+
+MAX_MEDIA_REQUEST_BYTES = MAX_REEL_BYTES + 2 * 1024 * 1024
+
+
+async def _media_stream_limited(request: Request):
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > MAX_MEDIA_REQUEST_BYTES:
+            raise MultiPartException("The uploaded request is too large.")
+        yield chunk
+
+
+@app.post("/workspace/content/{content_id}/media")
+async def upload_workspace_content_media(content_id: int = Path(..., ge=1, le=2_147_483_647), request: Request = None,
+                                         response: Response = None, identity: AuthIdentity = Depends(current_customer),
+                                         db: Session = Depends(get_db)):
+    _require_campaign_write(identity)
+    def read_initial():
+        current = db.scalar(_workspace_content_query(identity.organization_id, content_id))
+        if current is None:
+            return None
+        initial = (current.kind, list(current.platforms or []), _content_etag(identity.organization_id, current))
+        db.rollback()
+        return initial
+    initial = await run_in_threadpool(read_initial)
+    if initial is None:
+        raise HTTPException(status_code=404, detail="Content not found.")
+    # Compare against the initial revision without holding a row lock across multipart I/O.
+    validator = request.headers.get("If-Match")
+    if validator is None:
+        raise HTTPException(status_code=428, detail="If-Match is required.")
+    if validator.startswith("W/") or validator == "*" or not re.fullmatch(r'"cc-[0-9a-f]{64}"', validator):
+        raise HTTPException(status_code=400, detail="Unsupported If-Match validator.")
+    if validator != initial[2]:
+        raise HTTPException(status_code=412, detail="Content changed in another session. Reload before saving.")
+    content_length = request.headers.get("content-length")
+    if content_length and (not content_length.isdigit() or int(content_length) > MAX_MEDIA_REQUEST_BYTES):
+        raise HTTPException(status_code=413, detail="The uploaded request is too large.")
+    parser = MultiPartParser(request.headers, _media_stream_limited(request), max_files=1, max_fields=0,
+                             max_part_size=MAX_MEDIA_REQUEST_BYTES)
+    try:
+        form = await parser.parse()
+    except MultiPartException as exc:
+        if "too large" in str(exc).lower():
+            raise HTTPException(status_code=413, detail="The uploaded request is too large.") from exc
+        raise HTTPException(status_code=422, detail="Choose exactly one file to upload.") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail="Choose exactly one file to upload.") from exc
+    try:
+        entries = list(form.multi_items())
+        if len(entries) != 1 or entries[0][0] != "file" or not isinstance(entries[0][1], StarletteUploadFile):
+            raise HTTPException(status_code=422, detail="Choose exactly one file to upload.")
+        upload = entries[0][1]
+        raw = await upload.read(MAX_REEL_BYTES + 1)
+        if len(raw) > MAX_REEL_BYTES or upload.size is not None and upload.size != len(raw):
+            raise HTTPException(status_code=413, detail="The uploaded file exceeds the allowed size.")
+        if initial[0] == "photo":
+            media_metadata = await run_in_threadpool(validate_jpeg, raw, initial[1])
+        elif initial[0] == "reel":
+            media_metadata = await run_in_threadpool(validate_mp4, raw)
+        else:
+            raise HTTPException(status_code=422, detail="Only photo and Reel content accepts a file.")
+        safe_name = safe_filename(upload.filename or "upload")
+    except InvalidMedia as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    finally:
+        await form.close()
+    def save_media():
+        item = db.scalar(_workspace_content_query(identity.organization_id, content_id, lock=True))
+        if item is None:
+            raise HTTPException(status_code=404, detail="Content not found.")
+        _require_content_etag_value(request.headers.get("If-Match"), identity.organization_id, item)
+        if item.kind != initial[0]:
+            raise HTTPException(status_code=412, detail="Content changed in another session. Reload before saving.")
+        metadata = media_metadata
+        if item.kind == "photo" and "instagram" in (item.platforms or []):
+            width, height = metadata["width"], metadata["height"]
+            if not 0.8 <= width / height <= 1.91:
+                raise HTTPException(status_code=422, detail="Instagram photos must use a 4:5 to 1.91:1 aspect ratio.")
+        if item.kind == "photo":
+            media_type = "image/jpeg"
+        else:
+            media_type = "video/mp4"
+        existing_size = db.scalar(select(ContentMedia.size_bytes).where(ContentMedia.content_id == item.id)) or 0
+        _require_media_workspace_lock(db, identity.organization_id)
+        current_total = db.scalar(select(func.coalesce(func.sum(ContentMedia.size_bytes), 0)).where(ContentMedia.workspace_id == identity.organization_id)) or 0
+        if int(current_total) - int(existing_size) + len(raw) > MAX_WORKSPACE_BYTES:
+            raise HTTPException(status_code=413, detail="This workspace has reached its private media storage limit.")
+        values = {"workspace_id": identity.organization_id, "media_kind": item.kind, "media_type": media_type,
+                  "filename": safe_name, "media_bytes": raw, "size_bytes": len(raw),
+                  "sha256": hashlib.sha256(raw).hexdigest(), "metadata_json": metadata, "created_at": datetime.now(timezone.utc)}
+        media_exists = db.scalar(select(ContentMedia.id).where(ContentMedia.content_id == item.id))
+        if media_exists:
+            db.execute(update(ContentMedia).where(ContentMedia.content_id == item.id).values(**values))
+        else:
+            db.add(ContentMedia(content_id=item.id, **values))
+        item.asset_name = safe_name
+        item.revision += 1
+        if item.status in {"review", "approved"}:
+            item.status = "draft"
+            item.approved_by_user_id = None
+            item.approved_at = None
+        db.commit()
+        db.refresh(item)
+        result = (_content_payload(item, _content_media_summary(db, item.id)), _content_etag(identity.organization_id, item))
+        return result
+    content_result, etag = await run_in_threadpool(save_media)
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"content": content_result}
+
+
+def _require_content_etag_value(validator: str | None, organization_id: str, item: ContentItem) -> None:
+    if validator is None:
+        raise HTTPException(status_code=428, detail="If-Match is required.")
+    if validator.startswith("W/") or validator == "*" or not re.fullmatch(r'"cc-[0-9a-f]{64}"', validator):
+        raise HTTPException(status_code=400, detail="Unsupported If-Match validator.")
+    if validator != _content_etag(organization_id, item):
+        raise HTTPException(status_code=412, detail="Content changed in another session. Reload before saving.")
+
+
+@app.api_route("/workspace/content/{content_id}/media", methods=["GET", "HEAD"])
+def read_workspace_content_media(content_id: int = Path(..., ge=1, le=2_147_483_647), request: Request = None,
+                                 identity: AuthIdentity = Depends(current_customer), db: Session = Depends(get_db)):
+    _require_campaign_read(identity)
+    item = db.scalar(_workspace_content_query(identity.organization_id, content_id))
+    if item is None:
+        raise HTTPException(status_code=404, detail="Content not found.")
+    row = db.execute(select(ContentMedia.id, ContentMedia.media_type, ContentMedia.filename, ContentMedia.size_bytes, ContentMedia.sha256)
+                     .where(ContentMedia.content_id == item.id, ContentMedia.workspace_id == identity.organization_id)).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Media not found.")
+    headers = {"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+               "Content-Disposition": f'inline; filename="{row.filename}"', "ETag": f'"{row.sha256}"',
+               "Accept-Ranges": "bytes"}
+    start, end, status_code = 0, row.size_bytes - 1, 200
+    range_header = request.headers.get("range")
+    if range_header and row.media_type == "video/mp4":
+        match = re.fullmatch(r"bytes=(\d{0,10})-(\d{0,10})", range_header.strip())
+        if not match or (not match.group(1) and not match.group(2)):
+            raise HTTPException(status_code=416, detail="Invalid byte range.", headers={"Content-Range": f"bytes */{row.size_bytes}"})
+        if match.group(1):
+            start = int(match.group(1)); end = int(match.group(2)) if match.group(2) else row.size_bytes - 1
+        else:
+            suffix = int(match.group(2)); start = max(0, row.size_bytes - suffix); end = row.size_bytes - 1
+        if start >= row.size_bytes or end < start or end < 0:
+            raise HTTPException(status_code=416, detail="Invalid byte range.", headers={"Content-Range": f"bytes */{row.size_bytes}"})
+        end = min(end, row.size_bytes - 1)
+        status_code = 206
+        headers["Content-Range"] = f"bytes {start}-{end}/{row.size_bytes}"
+    selected = b""
+    if request.method != "HEAD":
+        length = end - start + 1
+        query = select(ContentMedia.media_bytes if start == 0 and end == row.size_bytes - 1
+                       else func.substring(ContentMedia.media_bytes, start + 1, length))\
+            .where(ContentMedia.id == row.id, ContentMedia.sha256 == row.sha256,
+                   ContentMedia.workspace_id == identity.organization_id)
+        data = db.scalar(query)
+        if data is None:
+            raise HTTPException(status_code=412, detail="Media changed while it was being read. Reload and try again.")
+        selected = bytes(data)
+    headers["Content-Length"] = str(end - start + 1)
+    return Response(content=selected, status_code=status_code, media_type=row.media_type, headers=headers)
 
 
 @app.get("/workspace/brand-brief")

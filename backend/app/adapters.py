@@ -149,7 +149,7 @@ def _owned_campaign(db: Session, organization_id: str, campaign_id: int) -> Camp
 
 
 def _owned_content(db: Session, organization_id: str, content_id: int) -> ContentItem:
-    item = db.scalar(select(ContentItem).join(Campaign).join(Brand).where(ContentItem.id == content_id, Brand.tenant_id == organization_id))
+    item = db.scalar(select(ContentItem).join(Campaign).join(Brand).where(ContentItem.id == content_id, ContentItem.kind.is_(None), Brand.tenant_id == organization_id))
     if item is None:
         raise HTTPException(status_code=404, detail="Content not found")
     return item
@@ -270,7 +270,7 @@ def create_content(payload: ContentIn, identity: AuthIdentity = Depends(require_
 @router.get("/api/content")
 def list_content(campaign_id: int, identity: AuthIdentity = Depends(require_marketing_read), db: Session = Depends(get_db)) -> list[dict]:
     _owned_campaign(db, identity.organization_id, campaign_id)
-    items = db.scalars(select(ContentItem).where(ContentItem.campaign_id == campaign_id).order_by(ContentItem.id.desc())).all()
+    items = db.scalars(select(ContentItem).where(ContentItem.campaign_id == campaign_id, ContentItem.kind.is_(None)).order_by(ContentItem.id.desc())).all()
     return [{"id": item.id, "campaign_id": item.campaign_id, "title": item.title, "copy": item.copy, "asset_name": item.asset_name, "platforms": item.platforms, "variants": item.variants, "status": item.status} for item in items]
 
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, JSON, String, Text, func, Boolean, Integer, Index, Uuid
+from sqlalchemy import DateTime, ForeignKey, JSON, String, Text, func, Boolean, Integer, Index, Uuid, LargeBinary
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -80,9 +80,37 @@ class ContentItem(Base):
     platforms: Mapped[list[str]] = mapped_column(JSON, default=list)
     variants: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
     status: Mapped[str] = mapped_column(String(40), default="draft")
+    # Null marks rows written through the preserved legacy /api and MCP contracts.
+    kind: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    link_url: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    create_request_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False), nullable=True)
+    create_request_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approved_by_user_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     campaign: Mapped[Campaign] = relationship(back_populates="content")
+    media: Mapped["ContentMedia | None"] = relationship(back_populates="content", cascade="all, delete-orphan", uselist=False)
+
+
+class ContentMedia(Base):
+    __tablename__ = "content_media"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    content_id: Mapped[int] = mapped_column(ForeignKey("content_items.id", ondelete="CASCADE"), unique=True, index=True)
+    workspace_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    media_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    filename: Mapped[str] = mapped_column(String(180), nullable=False)
+    media_bytes: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    metadata_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    content: Mapped[ContentItem] = relationship(back_populates="media")
 
 
 class PlatformConnection(Base):

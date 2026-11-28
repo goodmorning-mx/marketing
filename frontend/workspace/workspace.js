@@ -557,7 +557,7 @@ window.GMPostPreview = (() => {
     const postsPerWeek = { low: 3, medium: 4, high: 5 }[frequency?.value] || 4;
     const days = Number(strategyDuration.value);
     const contentPieces = Math.ceil((postsPerWeek * days) / 7);
-    const completedPieces = selectedCampaignContent?.files.length ?? 0;
+    const completedPieces = window.GMCampaignContent?.savedCount?.() ?? 0;
     const numberFormat = new Intl.NumberFormat(currentLanguage);
     contentEstimateNumber.textContent = `${numberFormat.format(completedPieces)}/${numberFormat.format(contentPieces)}`;
     contentEstimateLabel.textContent = currentLanguage === "es"
@@ -593,6 +593,10 @@ window.GMPostPreview = (() => {
   strategyFrequencies.forEach((frequency) => frequency.addEventListener("change", updateCampaignContentEstimate));
   updateCampaignStrategyLanguage();
   function showCampaignStep(step, moveFocus = true) {
+    if (step > 1 && window.GMCampaignBuilder && !window.GMCampaignBuilder.campaignId()) {
+      window.GMCampaignBuilder.saveAndContinue();
+      return;
+    }
     const blocked = step > 1 && !validateCampaignName();
     if (blocked) step = 1;
     campaignStages.forEach((stage) => { stage.hidden = stage.dataset.campaignStage !== String(step); });
@@ -610,7 +614,12 @@ window.GMPostPreview = (() => {
   stepButtons.forEach((button) => button.addEventListener("click", () => showCampaignStep(Number(button.dataset.stepTarget))));
   document.querySelectorAll("[data-next-step]").forEach((button) => button.addEventListener("click", () => showCampaignStep(Number(button.dataset.nextStep))));
   document.querySelectorAll("[data-prev-step]").forEach((button) => button.addEventListener("click", () => showCampaignStep(Number(button.dataset.prevStep))));
-  if (campaignForm) campaignForm.addEventListener("submit", (event) => { event.preventDefault(); showCampaignStep(2); });
+  window.GMShowCampaignStep = showCampaignStep;
+  if (campaignForm) campaignForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (typeof window.GMCampaignBuilder?.saveAndContinue === "function") window.GMCampaignBuilder.saveAndContinue();
+    else showCampaignStep(2);
+  });
 
   function renderContentPreview() {
     const isSpanish = language() === "es";
@@ -706,13 +715,22 @@ window.GMPostPreview = (() => {
   const timeZone = document.querySelector("#schedule-timezone");
   function renderSchedulePreview() {
     if (!scheduleDate) return;
-    const selected = scheduleDate.value ? new Date(`${scheduleDate.value}T12:00:00`) : new Date();
-    document.querySelector("#schedule-preview-day").textContent = new Intl.DateTimeFormat(language() === "es" ? "es-MX" : "en-US", { day: "numeric" }).format(selected);
-    document.querySelector("#schedule-preview-date-label").textContent = new Intl.DateTimeFormat(language() === "es" ? "es-MX" : "en-US", { dateStyle: "medium" }).format(selected);
-    document.querySelector("#schedule-preview-time-label").textContent = `${scheduleTime?.value || "12:00"} · ${timeZone?.value || "America/Mexico_City"}`;
+    const dateLabel = document.querySelector("#schedule-preview-date-label");
+    const dayLabel = document.querySelector("#schedule-preview-day");
+    const timeLabel = document.querySelector("#schedule-preview-time-label");
+    if (!scheduleDate.value) {
+      if (dayLabel) dayLabel.textContent = "—";
+      if (dateLabel) dateLabel.textContent = language() === "es" ? "Sin fecha" : "No date selected";
+      if (timeLabel) timeLabel.textContent = language() === "es" ? "No programado" : "Not scheduled";
+    } else {
+      const selected = new Date(`${scheduleDate.value}T12:00:00`);
+      if (dayLabel) dayLabel.textContent = new Intl.DateTimeFormat(language() === "es" ? "es-MX" : "en-US", { day: "numeric" }).format(selected);
+      if (dateLabel) dateLabel.textContent = new Intl.DateTimeFormat(language() === "es" ? "es-MX" : "en-US", { dateStyle: "medium" }).format(selected);
+      if (timeLabel) timeLabel.textContent = `${scheduleTime?.value || "12:00"} · ${timeZone?.value || "America/Mexico_City"}`;
+    }
     renderContentPreview();
   }
-  if (scheduleDate) {
+  if (scheduleDate && !scheduleDate.disabled) {
     const minimum = new Date();
     scheduleDate.min = dateKey(minimum);
     const sampleDate = new Date(minimum.getFullYear(), minimum.getMonth(), minimum.getDate() + 7);
@@ -721,6 +739,7 @@ window.GMPostPreview = (() => {
   }
   scheduleTime?.addEventListener("change", renderSchedulePreview);
   timeZone?.addEventListener("change", renderSchedulePreview);
+  document.addEventListener("goodmarketing:content-count-change", updateCampaignContentEstimate);
 
 
   renderContentPreview();

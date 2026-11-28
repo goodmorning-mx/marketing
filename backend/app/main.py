@@ -9,14 +9,14 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 import psycopg
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Request, Response, status
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials, HTTPBearer
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from psycopg.rows import dict_row
 from app.account_email import AccountEmail
 from app.config import get_settings
@@ -24,10 +24,13 @@ from app import self_service
 from app.brand_assets import MAX_OUTPUT_BYTES, decode_logo
 from app.brand_fonts import validate_font
 from app.brand_palette import MAX_PALETTE_BYTES, parse_gpl
-from app.models import Base
+from app.database import get_db
+from app.models import Base, Brand, Campaign
 from app.adapters import router as adapters_router
-from sqlalchemy import create_engine, text
+from sqlalchemy import and_, create_engine, or_, select, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 from gm_auth import AuthIdentity, AuthService, AuthSettings, create_auth_router
 from gm_auth.models import metadata as gm_auth_metadata
 
@@ -244,6 +247,7 @@ def startup_database():
                     ("marketing:self-service-accounts:1", "007_self_service_accounts.sql"),
                     ("marketing:workspace-brand-appearance:1", "008_workspace_brand_appearance.sql"),
                     ("marketing:workspace-brand-asset-extensions:1", "009_workspace_brand_asset_extensions.sql"),
+                    ("marketing:workspace-campaigns:1", "010_workspace_campaigns.sql"),
                 ))
             for version, migration in migrations:
                 found = connection.execute("SELECT 1 FROM goodmarketing_schema_migrations WHERE version = %s", (version,)).fetchone()
@@ -749,6 +753,233 @@ def _brief_dict(row):
     if row is None:
         return None
     return {"id": row["id"], "brand_name": row["name"], "description": row["summary"], "audience": row["audience"], "voice_tone": row["tone"], "primary_goal": row["goal"], "revision": row["revision"]}
+
+
+CampaignPlatform = Literal["facebook", "instagram"]
+CampaignFrequency = Literal["low", "medium", "high"]
+
+
+class WorkspaceCampaignCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    name: str = Field(min_length=1, max_length=180)
+    objective: str = Field(default="", max_length=5000)
+    platforms: list[CampaignPlatform] = Field(default_factory=list, max_length=2)
+    duration_days: int = Field(ge=7, le=90)
+    posting_frequency: CampaignFrequency
+
+    @model_validator(mode="after")
+    def unique_platforms(self):
+        if len(set(self.platforms)) != len(self.platforms):
+            raise ValueError("Campaign platforms must be unique.")
+        return self
+
+
+class WorkspaceCampaignUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    name: str | None = Field(default=None, min_length=1, max_length=180)
+    objective: str | None = Field(default=None, max_length=5000)
+    platforms: list[CampaignPlatform] | None = Field(default=None, max_length=2)
+    duration_days: int | None = Field(default=None, ge=7, le=90)
+    posting_frequency: CampaignFrequency | None = None
+
+    @model_validator(mode="after")
+    def validate_changes(self):
+        if not self.model_fields_set:
+            raise ValueError("At least one campaign field is required.")
+        if "platforms" in self.model_fields_set and self.platforms is not None and len(set(self.platforms)) != len(self.platforms):
+            raise ValueError("Campaign platforms must be unique.")
+        if any(getattr(self, field) is None for field in self.model_fields_set):
+            raise ValueError("Campaign fields cannot be null.")
+        return self
+
+
+def _workspace_campaign_dict(campaign: Campaign) -> dict:
+    return {
+        "id": campaign.id,
+        "name": campaign.name,
+        "objective": campaign.objective,
+        "key_message": campaign.key_message,
+        "start_date": campaign.start_date,
+        "end_date": campaign.end_date,
+        "success_metrics": campaign.success_metrics,
+        "platforms": campaign.platforms or [],
+        "status": campaign.status,
+        "duration_days": campaign.duration_days,
+        "posting_frequency": campaign.posting_frequency,
+        "archived_at": campaign.archived_at.isoformat() if campaign.archived_at else None,
+        "created_at": campaign.created_at.isoformat() if campaign.created_at else None,
+        "revision": campaign.revision,
+    }
+
+
+def _workspace_campaign_etag(organization_id: str, campaign: Campaign) -> str:
+    serialized = json.dumps([organization_id, _workspace_campaign_dict(campaign)], ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return '"wc-' + hashlib.sha256(serialized.encode()).hexdigest() + '"'
+
+
+def _workspace_campaign_query(organization_id: str, campaign_id: int | None = None, *, lock: bool = False):
+    owned_workspace = Campaign.workspace_id == organization_id
+    owned_legacy_brand = and_(Campaign.workspace_id.is_(None), Brand.tenant_id == organization_id)
+    query = select(Campaign).outerjoin(Brand, Brand.id == Campaign.brand_id).where(or_(owned_workspace, owned_legacy_brand))
+    if campaign_id is not None:
+        query = query.where(Campaign.id == campaign_id)
+    if lock:
+        query = query.with_for_update(of=Campaign)
+    return query
+
+
+def _require_campaign_read(identity: AuthIdentity) -> None:
+    if "workspace:read" not in identity.permissions:
+        raise HTTPException(status_code=403, detail="Workspace access is not permitted.")
+
+
+def _require_campaign_write(identity: AuthIdentity) -> None:
+    if "owner" not in identity.roles or "marketing:write" not in identity.permissions:
+        raise HTTPException(status_code=403, detail="Marketing updates are not permitted.")
+
+
+def _require_campaign_etag(request: Request, organization_id: str, campaign: Campaign) -> None:
+    validator = request.headers.get("If-Match")
+    if validator is None:
+        raise HTTPException(status_code=428, detail="If-Match is required.")
+    if validator.startswith("W/") or validator == "*" or not re.fullmatch(r'"wc-[0-9a-f]{64}"', validator):
+        raise HTTPException(status_code=400, detail="Unsupported If-Match validator.")
+    if _workspace_campaign_etag(organization_id, campaign) != validator:
+        raise HTTPException(status_code=412, detail="Campaign changed in another session. Reload before saving.")
+
+
+def _campaign_create_key(value: str | None) -> str:
+    if not value:
+        raise HTTPException(status_code=428, detail="Idempotency-Key is required.")
+    try:
+        return str(uuid.UUID(value))
+    except (ValueError, AttributeError) as exc:
+        raise HTTPException(status_code=400, detail="Idempotency-Key must be a UUID.") from exc
+
+
+def _campaign_create_fingerprint(payload: WorkspaceCampaignCreate) -> str:
+    serialized = json.dumps(payload.model_dump(mode="json"), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode()).hexdigest()
+
+
+def _existing_campaign_request(db: Session, organization_id: str, key: str) -> Campaign | None:
+    return db.scalar(select(Campaign).where(Campaign.workspace_id == organization_id, Campaign.create_request_id == key))
+
+
+def _campaign_request_conflict(campaign: Campaign, organization_id: str) -> HTTPException:
+    return HTTPException(status_code=409, detail={
+        "code": "idempotency_key_reused",
+        "message": "This save request was already used for different campaign details.",
+        "campaign_id": campaign.id,
+        "etag": _workspace_campaign_etag(organization_id, campaign),
+    })
+
+
+@app.get("/workspace/campaigns")
+def read_workspace_campaigns(response: Response, identity: AuthIdentity = Depends(current_customer), db: Session = Depends(get_db)):
+    _require_campaign_read(identity)
+    campaigns = db.scalars(_workspace_campaign_query(identity.organization_id).order_by(Campaign.created_at.desc(), Campaign.id.desc())).all()
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"campaigns": [_workspace_campaign_dict(campaign) for campaign in campaigns]}
+
+
+@app.post("/workspace/campaigns", status_code=201)
+def create_workspace_campaign(payload: WorkspaceCampaignCreate, request: Request, response: Response,
+                              identity: AuthIdentity = Depends(current_customer), db: Session = Depends(get_db),
+                              idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+    _require_campaign_write(identity)
+    request_id = _campaign_create_key(idempotency_key)
+    fingerprint = _campaign_create_fingerprint(payload)
+    existing = _existing_campaign_request(db, identity.organization_id, request_id)
+    if existing:
+        if existing.create_request_fingerprint != fingerprint:
+            raise _campaign_request_conflict(existing, identity.organization_id)
+        response.status_code = 200
+        response.headers["ETag"] = _workspace_campaign_etag(identity.organization_id, existing)
+        response.headers["Cache-Control"] = "private, no-store"
+        return {"campaign": _workspace_campaign_dict(existing), "replayed": True}
+
+    campaign = Campaign(
+        workspace_id=identity.organization_id,
+        brand_id=None,
+        name=payload.name,
+        objective=payload.objective,
+        platforms=payload.platforms,
+        duration_days=payload.duration_days,
+        posting_frequency=payload.posting_frequency,
+        status="draft",
+        revision=1,
+        create_request_id=request_id,
+        create_request_fingerprint=fingerprint,
+    )
+    db.add(campaign)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = _existing_campaign_request(db, identity.organization_id, request_id)
+        if existing is None:
+            raise
+        if existing.create_request_fingerprint != fingerprint:
+            raise _campaign_request_conflict(existing, identity.organization_id)
+        campaign = existing
+        replayed = True
+        response.status_code = 200
+    else:
+        replayed = False
+    db.refresh(campaign)
+    response.headers["ETag"] = _workspace_campaign_etag(identity.organization_id, campaign)
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"campaign": _workspace_campaign_dict(campaign), "replayed": replayed}
+
+
+@app.get("/workspace/campaigns/{campaign_id}")
+def read_workspace_campaign(response: Response, campaign_id: int = Path(..., ge=1, le=2_147_483_647), identity: AuthIdentity = Depends(current_customer), db: Session = Depends(get_db)):
+    _require_campaign_read(identity)
+    campaign = db.scalar(_workspace_campaign_query(identity.organization_id, campaign_id))
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="Campaign not found.")
+    response.headers["ETag"] = _workspace_campaign_etag(identity.organization_id, campaign)
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"campaign": _workspace_campaign_dict(campaign)}
+
+
+@app.put("/workspace/campaigns/{campaign_id}")
+def update_workspace_campaign(payload: WorkspaceCampaignUpdate, request: Request, response: Response,
+                              campaign_id: int = Path(..., ge=1, le=2_147_483_647),
+                              identity: AuthIdentity = Depends(current_customer), db: Session = Depends(get_db)):
+    _require_campaign_write(identity)
+    campaign = db.scalar(_workspace_campaign_query(identity.organization_id, campaign_id, lock=True))
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="Campaign not found.")
+    _require_campaign_etag(request, identity.organization_id, campaign)
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(campaign, key, value)
+    campaign.revision += 1
+    db.commit()
+    db.refresh(campaign)
+    response.headers["ETag"] = _workspace_campaign_etag(identity.organization_id, campaign)
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"campaign": _workspace_campaign_dict(campaign)}
+
+
+@app.post("/workspace/campaigns/{campaign_id}/archive")
+def archive_workspace_campaign(request: Request, response: Response,
+                               campaign_id: int = Path(..., ge=1, le=2_147_483_647),
+                               identity: AuthIdentity = Depends(current_customer), db: Session = Depends(get_db)):
+    _require_campaign_write(identity)
+    campaign = db.scalar(_workspace_campaign_query(identity.organization_id, campaign_id, lock=True))
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="Campaign not found.")
+    _require_campaign_etag(request, identity.organization_id, campaign)
+    if campaign.archived_at is None:
+        campaign.archived_at = datetime.now(timezone.utc)
+        campaign.revision += 1
+        db.commit()
+        db.refresh(campaign)
+    response.headers["ETag"] = _workspace_campaign_etag(identity.organization_id, campaign)
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"campaign": _workspace_campaign_dict(campaign)}
 
 
 @app.get("/workspace/brand-brief")

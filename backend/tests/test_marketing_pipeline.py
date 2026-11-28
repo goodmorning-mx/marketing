@@ -188,3 +188,42 @@ def test_primary_brand_adapter_patch_is_partial_and_revision_conditional(account
     assert updated.json()["website"] == "https://example.test"
     assert client.patch(f"/api/brands/{created['id']}", headers={**auth(accounts["owner"]), "If-Match": etag}, json={"name": "Primary", "summary": "Stale"}).status_code == 412
     assert client.patch(f"/api/brands/{created['id']}", headers={**auth(accounts["viewer"]), "If-Match": etag}, json={"name": "Primary", "summary": "Forbidden"}).status_code == 403
+
+
+def test_workspace_campaign_create_replay_edit_archive_and_tenant_scope(accounts):
+    import uuid
+    key = str(uuid.uuid4())
+    payload = {"name": "  Spring launch  ", "objective": "Introduce the product", "platforms": ["facebook", "instagram"], "duration_days": 28, "posting_frequency": "medium"}
+    created = client.post("/workspace/campaigns", headers={**auth(accounts["owner"]), "Idempotency-Key": key}, json=payload)
+    assert created.status_code == 201
+    campaign = created.json()["campaign"]
+    assert campaign["name"] == "Spring launch" and campaign["revision"] == 1
+    assert client.post("/workspace/campaigns", headers={**auth(accounts["owner"]), "Idempotency-Key": key}, json=payload).status_code == 200
+    changed = {**payload, "objective": "Changed"}
+    assert client.post("/workspace/campaigns", headers={**auth(accounts["owner"]), "Idempotency-Key": key}, json=changed).status_code == 409
+    assert client.get("/workspace/campaigns", headers=auth(accounts["owner"])).json()["campaigns"][0]["id"] == campaign["id"]
+    assert client.get(f"/workspace/campaigns/{campaign['id']}", headers=auth(accounts["other"])).status_code == 404
+    for invalid_id in ("0", "2147483648", "not-a-number"):
+        assert client.get(f"/workspace/campaigns/{invalid_id}", headers=auth(accounts["owner"])).status_code == 422
+    assert client.post("/workspace/campaigns", headers=auth(accounts["viewer"]), json=payload).status_code == 403
+
+    detail = client.get(f"/workspace/campaigns/{campaign['id']}", headers=auth(accounts["owner"]))
+    etag = detail.headers["ETag"]
+    updated = client.put(f"/workspace/campaigns/{campaign['id']}", headers={**auth(accounts["owner"]), "If-Match": etag}, json={"objective": "Revised objective"})
+    assert updated.status_code == 200
+    assert updated.json()["campaign"]["objective"] == "Revised objective"
+    assert client.put(f"/workspace/campaigns/{campaign['id']}", headers={**auth(accounts["owner"]), "If-Match": etag}, json={"name": "Stale"}).status_code == 412
+    etag = updated.headers["ETag"]
+    archived = client.post(f"/workspace/campaigns/{campaign['id']}/archive", headers={**auth(accounts["owner"]), "If-Match": etag})
+    assert archived.status_code == 200 and archived.json()["campaign"]["archived_at"]
+    assert archived.json()["campaign"]["status"] == "draft"
+
+
+def test_workspace_campaigns_include_only_tenant_legacy_brand_rows(accounts):
+    north = client.post("/api/brands", headers=auth(accounts["owner"]), json={"name": "North legacy"}).json()
+    south = client.post("/api/brands", headers=auth(accounts["other"]), json={"name": "South legacy"}).json()
+    north_campaign = client.post("/api/campaigns", headers=auth(accounts["owner"]), json={"brand_id": north["id"], "name": "North old", "platforms": []}).json()
+    client.post("/api/campaigns", headers=auth(accounts["other"]), json={"brand_id": south["id"], "name": "South old", "platforms": []})
+    rows = client.get("/workspace/campaigns", headers=auth(accounts["owner"])).json()["campaigns"]
+    assert [row["id"] for row in rows] == [north_campaign["id"]]
+    assert client.get("/workspace/campaigns/not-a-number", headers=auth(accounts["owner"])).status_code == 422

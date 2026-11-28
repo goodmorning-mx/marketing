@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, JSON, String, Text, func, Boolean, Integer, Index
+from sqlalchemy import DateTime, ForeignKey, JSON, String, Text, func, Boolean, Integer, Index, Uuid
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -40,7 +40,15 @@ class Campaign(Base):
     __tablename__ = "campaigns"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id", ondelete="CASCADE"), index=True)
+    brand_id: Mapped[int | None] = mapped_column(ForeignKey("brands.id", ondelete="CASCADE"), index=True, nullable=True)
+    # The FK is installed by migration 010 because gm-auth has separate MetaData.
+    workspace_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    duration_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    posting_frequency: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    create_request_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False), nullable=True)
+    create_request_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
     name: Mapped[str] = mapped_column(String(180))
     objective: Mapped[str] = mapped_column(Text, default="")
     key_message: Mapped[str] = mapped_column(Text, default="")
@@ -51,8 +59,14 @@ class Campaign(Base):
     status: Mapped[str] = mapped_column(String(40), default="draft")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    brand: Mapped[Brand] = relationship(back_populates="campaigns")
+    brand: Mapped[Brand | None] = relationship(back_populates="campaigns")
     content: Mapped[list["ContentItem"]] = relationship(back_populates="campaign", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("uq_campaign_workspace_create_request", "workspace_id", "create_request_id", unique=True,
+              postgresql_where=(workspace_id.is_not(None) & create_request_id.is_not(None)),
+              sqlite_where=(workspace_id.is_not(None) & create_request_id.is_not(None))),
+    )
 
 
 class ContentItem(Base):
